@@ -1,20 +1,26 @@
-// app/components/layout/Header.tsx
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { authService } from './../../services/authService';
-import ThemeToggle from '@/app/components/dashboard/ThemeToggle';
 import './Header.css';
 
 interface HeaderProps {
   utilisateur: any;
   titre: string;
   sousTitre?: string;
+  entreprise?: string;
+  entrepriseLogo?: string | null;
 }
 
-export default function Header({ utilisateur, titre, sousTitre }: HeaderProps) {
+export default function Header({ 
+  utilisateur, 
+  titre, 
+  sousTitre, 
+  entreprise, 
+  entrepriseLogo 
+}: HeaderProps) {
   const [menuOuvert, setMenuOuvert] = useState(false);
   const [notificationsOuvert, setNotificationsOuvert] = useState(false);
   const router = useRouter();
@@ -27,9 +33,27 @@ export default function Header({ utilisateur, titre, sousTitre }: HeaderProps) {
   };
 
   return (
-    <header className="dashboard-header">
+    <header className="immolion-header">
       <div className="header-left">
-        <h1 className="header-titre">{titre}</h1>
+        <div className="header-title-wrapper">
+          <h1 className="header-titre">{titre}</h1>
+          <div className="header-entreprise">
+            {entrepriseLogo ? (
+              <div className="header-entreprise-logo">
+                <img 
+                  src={entrepriseLogo} 
+                  alt={entreprise}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            ) : (
+              <span className="entreprise-icon">🏢</span>
+            )}
+            <span className="entreprise-name">{entreprise || 'ImmoLion'}</span>
+          </div>
+        </div>
         {sousTitre && <p className="header-sous-titre">{sousTitre}</p>}
       </div>
 
@@ -63,7 +87,7 @@ export default function Header({ utilisateur, titre, sousTitre }: HeaderProps) {
             >
               <div className="notifications-header">
                 <h3>Notifications</h3>
-                <button>Marquer tout comme lu</button>
+                <button>Tout marquer</button>
               </div>
               <div className="notifications-list">
                 <div className="notification-item non-lu">
@@ -76,24 +100,14 @@ export default function Header({ utilisateur, titre, sousTitre }: HeaderProps) {
                 <div className="notification-item">
                   <div className="notification-icon">🔧</div>
                   <div className="notification-content">
-                    <p>Intervention terminée - Chauffage</p>
+                    <p>Intervention terminée</p>
                     <span>Il y a 2 heures</span>
-                  </div>
-                </div>
-                <div className="notification-item non-lu">
-                  <div className="notification-icon">📄</div>
-                  <div className="notification-content">
-                    <p>Nouveau document - Bail Martin</p>
-                    <span>Il y a 1 jour</span>
                   </div>
                 </div>
               </div>
             </motion.div>
           )}
         </div>
-
-        {/* Theme Toggle */}
-        <ThemeToggle />
 
         {/* Profil */}
         <div className="header-profile">

@@ -1,10 +1,10 @@
-// app/connexion/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from './../services/authService';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import './connexion.css';
 
 export default function PageConnexion() {
@@ -16,21 +16,11 @@ export default function PageConnexion() {
   const [parametresApp, setParametresApp] = useState<any>(null);
   const [utilisateurTrouve, setUtilisateurTrouve] = useState<{nom: string, prenom: string, role: string} | null>(null);
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
-  const [erreurLogo, setErreurLogo] = useState(false);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [entreprise, setEntreprise] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    };
-    
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
-
-  useEffect(() => {
-    chargerParametresApp();
+    chargerDonnees();
   }, []);
 
   useEffect(() => {
@@ -38,7 +28,6 @@ export default function PageConnexion() {
       if (email && email.includes('@')) {
         setRechercheEnCours(true);
         const resultat = await authService.rechercherUtilisateurParEmail(email);
-        
         if (resultat.success) {
           setUtilisateurTrouve(resultat.utilisateur || null);
         } else {
@@ -54,23 +43,21 @@ export default function PageConnexion() {
     return () => clearTimeout(timeoutId);
   }, [email]);
 
-  const chargerParametresApp = async () => {
+  const chargerDonnees = async () => {
     try {
-      setChargementParametres(true);
+      // Charger les paramètres de l'app
       const resultat = await authService.obtenirParametresApp();
+      
+      // Charger les infos de l'entreprise
+      const response = await fetch('/api/entreprise');
+      const data = await response.json();
+      
+      if (data.success && data.entreprise) {
+        setEntreprise(data.entreprise);
+      }
       
       if (resultat.success && resultat.parametres) {
         setParametresApp(resultat.parametres);
-      } else {
-        setParametresApp({
-          nom_app: "ImmoLion",
-          adresse: "15 Avenue de la Grande Armée, 75016 Paris",
-          telephone: "+33 1 84 80 00 00",
-          email: "contact@immolion.com",
-          logo_url: null,
-          couleur_principale: "#8B5CF6",
-          slogan: "La gestion immobilière nouvelle génération"
-        });
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -112,184 +99,141 @@ export default function PageConnexion() {
   };
 
   return (
-    <div className="conteneur-connexion-immolion">
-      {/* Éléments flottants animés */}
-      <div className="floating-elements">
-        <div className="floating-circle circle-1" style={{ transform: `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px)` }} />
-        <div className="floating-circle circle-2" style={{ transform: `translate(${mousePosition.x * -0.01}px, ${mousePosition.y * -0.01}px)` }} />
-        <div className="floating-circle circle-3" style={{ transform: `translate(${mousePosition.x * 0.015}px, ${mousePosition.y * 0.015}px)` }} />
-      </div>
-
+    <div className="connexion-container">
+      {/* Éléments décoratifs */}
+      <div className="connexion-bg-pattern"></div>
+      <div className="connexion-bg-gradient"></div>
+      
       <motion.div 
-        className="carte-connexion-immolion"
+        className="connexion-card"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
+        transition={{ duration: 0.8 }}
       >
-        {/* Section gauche - Informations */}
+        {/* Section gauche - Branding */}
         <motion.div 
-          className="section-gauche-immolion"
+          className="connexion-brand"
           initial={{ x: -50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.6 }}
         >
-          <div className="contenu-gauche-immolion">
+          <div className="brand-content">
             {chargementParametres ? (
-              <div className="chargement-immolion">
+              <div className="brand-loading">
                 <div className="spinner-luxury"></div>
-                <p>Chargement de l'expérience ImmoLion...</p>
               </div>
-            ) : parametresApp ? (
+            ) : (
               <>
                 <motion.div 
-                  className="logo-container-immolion"
+                  className="brand-logo-wrapper"
                   animate={{ 
                     scale: [1, 1.05, 1],
-                    rotate: [0, 5, -5, 0]
                   }}
                   transition={{ 
-                    duration: 5,
+                    duration: 4,
                     repeat: Infinity,
                     repeatType: "reverse"
                   }}
-                >
-                  <div className="cercle-logo-immolion" style={{ background: `linear-gradient(135deg, ${parametresApp.couleur_principale}, #4F46E5)` }}>
-                    {!erreurLogo && parametresApp.logo_url ? (
+                >    
+              <h2>Bienvenue</h2>
+                </motion.div>                
+                
+              <div className="brand-company">
+                <div className="company-header">
+                  {entreprise?.logo_url ? (
+                    <div className="company-logo-mini">
                       <img 
-                        src={parametresApp.logo_url} 
-                        alt="ImmoLion"
-                        onError={() => setErreurLogo(true)}
+                        src={entreprise.logo_url} 
+                        alt={entreprise.nom}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
                       />
-                    ) : (
-                      <span className="icone-immolion">🦁</span>
-                    )}
+                    </div>
+                  ) : (
+                    <div className="company-logo-placeholder">
+                      <span>🏢</span>
+                    </div>
+                  )}
+                  <h2>{entreprise?.nom || 'Gestion Immobilière'}</h2>
+                </div>
+                
+                <div className="company-details">
+                  <div className="company-item">
+                    <span className="company-icon">📍</span>
+                    <span>{entreprise?.ville || 'Côte d\'Ivoire'}</span>
                   </div>
-                </motion.div>
-                
-                <motion.h1 
-                  className="nom-app-immolion"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  {parametresApp.nom_app}
-                </motion.h1>
-                
-                <motion.p 
-                  className="slogan-immolion"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  {parametresApp.slogan}
-                </motion.p>
-                
-                <motion.div 
-                  className="stats-preview-immolion"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                >
+                  <div className="company-item">
+                    <span className="company-icon">📞</span>
+                    <span>{entreprise?.telephone || '+225 00 00 00 00'}</span>
+                  </div>
+                  <div className="company-item">
+                    <span className="company-icon">✉️</span>
+                    <span>{entreprise?.email || 'contact@immolion.ci'}</span>
+                  </div>
+                  {entreprise?.site_web && (
+                    <div className="company-item">
+                      <span className="company-icon">🌐</span>
+                      <span>{entreprise.site_web}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+                <div className="brand-stats">
                   <div className="stat-item">
                     <span className="stat-value">500+</span>
                     <span className="stat-label">Biens gérés</span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-value">98%</span>
-                    <span className="stat-label">Taux d'occupation</span>
+                    <span className="stat-label">Satisfaction</span>
                   </div>
                   <div className="stat-item">
                     <span className="stat-value">24/7</span>
                     <span className="stat-label">Support</span>
                   </div>
-                </motion.div>
-                
-                <motion.div 
-                  className="informations-contact-immolion"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.7 }}
-                >
-                  <div className="item-contact-immolion">
-                    <span className="icone-contact">📍</span>
-                    <span>{parametresApp.adresse}</span>
-                  </div>
-                  <div className="item-contact-immolion">
-                    <span className="icone-contact">📞</span>
-                    <span>{parametresApp.telephone}</span>
-                  </div>
-                  <div className="item-contact-immolion">
-                    <span className="icone-contact">✉️</span>
-                    <span>{parametresApp.email}</span>
-                  </div>
-                </motion.div>
-                
-                <AnimatePresence>
-                  {utilisateurTrouve && (
-                    <motion.div 
-                      className="info-utilisateur-trouve-immolion"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                    >
-                      <div className="avatar-utilisateur">
-                        {utilisateurTrouve.prenom[0]}{utilisateurTrouve.nom[0]}
-                      </div>
-                      <div className="details-utilisateur">
-                        <div className="nom-complet">
-                          {utilisateurTrouve.prenom} {utilisateurTrouve.nom}
-                        </div>
-                        <div className="role-utilisateur">
-                          {formaterRole(utilisateurTrouve.role)}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-                
-                {rechercheEnCours && (
-                  <div className="recherche-en-cours-immolion">
-                    <div className="spinner-mini"></div>
-                    <span>Recherche en cours...</span>
-                  </div>
-                )}
+                </div>
               </>
-            ) : null}
+            )}
           </div>
         </motion.div>
 
         {/* Section droite - Formulaire */}
         <motion.div 
-          className="section-droite-immolion"
+          className="connexion-form-section"
           initial={{ x: 50, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ delay: 0.3, duration: 0.6 }}
         >
-          <div className="contenu-droite-immolion">
+          <div className="form-content">
             <motion.div 
-              className="en-tete-connexion-immolion"
+              className="form-header"
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              <h2>Bienvenue sur ImmoLion</h2>
-              <p>Connectez-vous pour gérer votre patrimoine</p>
+              <div className="form-logo-mini">
+                <img src="/logo_immolion.png" alt="ImmoLion" />
+              </div>
+              <div className="brand-divider">
+                  <span className="divider-line"></span>
+                  <span className="divider-icon">ImmoLion</span>
+                  <span className="divider-line"></span>
+                </div>
             </motion.div>
 
-            <form onSubmit={gererSoumission} className="formulaire-connexion-immolion">
+            <form onSubmit={gererSoumission} className="connexion-form">
               <motion.div 
-                className="groupe-champ-immolion"
+                className="form-group"
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.5 }}
               >
-                <label htmlFor="email">
-                  Adresse Email
-                </label>
-                <div className="conteneur-input-immolion">
-                  <span className="icone-input">✉️</span>
+                <label>Email professionnel</label>
+                <div className="input-wrapper">
+                  <span className="input-icon">✉️</span>
                   <input
-                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -301,18 +245,15 @@ export default function PageConnexion() {
               </motion.div>
 
               <motion.div 
-                className="groupe-champ-immolion"
+                className="form-group"
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
               >
-                <label htmlFor="motDePasse">
-                  Mot de Passe
-                </label>
-                <div className="conteneur-input-immolion">
-                  <span className="icone-input">🔒</span>
+                <label>Mot de passe</label>
+                <div className="input-wrapper">
+                  <span className="input-icon">🔒</span>
                   <input
-                    id="motDePasse"
                     type="password"
                     value={motDePasse}
                     onChange={(e) => setMotDePasse(e.target.value)}
@@ -324,9 +265,32 @@ export default function PageConnexion() {
               </motion.div>
 
               <AnimatePresence>
+                {utilisateurTrouve && (
+                  <motion.div 
+                    className="user-hint"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <div className="user-avatar-mini">
+                      {utilisateurTrouve.prenom[0]}{utilisateurTrouve.nom[0]}
+                    </div>
+                    <div className="user-info-mini">
+                      <span className="user-name-mini">
+                        {utilisateurTrouve.prenom} {utilisateurTrouve.nom}
+                      </span>
+                      <span className="user-role-mini">
+                        {formaterRole(utilisateurTrouve.role)}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
                 {erreur && (
                   <motion.div 
-                    className="message-erreur-immolion"
+                    className="error-message"
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
@@ -339,8 +303,7 @@ export default function PageConnexion() {
               <motion.button
                 type="submit"
                 disabled={chargement}
-                className={`bouton-connexion-immolion ${chargement ? 'chargement' : ''}`}
-                style={{ background: `linear-gradient(135deg, ${parametresApp?.couleur_principale || '#8B5CF6'}, #4F46E5)` }}
+                className={`connexion-button ${chargement ? 'loading' : ''}`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 initial={{ y: 20, opacity: 0 }}
@@ -349,16 +312,16 @@ export default function PageConnexion() {
               >
                 {chargement ? (
                   <>
-                    <div className="spinner-button"></div>
+                    <div className="button-spinner"></div>
                     Connexion en cours...
                   </>
                 ) : (
-                  'Se Connecter'
+                  'Se connecter'
                 )}
               </motion.button>
 
               <motion.div 
-                className="liens-supplementaires-immolion"
+                className="form-links"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}

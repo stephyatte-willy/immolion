@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,13 +14,16 @@ import ActivityFeed from '@/app/components/dashboard/ActivityFeed';
 import PropertyMap from '@/app/components/dashboard/PropertyMap';
 import CalendarWidget from '@/app/components/dashboard/CalendarWidget';
 import AlertCard from '@/app/components/dashboard/AlertCard';
+import { useTheme } from '@/app/providers/ThemeProvider';
 import './dashboard.css';
 
 export default function Dashboard() {
   const [utilisateur, setUtilisateur] = useState<any>(null);
   const [chargement, setChargement] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [entreprise, setEntreprise] = useState<any>(null);
   const router = useRouter();
+  const { formatMoney } = useTheme();
 
   useEffect(() => {
     const userStr = localStorage.getItem('utilisateur');
@@ -32,7 +34,14 @@ export default function Dashboard() {
     
     setUtilisateur(JSON.parse(userStr));
     chargerDashboard();
+    chargerEntreprise();
   }, []);
+
+  useEffect(() => {
+  // Vérifier que le thème est appliqué
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  console.log('🎨 Thème actuel dans dashboard:', currentTheme);
+}, []);
 
   const chargerDashboard = async () => {
     try {
@@ -42,6 +51,18 @@ export default function Dashboard() {
       console.error('Erreur chargement dashboard:', error);
     } finally {
       setChargement(false);
+    }
+  };
+
+  const chargerEntreprise = async () => {
+    try {
+      const response = await fetch('/api/entreprise');
+      const data = await response.json();
+      if (data.success) {
+        setEntreprise(data.entreprise);
+      }
+    } catch (error) {
+      console.error('Erreur chargement entreprise:', error);
     }
   };
 
@@ -60,13 +81,14 @@ export default function Dashboard() {
       
       <div className="dashboard-main">
         <Header 
-          utilisateur={utilisateur} 
-          titre="Tableau de bord"
-          sousTitre={`Bienvenue, ${utilisateur?.prenom}`}
-        />
+  utilisateur={utilisateur} 
+  titre="Tableau de bord"
+  sousTitre={`Bienvenue, ${utilisateur?.prenom}`}
+  entreprise={entreprise?.nom}
+  entrepriseLogo={entreprise?.logo_url}  // Ajouter cette ligne
+/>
         
         <div className="dashboard-content">
-          {/* KPIs */}
           <motion.div 
             className="kpi-grid"
             initial={{ opacity: 0, y: 20 }}
@@ -75,35 +97,34 @@ export default function Dashboard() {
           >
             <KpiCard
               title="Revenus mensuels"
-              value={`${dashboardData.revenusMensuels.toLocaleString()} €`}
+              value={formatMoney(dashboardData.revenusMensuels)}
               icon="💰"
               trend={+12.5}
-              color="linear-gradient(135deg, #8B5CF6, #4F46E5)"
+              color="linear-gradient(135deg, #D4AF37, #996515)"
             />
             <KpiCard
               title="Biens gérés"
               value={dashboardData.nbBiens.toString()}
               icon="🏢"
               trend={+5.2}
-              color="linear-gradient(135deg, #EC4899, #A855F7)"
+              color="linear-gradient(135deg, #1A2F4B, #2E5C4E)"
             />
             <KpiCard
               title="Taux d'occupation"
               value={`${dashboardData.tauxOccupation}%`}
               icon="📊"
               trend={-2.1}
-              color="linear-gradient(135deg, #F59E0B, #D97706)"
+              color="linear-gradient(135deg, #F4E5B9, #D4AF37)"
             />
             <KpiCard
               title="Loyers impayés"
-              value={`${dashboardData.impayés.toLocaleString()} €`}
+              value={formatMoney(dashboardData.impayés)}
               icon="⚠️"
               trend={-8.3}
-              color="linear-gradient(135deg, #EF4444, #DC2626)"
+              color="linear-gradient(135deg, #8B6B4D, #996515)"
             />
           </motion.div>
 
-          {/* Graphiques et cartes */}
           <div className="dashboard-grid">
             <motion.div 
               className="grid-item large"

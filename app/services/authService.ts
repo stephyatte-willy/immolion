@@ -1,4 +1,6 @@
 // services/authService.ts
+import { Configuration } from '@/app/types/config';
+
 export interface Utilisateur {
   id: number;
   email: string;
@@ -84,7 +86,27 @@ class AuthService {
     erreur?: string;
   }> {
     try {
-      // Pour ImmoLion, on a des paramètres fixes
+      // Essayer de charger depuis la configuration
+      const response = await fetch('/api/configuration');
+      const data = await response.json();
+      
+      if (data.success && data.configuration) {
+        const config = data.configuration;
+        return {
+          success: true,
+          parametres: {
+            nom_app: config.nom_application || 'ImmoLion',
+            slogan: 'La gestion immobilière nouvelle génération',
+            logo_url: config.logo_url || '/logo_immolion.png',
+            couleur_principale: config.couleur_principale || '#8B5CF6',
+            adresse: config.adresse_contact || 'Côte d\'Ivoire',
+            telephone: config.telephone_contact || '+225 00 00 00 00',
+            email: config.email_contact || 'contact@immolion.com',
+          },
+        };
+      }
+      
+      // Fallback
       return {
         success: true,
         parametres: {
@@ -92,8 +114,8 @@ class AuthService {
           slogan: 'La gestion immobilière nouvelle génération',
           logo_url: '/logo_immolion.png',
           couleur_principale: '#8B5CF6',
-          adresse: '15 Avenue de la Grande Armée, 75016 Paris',
-          telephone: '+33 1 84 80 00 00',
+          adresse: 'Côte d\'Ivoire',
+          telephone: '+225 00 00 00 00',
           email: 'contact@immolion.com',
         },
       };
