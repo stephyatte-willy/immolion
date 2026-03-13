@@ -24,9 +24,23 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Créer une session
+    // ✅ CORRECTION : Récupérer l'adresse IP correctement
     const userAgent = request.headers.get('user-agent') || undefined;
-    const ipAddress = request.headers.get('x-forwarded-for') || request.ip;
+    
+    // Méthode 1 : Via les en-têtes standard
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const realIp = request.headers.get('x-real-ip');
+    
+    // Méthode 2 : Via l'API Next.js (recommandée)
+    let ipAddress = undefined;
+    
+    if (process.env.NODE_ENV === 'development') {
+      // En développement, on peut utiliser une IP fictive
+      ipAddress = '127.0.0.1';
+    } else {
+      // En production, on utilise les en-têtes
+      ipAddress = forwardedFor?.split(',')[0] || realIp || request.headers.get('x-forwarded-for') || undefined;
+    }
     
     const token = await createSession(
       result.utilisateur.id,
