@@ -1,0 +1,44 @@
+/* app/components/dashboard/PropertyMap.css */
+.property-map {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.map-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.map-expand {
+  width: 30px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.map-expand:hover {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: #8B5CF6;
+}
+
+.map-container {
+  flex: 1;
+  min-height: 250px;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}

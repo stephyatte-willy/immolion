@@ -1,0 +1,107 @@
+/* app/components/dashboard/RecentPayments.css */
+.recent-payments {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.recent-payments h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.payments-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.payment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.payment-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.payment-avatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #8B5CF6, #4F46E5);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.payment-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.payment-locataire {
+  font-size: 14px;
+  font-weight: 500;
+  color: white;
+}
+
+.payment-date {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.payment-amount {
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  margin-right: 10px;
+}
+
+.payment-status {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.statut-effectue {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+
+.statut-retard {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.view-all-button {
+  padding: 12px;
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 10px;
+  color: #8B5CF6;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-all-button:hover {
+  background: rgba(139, 92, 246, 0.2);
+}
