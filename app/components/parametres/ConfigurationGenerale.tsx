@@ -12,7 +12,7 @@ import {
   FORMATS_DATE, 
   FORMATS_HEURE 
 } from '@/app/types/config';
-import { useTheme } from '@/app/hooks/useTheme';
+import { useTheme } from '@/app/providers/ThemeProvider'; // Correction de l'import
 import './parametres.css';
 
 export default function ConfigurationGenerale() {
@@ -20,22 +20,23 @@ export default function ConfigurationGenerale() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
-  const { theme, toggleTheme } = useTheme('dark');
+  const { theme } = useTheme(); // On récupère le thème du provider
 
   // Charger la configuration
   useEffect(() => {
     chargerConfiguration();
   }, []);
 
+  // Écouter les changements de thème
   useEffect(() => {
-  const handleThemeChange = (e: CustomEvent) => {
-    // Forcer le re-rendu
-    setForceUpdate(prev => prev + 1);
-  };
+    const handleThemeChange = (e: CustomEvent) => {
+      // Forcer le re-rendu du composant
+      chargerConfiguration();
+    };
 
-  window.addEventListener('themeChange', handleThemeChange as EventListener);
-  return () => window.removeEventListener('themeChange', handleThemeChange as EventListener);
-}, []);
+    window.addEventListener('themeChange', handleThemeChange as EventListener);
+    return () => window.removeEventListener('themeChange', handleThemeChange as EventListener);
+  }, []);
 
   const chargerConfiguration = async () => {
     try {
@@ -53,56 +54,54 @@ export default function ConfigurationGenerale() {
     }
   };
 
-const handleSave = async () => {
-  if (!config) return;
-  
-  setIsLoading(true);
-  try {
-    const response = await fetch('/api/configuration', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
-    });
+  const handleSave = async () => {
+    if (!config) return;
+    
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/configuration', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.success) {
-      toast.success('Configuration mise à jour avec succès');
-      setIsEditing(false);
-      
-      // Appliquer le nouveau thème immédiatement
-      if (config.theme_mode === 'dark' || config.theme_mode === 'light') {
-        document.documentElement.setAttribute('data-theme', config.theme_mode);
-        localStorage.setItem('app-theme', config.theme_mode);
+      if (data.success) {
+        toast.success('Configuration mise à jour avec succès');
+        setIsEditing(false);
         
-        // Forcer le re-rendu
-        window.dispatchEvent(new CustomEvent('themeChange', { 
-          detail: { theme: config.theme_mode } 
-        }));
+        // Appliquer le nouveau thème immédiatement
+        if (config.theme_mode === 'dark' || config.theme_mode === 'light') {
+          document.documentElement.setAttribute('data-theme', config.theme_mode);
+          localStorage.setItem('app-theme', config.theme_mode);
+          
+          // Forcer le re-rendu
+          window.dispatchEvent(new CustomEvent('themeChange', { 
+            detail: { theme: config.theme_mode } 
+          }));
+        } else if (config.theme_mode === 'system') {
+          localStorage.removeItem('app-theme');
+          const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const newTheme = systemDark ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', newTheme);
+          window.dispatchEvent(new CustomEvent('themeChange', { 
+            detail: { theme: newTheme } 
+          }));
+        }
         
-        // Recharger la page pour être sûr (optionnel)
-        // window.location.reload();
-      } else if (config.theme_mode === 'system') {
-        localStorage.removeItem('app-theme');
-        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const newTheme = systemDark ? 'dark' : 'light';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        window.dispatchEvent(new CustomEvent('themeChange', { 
-          detail: { theme: newTheme } 
-        }));
+        await chargerConfiguration();
+      } else {
+        toast.error(data.erreur || 'Erreur lors de la sauvegarde');
       }
-      
-      await chargerConfiguration();
-    } else {
-      toast.error(data.erreur || 'Erreur lors de la sauvegarde');
+    } catch (error) {
+      console.error('Erreur:', error);
+      toast.error('Erreur lors de la sauvegarde');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Erreur:', error);
-    toast.error('Erreur lors de la sauvegarde');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
+
   if (!config) {
     return (
       <div className="param-card loading">
@@ -291,7 +290,7 @@ const handleSave = async () => {
             </div>
           </div>
         </motion.section>
-
+        
         {/* Paramètres régionaux */}
         <motion.section 
           className="config-section"
