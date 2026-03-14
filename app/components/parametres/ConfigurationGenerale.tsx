@@ -10,9 +10,10 @@ import {
   FUSEAUX_HORAIRES, 
   LANGUES, 
   FORMATS_DATE, 
-  FORMATS_HEURE 
+  FORMATS_HEURE,
+  Monnaie
 } from '@/app/types/config';
-import { useTheme } from '@/app/providers/ThemeProvider'; // Correction de l'import
+import { useTheme } from '@/app/providers/ThemeProvider';
 import './parametres.css';
 
 export default function ConfigurationGenerale() {
@@ -20,7 +21,7 @@ export default function ConfigurationGenerale() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState<string | null>(null);
-  const { theme } = useTheme(); // On récupère le thème du provider
+  const { theme } = useTheme();
 
   // Charger la configuration
   useEffect(() => {
@@ -30,7 +31,6 @@ export default function ConfigurationGenerale() {
   // Écouter les changements de thème
   useEffect(() => {
     const handleThemeChange = (e: CustomEvent) => {
-      // Forcer le re-rendu du composant
       chargerConfiguration();
     };
 
@@ -76,7 +76,6 @@ export default function ConfigurationGenerale() {
           document.documentElement.setAttribute('data-theme', config.theme_mode);
           localStorage.setItem('app-theme', config.theme_mode);
           
-          // Forcer le re-rendu
           window.dispatchEvent(new CustomEvent('themeChange', { 
             detail: { theme: config.theme_mode } 
           }));
@@ -290,7 +289,7 @@ export default function ConfigurationGenerale() {
             </div>
           </div>
         </motion.section>
-        
+
         {/* Paramètres régionaux */}
         <motion.section 
           className="config-section"
@@ -396,13 +395,15 @@ export default function ConfigurationGenerale() {
               <select
                 value={config.monnaie}
                 onChange={(e) => {
-                  const monnaie = e.target.value as any;
-                  setConfig({
-                    ...config,
-                    monnaie,
-                    symbole_monnaie: MONNAIES[monnaie].symbole,
-                    decimales_monnaie: MONNAIES[monnaie].decimales
-                  });
+                  const monnaieValue = e.target.value as Monnaie; // ✅ Typage explicite
+                  if (isEditing) {
+                    setConfig({
+                      ...config,
+                      monnaie: monnaieValue,
+                      symbole_monnaie: MONNAIES[monnaieValue].symbole,
+                      decimales_monnaie: MONNAIES[monnaieValue].decimales
+                    });
+                  }
                 }}
                 disabled={!isEditing}
               >
@@ -428,7 +429,7 @@ export default function ConfigurationGenerale() {
               <label>Position du symbole</label>
               <select
                 value={config.position_monnaie}
-                onChange={(e) => isEditing && setConfig({...config, position_monnaie: e.target.value as any})}
+                onChange={(e) => isEditing && setConfig({...config, position_monnaie: e.target.value as 'before' | 'after'})}
                 disabled={!isEditing}
               >
                 <option value="before">Avant le montant (€ 100)</option>
