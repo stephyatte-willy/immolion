@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
-import cloudinary from '@/app/lib/cloudinary';
 
 // GET - Récupérer les informations de l'entreprise
 export async function GET() {
@@ -41,34 +40,30 @@ export async function POST(request: NextRequest) {
 
     let logo_url = null;
 
-    // ✅ Gérer l'upload du logo vers Cloudinary
+    // ✅ Solution simple : Convertir le logo en Base64
     if (logo && logo.size > 0) {
       try {
-        // Convertir le fichier en buffer
+        // Limiter la taille à 2MB pour éviter les problèmes
+        if (logo.size > 2 * 1024 * 1024) {
+          return NextResponse.json(
+            { success: false, erreur: 'Le logo ne doit pas dépasser 2MB' },
+            { status: 400 }
+          );
+        }
+
+        // Convertir le fichier en base64
         const bytes = await logo.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const base64 = buffer.toString('base64');
+        const mimeType = logo.type;
         
-        // Upload vers Cloudinary
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            {
-              folder: 'immolion/entreprise',
-              public_id: `logo-${Date.now()}`,
-              resource_type: 'auto',
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(buffer);
-        });
-
-        logo_url = (result as any).secure_url;
-        console.log('✅ Logo uploadé sur Cloudinary:', logo_url);
+        // Stocker directement en base64 dans la base de données
+        logo_url = `data:${mimeType};base64,${base64}`;
+        console.log('✅ Logo converti en base64');
       } catch (uploadError) {
-        console.error('❌ Erreur upload Cloudinary:', uploadError);
+        console.error('❌ Erreur conversion logo:', uploadError);
         return NextResponse.json(
-          { success: false, erreur: 'Erreur lors de l\'upload du logo' },
+          { success: false, erreur: 'Erreur lors du traitement du logo' },
           { status: 500 }
         );
       }
@@ -93,10 +88,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur POST entreprise:', error);
     return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur' },
+      { success: false, erreur: `Erreur serveur: ${error.message}` },
       { status: 500 }
     );
   }
@@ -146,42 +141,29 @@ export async function PUT(request: NextRequest) {
     const entrepriseExistante = entreprises[0];
     let logo_url = entrepriseExistante.logo_url;
 
-    // ✅ Gérer le nouveau logo avec Cloudinary
+    // ✅ Solution simple : Mettre à jour le logo en base64 si un nouveau fichier est fourni
     if (logo && logo.size > 0) {
       try {
-        // Supprimer l'ancien logo de Cloudinary si existe
-        if (logo_url && logo_url.includes('cloudinary')) {
-          const publicId = logo_url.split('/').pop()?.split('.')[0];
-          if (publicId) {
-            await cloudinary.uploader.destroy(`immolion/entreprise/${publicId}`);
-            console.log('✅ Ancien logo supprimé de Cloudinary');
-          }
+        // Limiter la taille à 2MB
+        if (logo.size > 2 * 1024 * 1024) {
+          return NextResponse.json(
+            { success: false, erreur: 'Le logo ne doit pas dépasser 2MB' },
+            { status: 400 }
+          );
         }
 
-        // Upload du nouveau logo
+        // Convertir le nouveau logo en base64
         const bytes = await logo.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const base64 = buffer.toString('base64');
+        const mimeType = logo.type;
         
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            {
-              folder: 'immolion/entreprise',
-              public_id: `logo-${Date.now()}`,
-              resource_type: 'auto',
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(buffer);
-        });
-
-        logo_url = (result as any).secure_url;
-        console.log('✅ Nouveau logo uploadé sur Cloudinary:', logo_url);
+        logo_url = `data:${mimeType};base64,${base64}`;
+        console.log('✅ Nouveau logo converti en base64');
       } catch (uploadError) {
-        console.error('❌ Erreur upload Cloudinary:', uploadError);
+        console.error('❌ Erreur conversion logo:', uploadError);
         return NextResponse.json(
-          { success: false, erreur: 'Erreur lors de l\'upload du logo' },
+          { success: false, erreur: 'Erreur lors du traitement du logo' },
           { status: 500 }
         );
       }
@@ -208,10 +190,10 @@ export async function PUT(request: NextRequest) {
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur PUT entreprise:', error);
     return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur' },
+      { success: false, erreur: `Erreur serveur: ${error.message}` },
       { status: 500 }
     );
   }
@@ -230,30 +212,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Récupérer le logo pour le supprimer de Cloudinary
-    const entreprises = await queryRows(
-      'SELECT logo_url FROM entreprise WHERE id = ?',
-      [id]
-    ) as any[];
-
-    if (entreprises.length > 0 && entreprises[0].logo_url) {
-      const logo_url = entreprises[0].logo_url;
-      
-      // Supprimer de Cloudinary si c'est une URL Cloudinary
-      if (logo_url.includes('cloudinary')) {
-        try {
-          const publicId = logo_url.split('/').pop()?.split('.')[0];
-          if (publicId) {
-            await cloudinary.uploader.destroy(`immolion/entreprise/${publicId}`);
-            console.log('✅ Logo supprimé de Cloudinary');
-          }
-        } catch (error) {
-          console.log('⚠️ Erreur suppression logo de Cloudinary');
-        }
-      }
-    }
-
-    // Supprimer de la base de données
+    // Supprimer de la base de données (le logo est stocké en base64, pas besoin de supprimer de fichier)
     const result = await queryInsert('DELETE FROM entreprise WHERE id = ?', [id]);
 
     if (result.success) {
