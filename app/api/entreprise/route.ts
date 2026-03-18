@@ -40,10 +40,10 @@ export async function POST(request: NextRequest) {
 
     let logo_url = null;
 
-    // ✅ Solution simple : Convertir le logo en Base64
+    // Gérer l'upload du logo en Base64
     if (logo && logo.size > 0) {
       try {
-        // Limiter la taille à 2MB pour éviter les problèmes
+        // Limiter la taille à 2MB
         if (logo.size > 2 * 1024 * 1024) {
           return NextResponse.json(
             { success: false, erreur: 'Le logo ne doit pas dépasser 2MB' },
@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
         const base64 = buffer.toString('base64');
         const mimeType = logo.type;
         
-        // Stocker directement en base64 dans la base de données
         logo_url = `data:${mimeType};base64,${base64}`;
         console.log('✅ Logo converti en base64');
       } catch (uploadError) {
@@ -110,6 +109,7 @@ export async function PUT(request: NextRequest) {
     const site_web = formData.get('site_web') as string;
     const logo = formData.get('logo') as File | null;
 
+    // Vérification de l'ID
     if (!id) {
       console.error('❌ ID manquant dans la requête PUT');
       return NextResponse.json(
@@ -118,6 +118,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Validation des champs obligatoires
     if (!nom || !ville || !telephone || !email) {
       return NextResponse.json(
         { success: false, erreur: 'Tous les champs obligatoires doivent être remplis' },
@@ -141,7 +142,7 @@ export async function PUT(request: NextRequest) {
     const entrepriseExistante = entreprises[0];
     let logo_url = entrepriseExistante.logo_url;
 
-    // ✅ Solution simple : Mettre à jour le logo en base64 si un nouveau fichier est fourni
+    // Gérer le nouveau logo si fourni
     if (logo && logo.size > 0) {
       try {
         // Limiter la taille à 2MB
@@ -212,7 +213,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Supprimer de la base de données (le logo est stocké en base64, pas besoin de supprimer de fichier)
+    // Supprimer de la base de données
     const result = await queryInsert('DELETE FROM entreprise WHERE id = ?', [id]);
 
     if (result.success) {
