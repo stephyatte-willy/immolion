@@ -314,18 +314,31 @@ export default function BiensPage() {
           ) : (
             <div className="biens-grid">
               <AnimatePresence>
-              {showDetailModal && selectedBienForDetail && (
-                <BienDetailModal
-                  bien={selectedBienForDetail}
-                  onClose={() => setShowDetailModal(false)}
-                  onEdit={handleEditBien}
-                />
-              )}
-            </AnimatePresence>
+                {filteredBiens.map((bien) => (
+                  <BienCard
+                    key={bien.id}
+                    bien={bien}
+                    onView={handleViewBien}
+                    onEdit={handleEditBien}
+                    onDelete={handleDeleteClick}
+                    formatMoney={formatMoney}
+                  />
+                ))}
+              </AnimatePresence>
             </div>
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+  {showDetailModal && selectedBienForDetail && (
+    <BienDetailModal
+      bien={selectedBienForDetail}
+      onClose={() => setShowDetailModal(false)}
+      onEdit={handleEditBien}
+    />
+  )}
+</AnimatePresence>
 
       {/* Modale Formulaire */}
       <AnimatePresence>
