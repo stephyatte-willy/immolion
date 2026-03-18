@@ -32,9 +32,8 @@ export async function GET(request: NextRequest) {
       params
     ) as any[];
 
-    // ✅ CORRECTION : Les photos sont déjà des objets JSON, pas besoin de parser
+    // Traitement des JSON
     const biensFormatted = biens.map(b => {
-      // Si photos est une chaîne, on parse, sinon on garde tel quel
       let photos = b.photos;
       if (typeof photos === 'string') {
         try {
@@ -196,46 +195,45 @@ export async function POST(request: NextRequest) {
     const bienId = result.insertId;
     console.log('✅ Bien créé avec ID:', bienId);
 
-    // Gérer les photos
+    // ✅ Gérer les photos en base64
     const photos = formData.getAll('photos') as File[];
     console.log(`📸 ${photos.length} photos reçues`);
     
     if (photos.length > 0) {
-      try {
-        const uploadDir = path.join(process.cwd(), 'public/uploads/biens');
-        await mkdir(uploadDir, { recursive: true });
-        console.log('📁 Dossier uploads prêt:', uploadDir);
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+        
+        try {
+          // Limiter la taille à 5MB par photo
+          if (photo.size > 5 * 1024 * 1024) {
+            console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
+            continue;
+          }
 
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
-          console.log(`📸 Traitement photo ${i+1}:`, photo.name, photo.size, photo.type);
-          
-          const timestamp = Date.now();
-          const fileExtension = photo.name.split('.').pop() || 'jpg';
-          const fileName = `bien-${bienId}-${timestamp}-${i}.${fileExtension}`;
-          const filePath = path.join(uploadDir, fileName);
-          
+          // Vérifier le type
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+          if (!allowedTypes.includes(photo.type)) {
+            console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
+            continue;
+          }
+
+          // Convertir en base64
           const bytes = await photo.arrayBuffer();
           const buffer = Buffer.from(bytes);
-          await writeFile(filePath, buffer);
+          const base64 = buffer.toString('base64');
+          const mimeType = photo.type;
           
-          const url = `/uploads/biens/${fileName}`;
-          console.log('✅ Photo sauvegardée:', url);
+          const url = `data:${mimeType};base64,${base64}`;
           
           await queryInsert(
             'INSERT INTO photos (bien_id, url, est_principale, ordre) VALUES (?, ?, ?, ?)',
             [bienId, url, i === 0 ? 1 : 0, i]
           );
+          
+          console.log(`✅ Photo ${i+1} ajoutée en base64`);
+        } catch (photoError) {
+          console.error(`❌ Erreur traitement photo ${i+1}:`, photoError);
         }
-        console.log(`✅ ${photos.length} photos ajoutées avec succès`);
-      } catch (photoError) {
-        console.error('❌ Erreur lors de la sauvegarde des photos:', photoError);
-        return NextResponse.json({
-          success: true,
-          id: bienId,
-          message: 'Bien créé avec succès (photos non sauvegardées)',
-          photoError: (photoError as Error).message
-        });
       }
     }
 
@@ -245,7 +243,7 @@ export async function POST(request: NextRequest) {
       message: 'Bien créé avec succès'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur POST bien:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },

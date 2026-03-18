@@ -109,16 +109,14 @@ export async function PUT(
     const latitudeNum = latitude ? parseFloat(latitude) : null;
     const longitudeNum = longitude ? parseFloat(longitude) : null;
 
-    // ✅ CORRECTION: Formater la date pour MySQL
+    // Formater la date pour MySQL
     let dateAcquisitionFormatted = null;
     if (date_acquisition && date_acquisition.trim() !== '') {
-      // Si c'est une date ISO, la convertir en format MySQL (YYYY-MM-DD)
       if (date_acquisition.includes('T')) {
         dateAcquisitionFormatted = date_acquisition.split('T')[0];
       } else {
         dateAcquisitionFormatted = date_acquisition;
       }
-      console.log('📅 Date formatée:', dateAcquisitionFormatted);
     }
 
     if (isNaN(surfaceNum) || surfaceNum <= 0) {
@@ -142,29 +140,15 @@ export async function PUT(
       );
     }
 
-    // ✅ 1. SUPPRIMER LES PHOTOS MARQUÉES
+    // ✅ 1. SUPPRIMER LES PHOTOS MARQUÉES (uniquement de la BDD, pas de fichiers)
     if (photosToDelete.length > 0) {
       for (const photoId of photosToDelete) {
-        const photos = await queryRows(
-          'SELECT url FROM photos WHERE id = ?',
-          [photoId]
-        ) as any[];
-        
-        if (photos.length > 0) {
-          const filePath = path.join(process.cwd(), 'public', photos[0].url);
-          try {
-            await unlink(filePath);
-            console.log('✅ Fichier supprimé:', filePath);
-          } catch (error) {
-            console.log('⚠️ Fichier non trouvé:', filePath);
-          }
-        }
-        
         await queryInsert('DELETE FROM photos WHERE id = ?', [photoId]);
+        console.log(`✅ Photo ${photoId} supprimée de la BDD`);
       }
     }
 
-    // ✅ 2. METTRE À JOUR LE BIEN (avec la date formatée)
+    // ✅ 2. METTRE À JOUR LE BIEN
     await queryInsert(
       `UPDATE biens SET
         nom = ?, type_bien = ?, statut = ?, adresse = ?, quartier = ?, commune = ?,
@@ -177,52 +161,60 @@ export async function PUT(
         ville || 'Abidjan', district, pays || 'Côte d\'Ivoire',
         surfaceNum, piecesNum, etageNum,
         description || null, loyerNum, chargesNum, depotNum,
-        dateAcquisitionFormatted, // ✅ Date déjà formatée
+        dateAcquisitionFormatted,
         latitudeNum, longitudeNum, id
       ]
     );
 
-    // ✅ 3. AJOUTER LES NOUVELLES PHOTOS
+    // ✅ 3. Récupérer l'ordre max actuel
+    const existingPhotos = await queryRows(
+      'SELECT MAX(ordre) as maxOrdre FROM photos WHERE bien_id = ?',
+      [id]
+    ) as any[];
+    let ordre = (existingPhotos[0]?.maxOrdre || -1) + 1;
+
+    // ✅ 4. AJOUTER LES NOUVELLES PHOTOS en base64
     if (newPhotos.length > 0) {
-      const uploadDir = path.join(process.cwd(), 'public/uploads/biens');
-      await mkdir(uploadDir, { recursive: true });
-
-      const existingPhotos = await queryRows(
-        'SELECT MAX(ordre) as maxOrdre FROM photos WHERE bien_id = ?',
-        [id]
-      ) as any[];
-      let ordre = (existingPhotos[0]?.maxOrdre || -1) + 1;
-
       for (let i = 0; i < newPhotos.length; i++) {
         const photo = newPhotos[i];
         
         if (photo.size === 0) continue;
         
-        const fileExtension = photo.name.split('.').pop() || 'jpg';
-        const fileName = `bien-${id}-${uuidv4()}.${fileExtension}`;
-        const filePath = path.join(uploadDir, fileName);
-        
         try {
+          // Limiter la taille à 5MB
+          if (photo.size > 5 * 1024 * 1024) {
+            console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
+            continue;
+          }
+
+          // Vérifier le type
+          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+          if (!allowedTypes.includes(photo.type)) {
+            console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
+            continue;
+          }
+
+          // Convertir en base64
           const bytes = await photo.arrayBuffer();
           const buffer = Buffer.from(bytes);
-          await writeFile(filePath, buffer);
+          const base64 = buffer.toString('base64');
+          const mimeType = photo.type;
           
-          const url = `/uploads/biens/${fileName}`;
-          const isPrincipale = ordre === 0;
+          const url = `data:${mimeType};base64,${base64}`;
           
           await queryInsert(
             'INSERT INTO photos (bien_id, url, est_principale, ordre) VALUES (?, ?, ?, ?)',
-            [id, url, isPrincipale ? 1 : 0, ordre++]
+            [id, url, 0, ordre++]
           );
           
-          console.log('✅ Nouvelle photo ajoutée:', url);
+          console.log(`✅ Nouvelle photo ${i+1} ajoutée en base64`);
         } catch (photoError) {
-          console.error('❌ Erreur upload photo:', photoError);
+          console.error(`❌ Erreur traitement photo ${i+1}:`, photoError);
         }
       }
     }
 
-    // ✅ 4. RÉCUPÉRER LE BIEN MIS À JOUR
+    // ✅ 5. RÉCUPÉRER LE BIEN MIS À JOUR
     const updatedBien = await queryRows(
       `SELECT * FROM biens WHERE id = ?`,
       [id]
@@ -234,7 +226,7 @@ export async function PUT(
       bien: updatedBien[0]
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur PUT bien:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },
@@ -251,22 +243,8 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    const photos = await queryRows(
-      'SELECT url FROM photos WHERE bien_id = ?',
-      [id]
-    ) as any[];
-
-    console.log(`🗑️ Suppression du bien ${id} avec ${photos.length} photos`);
-
-    for (const photo of photos) {
-      const filePath = path.join(process.cwd(), 'public', photo.url);
-      try {
-        await unlink(filePath);
-        console.log('✅ Fichier supprimé:', filePath);
-      } catch (error) {
-        console.log('⚠️ Fichier non trouvé:', filePath);
-      }
-    }
+    // Plus besoin de supprimer les fichiers physiques
+    // La suppression en cascade s'occupe des photos dans la BDD
 
     await queryInsert('DELETE FROM biens WHERE id = ?', [id]);
 
