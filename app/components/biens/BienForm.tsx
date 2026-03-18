@@ -355,6 +355,80 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
                   </div>
                 </div>
 
+                
+                {/* Aspects financiers adaptatifs */}
+                <div className="form-section">
+                  <div className="modal-section-title">
+                    <span>💰</span> Aspects financiers
+                  </div>
+                  <div className="form-grid">
+                    {formData.statut === 'EN_VENTE' ? (
+                      // Mode vente
+                      <div className="form-group">
+                        <label>Prix de vente (FCFA) *</label>
+                        <input
+                          type="number"
+                          step="10000"
+                          value={formData.prix_vente}
+                          onChange={(e) => setFormData({...formData, prix_vente: e.target.value})}
+                          className={errors.prix_vente ? 'error' : ''}
+                          placeholder="50 000 000"
+                        />
+                        {errors.prix_vente && <span className="error-message">{errors.prix_vente}</span>}
+                      </div>
+                    ) : (
+                      // Mode location
+                      formData.type_bien !== 'TERRAIN' && (
+                        <>
+                          <div className="form-group">
+                            <label>Loyer mensuel (FCFA) *</label>
+                            <input
+                              type="number"
+                              step="1000"
+                              value={formData.loyer_mensuel}
+                              onChange={(e) => setFormData({...formData, loyer_mensuel: e.target.value})}
+                              className={errors.loyer_mensuel ? 'error' : ''}
+                              placeholder="250000"
+                            />
+                            {errors.loyer_mensuel && <span className="error-message">{errors.loyer_mensuel}</span>}
+                          </div>
+
+                          <div className="form-group">
+                            <label>Charges mensuelles (FCFA)</label>
+                            <input
+                              type="number"
+                              step="1000"
+                              value={formData.charges}
+                              onChange={(e) => setFormData({...formData, charges: e.target.value})}
+                              placeholder="25000"
+                            />
+                          </div>
+
+                          <div className="form-group">
+                            <label>Dépôt de garantie (FCFA)</label>
+                            <input
+                              type="number"
+                              step="1000"
+                              value={formData.depot_garantie}
+                              onChange={(e) => setFormData({...formData, depot_garantie: e.target.value})}
+                              placeholder="500000"
+                            />
+                          </div>
+                        </>
+                      )
+                    )}
+
+                    <div className="form-group">
+                      <label>Date d'acquisition</label>
+                      <input
+                        type="date"
+                        value={formData.date_acquisition}
+                        onChange={(e) => setFormData({...formData, date_acquisition: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Localisation intelligente */}
                 <div className="form-section">
                   <div className="modal-section-title">
@@ -506,79 +580,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
                           : "Description du bien (équipements, état, particularités...)"
                       }
                     />
-                  </div>
-                </div>
-
-                {/* Aspects financiers adaptatifs */}
-                <div className="form-section">
-                  <div className="modal-section-title">
-                    <span>💰</span> Aspects financiers
-                  </div>
-                  <div className="form-grid">
-                    {formData.statut === 'EN_VENTE' ? (
-                      // Mode vente
-                      <div className="form-group">
-                        <label>Prix de vente (FCFA) *</label>
-                        <input
-                          type="number"
-                          step="10000"
-                          value={formData.prix_vente}
-                          onChange={(e) => setFormData({...formData, prix_vente: e.target.value})}
-                          className={errors.prix_vente ? 'error' : ''}
-                          placeholder="50 000 000"
-                        />
-                        {errors.prix_vente && <span className="error-message">{errors.prix_vente}</span>}
-                      </div>
-                    ) : (
-                      // Mode location
-                      formData.type_bien !== 'TERRAIN' && (
-                        <>
-                          <div className="form-group">
-                            <label>Loyer mensuel (FCFA) *</label>
-                            <input
-                              type="number"
-                              step="1000"
-                              value={formData.loyer_mensuel}
-                              onChange={(e) => setFormData({...formData, loyer_mensuel: e.target.value})}
-                              className={errors.loyer_mensuel ? 'error' : ''}
-                              placeholder="250000"
-                            />
-                            {errors.loyer_mensuel && <span className="error-message">{errors.loyer_mensuel}</span>}
-                          </div>
-
-                          <div className="form-group">
-                            <label>Charges mensuelles (FCFA)</label>
-                            <input
-                              type="number"
-                              step="1000"
-                              value={formData.charges}
-                              onChange={(e) => setFormData({...formData, charges: e.target.value})}
-                              placeholder="25000"
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>Dépôt de garantie (FCFA)</label>
-                            <input
-                              type="number"
-                              step="1000"
-                              value={formData.depot_garantie}
-                              onChange={(e) => setFormData({...formData, depot_garantie: e.target.value})}
-                              placeholder="500000"
-                            />
-                          </div>
-                        </>
-                      )
-                    )}
-
-                    <div className="form-group">
-                      <label>Date d'acquisition</label>
-                      <input
-                        type="date"
-                        value={formData.date_acquisition}
-                        onChange={(e) => setFormData({...formData, date_acquisition: e.target.value})}
-                      />
-                    </div>
                   </div>
                 </div>
 
