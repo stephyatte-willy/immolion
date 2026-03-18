@@ -1166,3 +1166,47 @@
   background: #ef4444;
   transform: scale(1.1) !important;
 }
+
+/* Localisation */
+.location-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Prix de vente */
+.price-value.vente {
+  color: #f59e0b;
+  font-size: 20px;
+}
+
+/* Badge travaux */
+.bien-card-travaux {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 20px;
+  margin: 10px 0;
+  font-size: 12px;
+  color: #f59e0b;
+}
+
+.travaux-icon {
+  font-size: 14px;
+}
+
+/* Adaptation pour terrains */
+.bien-card[data-type="TERRAIN"] .feature-icon {
+  color: #10b981;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .location-text {
+    max-width: 200px;
+  }
+}

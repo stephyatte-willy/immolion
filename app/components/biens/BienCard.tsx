@@ -17,6 +17,11 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  // Types de biens
+  const typesResidentiels = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO'];
+  const typesCommerciaux = ['COMMERCIAL', 'BUREAU', 'ENTREPOT'];
+  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU'];
+
   const getStatutClass = (statut: string) => {
     const classes: Record<string, string> = {
       'DISPONIBLE': 'statut-disponible',
@@ -53,18 +58,72 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
     return icons[type] || '🏢';
   };
 
-  
+  // ✅ Fonction pour obtenir le libellé du prix selon le statut
+  const getPriceLabel = () => {
+    if (bien.statut === 'EN_VENTE') {
+      return 'Prix de vente';
+    } else if (typesLocation.includes(bien.type_bien)) {
+      return 'Loyer mensuel';
+    } else {
+      return 'Prix';
+    }
+  };
+
+  // ✅ Fonction pour obtenir la valeur du prix selon le statut
+  const getPriceValue = () => {
+    if (bien.statut === 'EN_VENTE') {
+      // Si on a une colonne prix_vente, l'utiliser, sinon utiliser loyer_mensuel comme fallback
+      return (bien as any).prix_vente || bien.loyer_mensuel;
+    } else {
+      return bien.loyer_mensuel;
+    }
+  };
+
+  // ✅ Fonction pour vérifier si on doit afficher les pièces
+  const showPieces = () => {
+    return typesResidentiels.includes(bien.type_bien) || typesCommerciaux.includes(bien.type_bien);
+  };
+
+  // ✅ Fonction pour vérifier si on doit afficher l'étage
+  const showEtage = () => {
+    return ['APPARTEMENT', 'COMMERCIAL', 'BUREAU'].includes(bien.type_bien);
+  };
+
+  // ✅ Fonction pour vérifier si on doit afficher les charges
+  const showCharges = () => {
+    return bien.statut !== 'EN_VENTE' && typesLocation.includes(bien.type_bien) && bien.charges > 0;
+  };
+
+  // ✅ Fonction pour obtenir la localisation complète
+  const getLocalisation = () => {
+    let localisation = bien.adresse;
+    
+    if (bien.quartier) {
+      localisation += `, Quartier ${bien.quartier}`;
+    }
+    
+    localisation += `, ${bien.commune || bien.ville}`;
+    
+    if (bien.district && bien.district !== 'Abidjan') {
+      localisation += `, ${bien.district}`;
+    }
+    
+    return localisation;
+  };
+
   const getPhotoUrl = () => {
-  if (imageError) return null;
-  
-  if (bien.photos && Array.isArray(bien.photos) && bien.photos.length > 0) {
-    const principale = bien.photos.find(p => Boolean(p.est_principale) === true);
-    return principale?.url || bien.photos[0]?.url;
-  }
-  return null;
-};
+    if (imageError) return null;
+    
+    if (bien.photos && Array.isArray(bien.photos) && bien.photos.length > 0) {
+      const principale = bien.photos.find(p => Boolean(p.est_principale) === true);
+      return principale?.url || bien.photos[0]?.url;
+    }
+    return null;
+  };
 
   const photoUrl = getPhotoUrl();
+  const priceLabel = getPriceLabel();
+  const priceValue = getPriceValue();
 
   return (
     <motion.div 
@@ -129,7 +188,11 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
         
         <div className="bien-card-location">
           <span className="location-icon">📍</span>
-          <span>{bien.adresse}, {bien.commune}</span>
+          <span className="location-text" title={getLocalisation()}>
+            {getLocalisation().length > 40 
+              ? getLocalisation().substring(0, 40) + '...' 
+              : getLocalisation()}
+          </span>
         </div>
 
         <div className="bien-card-features">
@@ -137,27 +200,55 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
             <span className="feature-icon">📏</span>
             <span>{bien.surface} m²</span>
           </div>
-          <div className="feature">
-            <span className="feature-icon">🛏️</span>
-            <span>{bien.pieces} pièces</span>
-          </div>
-          {bien.etage !== null && bien.etage !== undefined && (
+          
+          {/* Afficher les pièces seulement pour les types appropriés */}
+          {showPieces() && (
+            <div className="feature">
+              <span className="feature-icon">🛏️</span>
+              <span>{bien.pieces} pièces</span>
+            </div>
+          )}
+          
+          {/* Afficher l'étage seulement pour les types appropriés */}
+          {showEtage() && bien.etage !== null && bien.etage !== undefined && (
             <div className="feature">
               <span className="feature-icon">🏢</span>
               <span>Étage {bien.etage}</span>
             </div>
           )}
+
+          {/* Pour les terrains, afficher une icône spécifique */}
+          {bien.type_bien === 'TERRAIN' && (
+            <div className="feature">
+              <span className="feature-icon">🌲</span>
+              <span>Terrain</span>
+            </div>
+          )}
         </div>
 
+        {/* Section prix adaptée */}
         <div className="bien-card-price">
-          <span className="price-label">Loyer mensuel</span>
-          <span className="price-value">{formatMoney(bien.loyer_mensuel)}</span>
-          {bien.charges > 0 && (
+          <span className="price-label">{priceLabel}</span>
+          <span className={`price-value ${bien.statut === 'EN_VENTE' ? 'vente' : ''}`}>
+            {formatMoney(priceValue)}
+          </span>
+          
+          {/* Afficher les charges seulement pour les locations */}
+          {showCharges() && (
             <span className="charges">dont {formatMoney(bien.charges)} de charges</span>
           )}
         </div>
 
-        {bien.locataire_actuel && (
+        {/* Badge supplémentaire pour les biens en travaux */}
+        {bien.statut === 'EN_TRAVAUX' && (
+          <div className="bien-card-travaux">
+            <span className="travaux-icon">🔨</span>
+            <span className="travaux-text">En rénovation</span>
+          </div>
+        )}
+
+        {/* Informations locataire pour les biens loués */}
+        {bien.statut === 'LOUE' && bien.locataire_actuel && (
           <div className="bien-card-locataire">
             <span className="locataire-icon">👤</span>
             <span>{bien.locataire_actuel.prenom} {bien.locataire_actuel.nom}</span>
