@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import cloudinary from '@/app/lib/cloudinary';
 
 // GET - Récupérer les informations de l'entreprise
 export async function GET() {
@@ -14,7 +12,7 @@ export async function GET() {
       entreprise: entreprises[0] || null
     });
   } catch (error) {
-    console.error('Erreur GET entreprise:', error);
+    console.error('❌ Erreur GET entreprise:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur' },
       { status: 500 }
@@ -43,27 +41,37 @@ export async function POST(request: NextRequest) {
 
     let logo_url = null;
 
-    // Gérer l'upload du logo
-    if (logo) {
-      // Créer le dossier uploads s'il n'existe pas
-      const uploadDir = path.join(process.cwd(), 'public/uploads');
+    // ✅ Gérer l'upload du logo vers Cloudinary
+    if (logo && logo.size > 0) {
       try {
-        await mkdir(uploadDir, { recursive: true });
-      } catch (error) {
-        // Le dossier existe déjà
-      }
+        // Convertir le fichier en buffer
+        const bytes = await logo.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        // Upload vers Cloudinary
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            {
+              folder: 'immolion/entreprise',
+              public_id: `logo-${Date.now()}`,
+              resource_type: 'auto',
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(buffer);
+        });
 
-      // Générer un nom unique pour le fichier
-      const fileExtension = logo.name.split('.').pop();
-      const fileName = `logo-${uuidv4()}.${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
-      
-      // Convertir le fichier en buffer et le sauvegarder
-      const bytes = await logo.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
-      
-      logo_url = `/uploads/${fileName}`;
+        logo_url = (result as any).secure_url;
+        console.log('✅ Logo uploadé sur Cloudinary:', logo_url);
+      } catch (uploadError) {
+        console.error('❌ Erreur upload Cloudinary:', uploadError);
+        return NextResponse.json(
+          { success: false, erreur: 'Erreur lors de l\'upload du logo' },
+          { status: 500 }
+        );
+      }
     }
 
     // Insérer dans la base de données
@@ -86,7 +94,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Erreur POST entreprise:', error);
+    console.error('❌ Erreur POST entreprise:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur' },
       { status: 500 }
@@ -94,6 +102,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT - Modifier l'entreprise
 export async function PUT(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -106,7 +115,6 @@ export async function PUT(request: NextRequest) {
     const site_web = formData.get('site_web') as string;
     const logo = formData.get('logo') as File | null;
 
-    // 🔴 Vérification plus explicite
     if (!id) {
       console.error('❌ ID manquant dans la requête PUT');
       return NextResponse.json(
@@ -138,33 +146,45 @@ export async function PUT(request: NextRequest) {
     const entrepriseExistante = entreprises[0];
     let logo_url = entrepriseExistante.logo_url;
 
-    // Gérer le nouveau logo
+    // ✅ Gérer le nouveau logo avec Cloudinary
     if (logo && logo.size > 0) {
-      // Supprimer l'ancien logo si existe
-      if (logo_url) {
-        const oldFilePath = path.join(process.cwd(), 'public', logo_url);
-        try {
-          await unlink(oldFilePath);
-          console.log('✅ Ancien logo supprimé:', oldFilePath);
-        } catch (error) {
-          console.log('ℹ️ Ancien logo non trouvé ou erreur suppression');
+      try {
+        // Supprimer l'ancien logo de Cloudinary si existe
+        if (logo_url && logo_url.includes('cloudinary')) {
+          const publicId = logo_url.split('/').pop()?.split('.')[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`immolion/entreprise/${publicId}`);
+            console.log('✅ Ancien logo supprimé de Cloudinary');
+          }
         }
-      }
 
-      // Sauvegarder le nouveau logo
-      const uploadDir = path.join(process.cwd(), 'public/uploads');
-      await mkdir(uploadDir, { recursive: true });
-      
-      const fileExtension = logo.name.split('.').pop();
-      const fileName = `logo-${uuidv4()}.${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
-      
-      const bytes = await logo.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
-      
-      logo_url = `/uploads/${fileName}`;
-      console.log('✅ Nouveau logo sauvegardé:', logo_url);
+        // Upload du nouveau logo
+        const bytes = await logo.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader.upload_stream(
+            {
+              folder: 'immolion/entreprise',
+              public_id: `logo-${Date.now()}`,
+              resource_type: 'auto',
+            },
+            (error, result) => {
+              if (error) reject(error);
+              else resolve(result);
+            }
+          ).end(buffer);
+        });
+
+        logo_url = (result as any).secure_url;
+        console.log('✅ Nouveau logo uploadé sur Cloudinary:', logo_url);
+      } catch (uploadError) {
+        console.error('❌ Erreur upload Cloudinary:', uploadError);
+        return NextResponse.json(
+          { success: false, erreur: 'Erreur lors de l\'upload du logo' },
+          { status: 500 }
+        );
+      }
     }
 
     // Mettre à jour la base de données
@@ -210,18 +230,26 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Récupérer le logo pour le supprimer
+    // Récupérer le logo pour le supprimer de Cloudinary
     const entreprises = await queryRows(
       'SELECT logo_url FROM entreprise WHERE id = ?',
       [id]
     ) as any[];
 
     if (entreprises.length > 0 && entreprises[0].logo_url) {
-      const filePath = path.join(process.cwd(), 'public', entreprises[0].logo_url);
-      try {
-        await unlink(filePath);
-      } catch (error) {
-        // Le fichier n'existe pas, on continue
+      const logo_url = entreprises[0].logo_url;
+      
+      // Supprimer de Cloudinary si c'est une URL Cloudinary
+      if (logo_url.includes('cloudinary')) {
+        try {
+          const publicId = logo_url.split('/').pop()?.split('.')[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`immolion/entreprise/${publicId}`);
+            console.log('✅ Logo supprimé de Cloudinary');
+          }
+        } catch (error) {
+          console.log('⚠️ Erreur suppression logo de Cloudinary');
+        }
       }
     }
 
@@ -240,7 +268,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Erreur DELETE entreprise:', error);
+    console.error('❌ Erreur DELETE entreprise:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur' },
       { status: 500 }
