@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
       params
     ) as any[];
 
+    // Traitement des JSON
     const biensFormatted = biens.map(b => {
       let photos = b.photos;
       if (typeof photos === 'string') {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       surface, pieces, loyer_mensuel, prix_vente
     });
 
-    // Validation
+    // Validation des champs obligatoires de base
     const errors = [];
     if (!proprietaire_id) errors.push('proprietaire_id manquant');
     if (!nom) errors.push('nom manquant');
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     if (!commune) errors.push('commune manquante');
     if (!district) errors.push('district manquant');
     if (!surface) errors.push('surface manquante');
-    
+
     // Validation conditionnelle selon le type
     if (type_bien !== 'TERRAIN' && !pieces) {
       errors.push('pieces manquant');
@@ -132,9 +133,6 @@ export async function POST(request: NextRequest) {
 
     // Vérifier les valeurs numériques
     const surfaceNum = parseFloat(surface);
-    const piecesNum = type_bien !== 'TERRAIN' ? parseInt(pieces) : 1; // Pour les terrains, mettre 1 par défaut
-    const etageNum = etage ? parseInt(etage) : null;
-
     if (isNaN(surfaceNum) || surfaceNum <= 0) {
       return NextResponse.json(
         { success: false, erreur: 'Surface invalide' },
@@ -142,36 +140,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Gestion intelligente des valeurs financières
+    const piecesNum = type_bien !== 'TERRAIN' ? parseInt(pieces) : 1;
+    if (type_bien !== 'TERRAIN' && (isNaN(piecesNum) || piecesNum <= 0)) {
+      return NextResponse.json(
+        { success: false, erreur: 'Nombre de pièces invalide' },
+        { status: 400 }
+      );
+    }
+
+    const etageNum = etage ? parseInt(etage) : null;
+    const latitudeNum = latitude ? parseFloat(latitude) : null;
+    const longitudeNum = longitude ? parseFloat(longitude) : null;
+
+    // Gestion des valeurs financières selon le statut
     let loyerNum = 0;
     let chargesNum = 0;
     let depotNum = null;
+    let prixVenteNum = null;
 
     if (statut === 'EN_VENTE') {
-      // Pour une vente, on met le prix dans une colonne séparée ou on le stocke dans notes
-      // Pour l'instant, on met 0 dans loyer_mensuel
-      loyerNum = 0;
-      chargesNum = 0;
-      depotNum = null;
+      // Mode vente
+      if (prix_vente) {
+        prixVenteNum = parseFloat(prix_vente);
+        if (isNaN(prixVenteNum) || prixVenteNum <= 0) {
+          return NextResponse.json(
+            { success: false, erreur: 'Prix de vente invalide' },
+            { status: 400 }
+          );
+        }
+      }
     } else {
-      // Pour une location
-      const loyerVal = parseFloat(loyer_mensuel);
-      if (isNaN(loyerVal) || loyerVal <= 0) {
-        return NextResponse.json(
-          { success: false, erreur: 'Loyer mensuel invalide' },
-          { status: 400 }
-        );
+      // Mode location
+      if (loyer_mensuel) {
+        loyerNum = parseFloat(loyer_mensuel);
+        if (isNaN(loyerNum) || loyerNum < 0) {
+          return NextResponse.json(
+            { success: false, erreur: 'Loyer mensuel invalide' },
+            { status: 400 }
+          );
+        }
       }
       
-      // ✅ Limiter à 99,999,999 (limite de DECIMAL(10,2))
-      loyerNum = Math.min(loyerVal, 99999999);
-      
-      if (loyerVal > 99999999) {
-        console.log(`⚠️ Loyer ${loyerVal} trop grand, limité à 99,999,999`);
+      chargesNum = charges ? parseFloat(charges) : 0;
+      if (isNaN(chargesNum) || chargesNum < 0) {
+        chargesNum = 0;
       }
+      
+      depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
+      if (depotNum !== null && (isNaN(depotNum) || depotNum < 0)) {
+        depotNum = null;
+      }
+    }
 
-      chargesNum = charges ? Math.min(parseFloat(charges), 99999999) : 0;
-      depotNum = depot_garantie ? Math.min(parseFloat(depot_garantie), 99999999) : null;
+    // Formater la date d'acquisition si fournie
+    let dateAcquisitionFormatted = null;
+    if (date_acquisition && date_acquisition.trim() !== '') {
+      if (date_acquisition.includes('T')) {
+        dateAcquisitionFormatted = date_acquisition.split('T')[0];
+      } else {
+        dateAcquisitionFormatted = date_acquisition;
+      }
     }
 
     // Insérer le bien
@@ -179,9 +207,9 @@ export async function POST(request: NextRequest) {
       `INSERT INTO biens (
         proprietaire_id, nom, type_bien, statut, adresse, quartier, commune,
         ville, district, pays, surface, pieces, etage, description,
-        loyer_mensuel, charges, depot_garantie, date_acquisition,
+        loyer_mensuel, charges, depot_garantie, prix_vente, date_acquisition,
         latitude, longitude, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         parseInt(proprietaire_id), 
         nom, 
@@ -200,9 +228,10 @@ export async function POST(request: NextRequest) {
         loyerNum, 
         chargesNum, 
         depotNum,
-        date_acquisition || null, 
-        latitude ? parseFloat(latitude) : null,
-        longitude ? parseFloat(longitude) : null
+        prixVenteNum,
+        dateAcquisitionFormatted, 
+        latitudeNum,
+        longitudeNum
       ]
     );
 
@@ -226,17 +255,20 @@ export async function POST(request: NextRequest) {
         const photo = photos[i];
         
         try {
+          // Limiter la taille à 5MB par photo
           if (photo.size > 5 * 1024 * 1024) {
             console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
             continue;
           }
 
+          // Vérifier le type
           const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
           if (!allowedTypes.includes(photo.type)) {
             console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
             continue;
           }
 
+          // Convertir en base64
           const bytes = await photo.arrayBuffer();
           const buffer = Buffer.from(bytes);
           const base64 = buffer.toString('base64');

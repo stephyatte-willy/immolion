@@ -20,7 +20,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
   // Types de biens
   const typesResidentiels = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO'];
   const typesCommerciaux = ['COMMERCIAL', 'BUREAU', 'ENTREPOT'];
-  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU'];
+  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU', 'ENTREPOT'];
 
   const getStatutClass = (statut: string) => {
     const classes: Record<string, string> = {
@@ -72,26 +72,31 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
   // ✅ Fonction pour obtenir la valeur du prix selon le statut
   const getPriceValue = () => {
     if (bien.statut === 'EN_VENTE') {
-      // Si on a une colonne prix_vente, l'utiliser, sinon utiliser loyer_mensuel comme fallback
-      return (bien as any).prix_vente || bien.loyer_mensuel;
+      return bien.prix_vente || 0;
     } else {
-      return bien.loyer_mensuel;
+      return bien.loyer_mensuel || 0;
     }
-  };
-
-  // ✅ Fonction pour vérifier si on doit afficher les pièces
-  const showPieces = () => {
-    return typesResidentiels.includes(bien.type_bien) || typesCommerciaux.includes(bien.type_bien);
-  };
-
-  // ✅ Fonction pour vérifier si on doit afficher l'étage
-  const showEtage = () => {
-    return ['APPARTEMENT', 'COMMERCIAL', 'BUREAU'].includes(bien.type_bien);
   };
 
   // ✅ Fonction pour vérifier si on doit afficher les charges
   const showCharges = () => {
-    return bien.statut !== 'EN_VENTE' && typesLocation.includes(bien.type_bien) && bien.charges > 0;
+    return bien.statut !== 'EN_VENTE' && 
+           typesLocation.includes(bien.type_bien) && 
+           bien.charges !== undefined && 
+           bien.charges > 0;
+  };
+
+  // ✅ Fonction pour vérifier si on doit afficher les pièces
+  const showPieces = () => {
+    return typesResidentiels.includes(bien.type_bien) || 
+           typesCommerciaux.includes(bien.type_bien);
+  };
+
+  // ✅ Fonction pour vérifier si on doit afficher l'étage
+  const showEtage = () => {
+    return ['APPARTEMENT', 'COMMERCIAL', 'BUREAU'].includes(bien.type_bien) && 
+           bien.etage !== null && 
+           bien.etage !== undefined;
   };
 
   // ✅ Fonction pour obtenir la localisation complète
@@ -210,7 +215,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
           )}
           
           {/* Afficher l'étage seulement pour les types appropriés */}
-          {showEtage() && bien.etage !== null && bien.etage !== undefined && (
+          {showEtage() && (
             <div className="feature">
               <span className="feature-icon">🏢</span>
               <span>Étage {bien.etage}</span>
@@ -235,7 +240,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
           
           {/* Afficher les charges seulement pour les locations */}
           {showCharges() && (
-            <span className="charges">dont {formatMoney(bien.charges)} de charges</span>
+            <span className="charges">dont {formatMoney(bien.charges || 0)} de charges</span>
           )}
         </div>
 

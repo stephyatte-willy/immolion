@@ -41,7 +41,7 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     loyer_mensuel: '',
     charges: '',
     depot_garantie: '',
-    prix_vente: '',
+    prix_vente: '',              // ✅ Nouveau champ
     date_acquisition: '',
     latitude: '',
     longitude: '',
@@ -58,11 +58,10 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [communeSaisie, setCommuneSaisie] = useState('');
 
-  // Types de biens qui sont résidentiels
+  // Types de biens
   const typesResidentiels = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO'];
-  
-  // Types de biens qui nécessitent des étages
   const typesAvecEtage = ['APPARTEMENT', 'COMMERCIAL', 'BUREAU'];
+  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU', 'ENTREPOT'];
 
   useEffect(() => {
     if (bien) {
@@ -79,10 +78,10 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
         pieces: bien.pieces.toString(),
         etage: bien.etage?.toString() || '',
         description: bien.description || '',
-        loyer_mensuel: bien.loyer_mensuel.toString(),
-        charges: bien.charges.toString(),
+        loyer_mensuel: bien.loyer_mensuel?.toString() || '',
+        charges: bien.charges?.toString() || '',
         depot_garantie: bien.depot_garantie?.toString() || '',
-        prix_vente: '',
+        prix_vente: bien.prix_vente?.toString() || '',
         date_acquisition: bien.date_acquisition || '',
         latitude: bien.latitude?.toString() || '',
         longitude: bien.longitude?.toString() || '',
@@ -105,7 +104,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     }
   }, [bien]);
 
-  // Gestion intelligente des quartiers selon la commune
   useEffect(() => {
     if (formData.commune && QUARTIERS_CI[formData.commune]) {
       setQuartiersDisponibles(QUARTIERS_CI[formData.commune]);
@@ -114,7 +112,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     }
   }, [formData.commune]);
 
-  // Validation adaptative
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -122,7 +119,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     if (!formData.adresse.trim()) newErrors.adresse = 'L\'adresse est requise';
     if (!formData.district) newErrors.district = 'Le district est requis';
     
-    // Gestion de la commune selon le district
     if (formData.district === 'Abidjan') {
       if (!formData.commune) newErrors.commune = 'La commune est requise';
     } else {
@@ -132,19 +128,21 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     if (!formData.surface) newErrors.surface = 'La surface est requise';
     else if (parseFloat(formData.surface) <= 0) newErrors.surface = 'La surface doit être positive';
     
-    // Validation conditionnelle selon le type de bien
-    if (typesResidentiels.includes(formData.type_bien)) {
+    // Validation des pièces selon le type
+    if (typesResidentiels.includes(formData.type_bien) || formData.type_bien === 'COMMERCIAL') {
       if (!formData.pieces) newErrors.pieces = 'Le nombre de pièces est requis';
       else if (parseInt(formData.pieces) <= 0) newErrors.pieces = 'Le nombre de pièces doit être positif';
     }
 
-    // Validation conditionnelle selon le statut
-    if (formData.statut === 'LOUE' || formData.statut === 'DISPONIBLE') {
-      if (!formData.loyer_mensuel) newErrors.loyer_mensuel = 'Le loyer mensuel est requis';
-      else if (parseFloat(formData.loyer_mensuel) <= 0) newErrors.loyer_mensuel = 'Le loyer doit être positif';
-    } else if (formData.statut === 'EN_VENTE') {
+    // Validation financière selon le statut
+    if (formData.statut === 'EN_VENTE') {
       if (!formData.prix_vente) newErrors.prix_vente = 'Le prix de vente est requis';
       else if (parseFloat(formData.prix_vente) <= 0) newErrors.prix_vente = 'Le prix doit être positif';
+    } else if (formData.statut === 'LOUE' || formData.statut === 'DISPONIBLE') {
+      if (typesLocation.includes(formData.type_bien)) {
+        if (!formData.loyer_mensuel) newErrors.loyer_mensuel = 'Le loyer mensuel est requis';
+        else if (parseFloat(formData.loyer_mensuel) <= 0) newErrors.loyer_mensuel = 'Le loyer doit être positif';
+      }
     }
 
     setErrors(newErrors);
@@ -220,29 +218,43 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     try {
       const formDataToSend = new FormData();
       
-      // Préparer les données selon le contexte
-      const dataToSend = {
-        ...formData,
-        // Pour les districts hors Abidjan, utiliser la commune saisie
-        commune: formData.district === 'Abidjan' ? formData.commune : communeSaisie,
-        // Adapter les champs financiers selon le statut
-        loyer_mensuel: formData.statut === 'EN_VENTE' ? '0' : formData.loyer_mensuel,
-        prix_vente: formData.statut === 'EN_VENTE' ? formData.prix_vente : '0',
-        // Pour les terrains, pas de pièces ni d'étage
-        pieces: formData.type_bien === 'TERRAIN' ? '1' : formData.pieces,
-        etage: typesAvecEtage.includes(formData.type_bien) ? formData.etage : '',
-      };
-
-      // Ajouter tous les champs
-      Object.entries(dataToSend).forEach(([key, value]) => {
-        if (key !== 'photos' && key !== 'photosToDelete' && value !== undefined && value !== null) {
-          formDataToSend.append(key, value.toString());
-        }
-      });
-
+      // Données de base
       formDataToSend.append('proprietaire_id', utilisateurId.toString());
-      formDataToSend.append('pays', 'Côte d\'Ivoire');
+      formDataToSend.append('nom', formData.nom);
+      formDataToSend.append('type_bien', formData.type_bien);
+      formDataToSend.append('statut', formData.statut);
+      formDataToSend.append('adresse', formData.adresse);
+      formDataToSend.append('quartier', formData.quartier || '');
       
+      // Gestion de la commune selon le district
+      const communeValue = formData.district === 'Abidjan' ? formData.commune : communeSaisie;
+      formDataToSend.append('commune', communeValue);
+      
+      formDataToSend.append('ville', formData.ville || 'Abidjan');
+      formDataToSend.append('district', formData.district);
+      formDataToSend.append('pays', 'Côte d\'Ivoire');
+      formDataToSend.append('surface', formData.surface);
+      formDataToSend.append('pieces', formData.pieces || '1');
+      formDataToSend.append('etage', formData.etage || '');
+      formDataToSend.append('description', formData.description || '');
+      formDataToSend.append('date_acquisition', formData.date_acquisition || '');
+      formDataToSend.append('latitude', formData.latitude || '');
+      formDataToSend.append('longitude', formData.longitude || '');
+      
+      // ✅ Gestion des champs financiers selon le statut
+      if (formData.statut === 'EN_VENTE') {
+        formDataToSend.append('prix_vente', formData.prix_vente);
+        formDataToSend.append('loyer_mensuel', '0');
+        formDataToSend.append('charges', '0');
+        formDataToSend.append('depot_garantie', '');
+      } else {
+        formDataToSend.append('loyer_mensuel', formData.loyer_mensuel || '0');
+        formDataToSend.append('charges', formData.charges || '0');
+        formDataToSend.append('depot_garantie', formData.depot_garantie || '');
+        formDataToSend.append('prix_vente', '');
+      }
+      
+      // Photos
       formData.photosToDelete.forEach(id => {
         formDataToSend.append('photosToDelete', id.toString());
       });
@@ -278,6 +290,10 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
       setIsLoading(false);
     }
   };
+
+  // Déterminer si on est en mode vente
+  const isVente = formData.statut === 'EN_VENTE';
+  const showLocationFields = !isVente && typesLocation.includes(formData.type_bien);
 
   return (
     <>
@@ -355,16 +371,165 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
                   </div>
                 </div>
 
-                
-                {/* Aspects financiers adaptatifs */}
+                {/* Localisation */}
                 <div className="form-section">
                   <div className="modal-section-title">
-                    <span>💰</span> Aspects financiers
+                    <span>📍</span> Localisation
                   </div>
                   <div className="form-grid">
-                    {formData.statut === 'EN_VENTE' ? (
-                      // Mode vente
+                    <div className="form-group">
+                      <label>District *</label>
+                      <select
+                        value={formData.district}
+                        onChange={(e) => {
+                          setFormData({...formData, district: e.target.value, commune: ''});
+                          setCommuneSaisie('');
+                        }}
+                        className={errors.district ? 'error' : ''}
+                      >
+                        <option value="">Sélectionnez un district</option>
+                        {DISTRICTS_CI.map(district => (
+                          <option key={district} value={district}>{district}</option>
+                        ))}
+                      </select>
+                      {errors.district && <span className="error-message">{errors.district}</span>}
+                    </div>
+
+                    {formData.district === 'Abidjan' ? (
                       <div className="form-group">
+                        <label>Commune *</label>
+                        <select
+                          value={formData.commune}
+                          onChange={(e) => setFormData({...formData, commune: e.target.value})}
+                          className={errors.commune ? 'error' : ''}
+                        >
+                          <option value="">Sélectionnez une commune</option>
+                          {COMMUNES_ABIDJAN.map(commune => (
+                            <option key={commune} value={commune}>{commune}</option>
+                          ))}
+                        </select>
+                        {errors.commune && <span className="error-message">{errors.commune}</span>}
+                      </div>
+                    ) : (
+                      <div className="form-group">
+                        <label>Ville/Commune *</label>
+                        <input
+                          type="text"
+                          value={communeSaisie}
+                          onChange={(e) => setCommuneSaisie(e.target.value)}
+                          className={errors.communeSaisie ? 'error' : ''}
+                          placeholder="Nom de la ville ou commune"
+                        />
+                        {errors.communeSaisie && <span className="error-message">{errors.communeSaisie}</span>}
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label>Quartier</label>
+                      {formData.district === 'Abidjan' && formData.commune && quartiersDisponibles.length > 0 ? (
+                        <select
+                          value={formData.quartier}
+                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
+                        >
+                          <option value="">Sélectionnez un quartier</option>
+                          {quartiersDisponibles.map(quartier => (
+                            <option key={quartier} value={quartier}>{quartier}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={formData.quartier}
+                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
+                          placeholder="Nom du quartier"
+                        />
+                      )}
+                    </div>
+
+                    <div className="form-group full-width">
+                      <label>Adresse *</label>
+                      <input
+                        type="text"
+                        value={formData.adresse}
+                        onChange={(e) => setFormData({...formData, adresse: e.target.value})}
+                        className={errors.adresse ? 'error' : ''}
+                        placeholder="Rue, numéro, lieu-dit..."
+                      />
+                      {errors.adresse && <span className="error-message">{errors.adresse}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Caractéristiques */}
+                <div className="form-section">
+                  <div className="modal-section-title">
+                    <span>📐</span> Caractéristiques
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Surface (m²) *</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={formData.surface}
+                        onChange={(e) => setFormData({...formData, surface: e.target.value})}
+                        className={errors.surface ? 'error' : ''}
+                        placeholder="150"
+                      />
+                      {errors.surface && <span className="error-message">{errors.surface}</span>}
+                    </div>
+
+                    {formData.type_bien !== 'TERRAIN' && (
+                      <div className="form-group">
+                        <label>Nombre de pièces *</label>
+                        <input
+                          type="number"
+                          value={formData.pieces}
+                          onChange={(e) => setFormData({...formData, pieces: e.target.value})}
+                          className={errors.pieces ? 'error' : ''}
+                          placeholder="4"
+                        />
+                        {errors.pieces && <span className="error-message">{errors.pieces}</span>}
+                      </div>
+                    )}
+
+                    {typesAvecEtage.includes(formData.type_bien) && (
+                      <div className="form-group">
+                        <label>Étage</label>
+                        <input
+                          type="number"
+                          value={formData.etage}
+                          onChange={(e) => setFormData({...formData, etage: e.target.value})}
+                          placeholder="2"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="form-group full-width">
+                    <label>Description</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      rows={4}
+                      placeholder={
+                        formData.statut === 'EN_TRAVAUX' 
+                          ? "Description des travaux à réaliser, état actuel..."
+                          : "Description du bien (équipements, état, particularités...)"
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Aspects financiers - adaptés */}
+                <div className="form-section">
+                  <div className="modal-section-title">
+                    <span>💰</span> {isVente ? 'Prix de vente' : 'Aspects financiers'}
+                  </div>
+                  <div className="form-grid">
+                    {isVente ? (
+                      // Mode vente
+                      <div className="form-group full-width">
                         <label>Prix de vente (FCFA) *</label>
                         <input
                           type="number"
@@ -378,7 +543,7 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
                       </div>
                     ) : (
                       // Mode location
-                      formData.type_bien !== 'TERRAIN' && (
+                      showLocationFields && (
                         <>
                           <div className="form-group">
                             <label>Loyer mensuel (FCFA) *</label>
@@ -429,161 +594,7 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
                   </div>
                 </div>
 
-                {/* Localisation intelligente */}
-                <div className="form-section">
-                  <div className="modal-section-title">
-                    <span>📍</span> Localisation
-                  </div>
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label>District *</label>
-                      <select
-                        value={formData.district}
-                        onChange={(e) => {
-                          setFormData({...formData, district: e.target.value, commune: ''});
-                          setCommuneSaisie('');
-                        }}
-                        className={errors.district ? 'error' : ''}
-                      >
-                        <option value="">Sélectionnez un district</option>
-                        {DISTRICTS_CI.map(district => (
-                          <option key={district} value={district}>{district}</option>
-                        ))}
-                      </select>
-                      {errors.district && <span className="error-message">{errors.district}</span>}
-                    </div>
-
-                    {formData.district === 'Abidjan' ? (
-                      // Pour Abidjan : liste déroulante des communes
-                      <div className="form-group">
-                        <label>Commune *</label>
-                        <select
-                          value={formData.commune}
-                          onChange={(e) => setFormData({...formData, commune: e.target.value})}
-                          className={errors.commune ? 'error' : ''}
-                        >
-                          <option value="">Sélectionnez une commune</option>
-                          {COMMUNES_ABIDJAN.map(commune => (
-                            <option key={commune} value={commune}>{commune}</option>
-                          ))}
-                        </select>
-                        {errors.commune && <span className="error-message">{errors.commune}</span>}
-                      </div>
-                    ) : (
-                      // Pour les autres districts : champ texte libre
-                      <div className="form-group">
-                        <label>Ville/Commune *</label>
-                        <input
-                          type="text"
-                          value={communeSaisie}
-                          onChange={(e) => setCommuneSaisie(e.target.value)}
-                          className={errors.communeSaisie ? 'error' : ''}
-                          placeholder="Nom de la ville ou commune"
-                        />
-                        {errors.communeSaisie && <span className="error-message">{errors.communeSaisie}</span>}
-                      </div>
-                    )}
-
-                    <div className="form-group">
-                      <label>Quartier</label>
-                      {formData.district === 'Abidjan' && formData.commune && quartiersDisponibles.length > 0 ? (
-                        <select
-                          value={formData.quartier}
-                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
-                        >
-                          <option value="">Sélectionnez un quartier</option>
-                          {quartiersDisponibles.map(quartier => (
-                            <option key={quartier} value={quartier}>{quartier}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          value={formData.quartier}
-                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
-                          placeholder="Nom du quartier"
-                        />
-                      )}
-                    </div>
-
-                    <div className="form-group full-width">
-                      <label>Adresse *</label>
-                      <input
-                        type="text"
-                        value={formData.adresse}
-                        onChange={(e) => setFormData({...formData, adresse: e.target.value})}
-                        className={errors.adresse ? 'error' : ''}
-                        placeholder="Rue, numéro, lieu-dit..."
-                      />
-                      {errors.adresse && <span className="error-message">{errors.adresse}</span>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Caractéristiques adaptatives */}
-                <div className="form-section">
-                  <div className="modal-section-title">
-                    <span>📐</span> Caractéristiques
-                  </div>
-                  <div className="form-grid">
-                    <div className="form-group">
-                      <label>Surface (m²) *</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.surface}
-                        onChange={(e) => setFormData({...formData, surface: e.target.value})}
-                        className={errors.surface ? 'error' : ''}
-                        placeholder="150"
-                      />
-                      {errors.surface && <span className="error-message">{errors.surface}</span>}
-                    </div>
-
-                    {/* Nombre de pièces : caché pour les terrains */}
-                    {formData.type_bien !== 'TERRAIN' && (
-                      <div className="form-group">
-                        <label>Nombre de pièces *</label>
-                        <input
-                          type="number"
-                          value={formData.pieces}
-                          onChange={(e) => setFormData({...formData, pieces: e.target.value})}
-                          className={errors.pieces ? 'error' : ''}
-                          placeholder={formData.type_bien === 'COMMERCIAL' ? 'Ex: 1 local' : '4'}
-                        />
-                        {errors.pieces && <span className="error-message">{errors.pieces}</span>}
-                      </div>
-                    )}
-
-                    {/* Étage : seulement pour certains types */}
-                    {typesAvecEtage.includes(formData.type_bien) && (
-                      <div className="form-group">
-                        <label>Étage</label>
-                        <input
-                          type="number"
-                          value={formData.etage}
-                          onChange={(e) => setFormData({...formData, etage: e.target.value})}
-                          placeholder="2"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="form-group full-width">
-                    <label>Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      rows={4}
-                      placeholder={
-                        formData.statut === 'EN_TRAVAUX' 
-                          ? "Description des travaux à réaliser, état actuel..."
-                          : "Description du bien (équipements, état, particularités...)"
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Photos (inchangé) */}
+                {/* Photos */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>📸</span> Photos

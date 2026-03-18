@@ -1,3 +1,4 @@
+// app/components/biens/BienStats.tsx
 'use client';
 
 import { motion } from 'framer-motion';
@@ -8,8 +9,8 @@ interface BienStatsProps {
     total: number;
     loues: number;
     disponibles: number;
+    enVente: number;        // ✅ Ajouté
     revenusMensuels: number;
-    tauxOccupation: number;
   };
   formatMoney: (amount: number) => string;
 }
@@ -35,14 +36,14 @@ export default function BienStats({ stats, formatMoney }: BienStatsProps) {
       color: 'linear-gradient(135deg, #10b981, #059669)'
     },
     {
-      title: 'Revenus mensuels',
-      value: formatMoney(stats.revenusMensuels),
+      title: 'En vente',
+      value: stats.enVente,
       icon: '💰',
-      color: 'linear-gradient(135deg, #F4E5B9, #D4AF37)'
+      color: 'linear-gradient(135deg, #f59e0b, #d97706)'
     },
     {
-      title: "Taux d'occupation",
-      value: `${stats.tauxOccupation}%`,
+      title: 'Revenus mensuels',
+      value: formatMoney(stats.revenusMensuels),
       icon: '📊',
       color: 'linear-gradient(135deg, #8B5CF6, #4F46E5)'
     }

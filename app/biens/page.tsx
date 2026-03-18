@@ -7,38 +7,37 @@ import Sidebar from '@/app/components/layout/Sidebar';
 import Header from '@/app/components/layout/Header';
 import BienCard from '@/app/components/biens/BienCard';
 import BienForm from '@/app/components/biens/BienForm';
-import BienDetailModal from '@/app/components/biens/BienDetailModal';
 import BienFilters from '@/app/components/biens/BienFilters';
 import BienStats from '@/app/components/biens/BienStats';
-import { useTheme } from '@/app/providers/ThemeProvider';
-import { DISTRICTS_CI, TYPES_BIENS_CI, STATUTS_BIENS_CI } from '@/app/types/ci';
-import toast from 'react-hot-toast';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
+import { useTheme } from '@/app/providers/ThemeProvider';
+import toast from 'react-hot-toast';
 import './biens.css';
 
 export interface Bien {
   id: number;
   proprietaire_id: number;
   nom: string;
+  type_bien: string;
+  statut: string;
   adresse: string;
   quartier?: string;
   commune: string;
   ville: string;
   district: string;
-  pays: string;  // ✅ Ajoutez cette ligne
-  type_bien: string;
-  statut: string;
+  pays: string;
   surface: number;
   pieces: number;
   etage?: number;
   description?: string;
-  loyer_mensuel: number;
-  charges: number;
-  depot_garantie?: number;
+  loyer_mensuel?: number;      // ✅ Optionnel
+  charges?: number;             // ✅ Optionnel
+  depot_garantie?: number;      // ✅ Optionnel
+  prix_vente?: number;          // ✅ Nouveau champ
   date_acquisition?: string;
   latitude?: number;
   longitude?: number;
-  photos?: { id: number; url: string; legende?: string; est_principale: boolean | number }[];
+  photos?: { id: number; url: string; legende?: string; est_principale: boolean }[];
   locataire_actuel?: {
     id: number;
     nom: string;
@@ -55,17 +54,14 @@ export default function BiensPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedBien, setSelectedBien] = useState<Bien | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedBienForDetail, setSelectedBienForDetail] = useState<Bien | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bienToDelete, setBienToDelete] = useState<Bien | null>(null);
-  
   const [stats, setStats] = useState({
     total: 0,
     loues: 0,
     disponibles: 0,
-    revenusMensuels: 0,
-    tauxOccupation: 0
+    enVente: 0,
+    revenusMensuels: 0
   });
   
   const router = useRouter();
@@ -117,17 +113,17 @@ export default function BiensPage() {
     const total = biensData.length;
     const loues = biensData.filter(b => b.statut === 'LOUE').length;
     const disponibles = biensData.filter(b => b.statut === 'DISPONIBLE').length;
+    const enVente = biensData.filter(b => b.statut === 'EN_VENTE').length;
     const revenusMensuels = biensData
-      .filter(b => b.statut === 'LOUE')
-      .reduce((sum, b) => sum + b.loyer_mensuel, 0);
-    const tauxOccupation = total > 0 ? Math.round((loues / total) * 100) : 0;
+      .filter(b => b.statut === 'LOUE' && b.loyer_mensuel)
+      .reduce((sum, b) => sum + (b.loyer_mensuel || 0), 0);
 
     setStats({
       total,
       loues,
       disponibles,
-      revenusMensuels,
-      tauxOccupation
+      enVente,
+      revenusMensuels
     });
   };
 
@@ -157,11 +153,25 @@ export default function BiensPage() {
     }
 
     if (filters.prixMin) {
-      filtered = filtered.filter(b => b.loyer_mensuel >= parseInt(filters.prixMin));
+      const prixMin = parseInt(filters.prixMin);
+      filtered = filtered.filter(b => {
+        if (b.statut === 'EN_VENTE') {
+          return (b.prix_vente || 0) >= prixMin;
+        } else {
+          return (b.loyer_mensuel || 0) >= prixMin;
+        }
+      });
     }
 
     if (filters.prixMax) {
-      filtered = filtered.filter(b => b.loyer_mensuel <= parseInt(filters.prixMax));
+      const prixMax = parseInt(filters.prixMax);
+      filtered = filtered.filter(b => {
+        if (b.statut === 'EN_VENTE') {
+          return (b.prix_vente || 0) <= prixMax;
+        } else {
+          return (b.loyer_mensuel || 0) <= prixMax;
+        }
+      });
     }
 
     setFilteredBiens(filtered);
@@ -178,18 +188,22 @@ export default function BiensPage() {
   };
 
   const handleViewBien = (id: number) => {
-  const bien = biens.find(b => b.id === id);
-  if (bien) {
-    setSelectedBienForDetail(bien);
-    setShowDetailModal(true);
-  }
-};
+    router.push(`/biens/${id}`);
+  };
 
-  const handleDeleteBien = async (id: number) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce bien ?')) return;
+  const handleDeleteClick = (id: number) => {
+    const bien = biens.find(b => b.id === id);
+    if (bien) {
+      setBienToDelete(bien);
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bienToDelete) return;
 
     try {
-      const response = await fetch(`/api/biens/${id}`, {
+      const response = await fetch(`/api/biens/${bienToDelete.id}`, {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -203,41 +217,11 @@ export default function BiensPage() {
     } catch (error) {
       console.error('Erreur:', error);
       toast.error('Erreur lors de la suppression');
+    } finally {
+      setShowDeleteConfirm(false);
+      setBienToDelete(null);
     }
   };
-
-  const handleDeleteClick = (id: number) => {
-  const bien = biens.find(b => b.id === id);
-  if (bien) {
-    setBienToDelete(bien);
-    setShowDeleteConfirm(true);
-  }
-};
-
-const handleConfirmDelete = async () => {
-  if (!bienToDelete) return;
-  
-  try {
-    const response = await fetch(`/api/biens/${bienToDelete.id}`, {
-      method: 'DELETE'
-    });
-    const data = await response.json();
-
-    if (data.success) {
-      toast.success('Bien supprimé avec succès');
-      chargerBiens();
-    } else {
-      toast.error(data.erreur || 'Erreur lors de la suppression');
-    }
-  } catch (error) {
-    console.error('Erreur:', error);
-    toast.error('Erreur lors de la suppression');
-  } finally {
-    setShowDeleteConfirm(false);
-    setBienToDelete(null);
-  }
-};
-
 
   const handleFormSuccess = () => {
     setShowForm(false);
@@ -272,7 +256,7 @@ const handleConfirmDelete = async () => {
         <Header 
           utilisateur={utilisateur} 
           titre="Gestion des biens"
-          sousTitre="Consultez et gérez votre patrimoine immobilier en Côte d'Ivoire"
+          sousTitre="Consultez et gérez votre patrimoine immobilier"
           entreprise={entreprise?.nom}
           entrepriseLogo={entreprise?.logo_url}
         />
@@ -285,8 +269,8 @@ const handleConfirmDelete = async () => {
           <div className="biens-actions-bar">
             <BienFilters 
               onFilter={handleFilter}
-              types={TYPES_BIENS_CI.map(t => t.value)}
-              statuts={STATUTS_BIENS_CI.map(s => s.value)}
+              types={['APPARTEMENT', 'MAISON', 'COMMERCIAL', 'TERRAIN', 'ENTREPOT', 'VILLA', 'STUDIO', 'BUREAU']}
+              statuts={['DISPONIBLE', 'LOUE', 'EN_TRAVAUX', 'EN_VENTE', 'RESERVE']}
               districts={districts}
             />
             
@@ -309,7 +293,7 @@ const handleConfirmDelete = async () => {
             <div className="biens-empty">
               <div className="empty-icon">🏢</div>
               <h3>Aucun bien trouvé</h3>
-              <p>Commencez par ajouter votre premier bien immobilier en Côte d'Ivoire</p>
+              <p>Commencez par ajouter votre premier bien immobilier</p>
               <button 
                 className="btn-add-bien empty-btn"
                 onClick={handleAddBien}
@@ -336,7 +320,7 @@ const handleConfirmDelete = async () => {
         </div>
       </div>
 
-      {/* Modal Formulaire */}
+      {/* Modale Formulaire */}
       <AnimatePresence>
         {showForm && (
           <BienForm
@@ -348,16 +332,7 @@ const handleConfirmDelete = async () => {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {showDetailModal && selectedBienForDetail && (
-          <BienDetailModal
-            bien={selectedBienForDetail}
-            onClose={() => setShowDetailModal(false)}
-            onEdit={handleEditBien}
-          />
-        )}
-      </AnimatePresence>
-
+      {/* Modale de confirmation */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         title="Supprimer le bien"
