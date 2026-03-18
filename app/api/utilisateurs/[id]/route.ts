@@ -111,37 +111,49 @@ export async function PUT(
       }
     }
 
-    // Gérer l'avatar si présent
+    // ✅ Gérer l'avatar en base64 (sans écrire sur le disque)
     let avatar_url = existingUser.avatar;
     
     if (avatar && avatar.size > 0) {
-      // Créer le dossier uploads s'il n'existe pas
-      const uploadDir = path.join(process.cwd(), 'public/uploads/avatars');
       try {
-        await mkdir(uploadDir, { recursive: true });
-      } catch (error) {
-        // Le dossier existe déjà
-      }
+        // Limiter la taille à 2MB
+        if (avatar.size > 2 * 1024 * 1024) {
+          return NextResponse.json(
+            { success: false, erreur: 'L\'avatar ne doit pas dépasser 2MB' },
+            { status: 400 }
+          );
+        }
 
-      // Générer un nom unique
-      const fileExtension = avatar.name.split('.').pop();
-      const fileName = `avatar-${uuidv4()}.${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
-      
-      // Sauvegarder le fichier
-      const bytes = await avatar.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
-      
-      avatar_url = `/uploads/avatars/${fileName}`;
+        // Vérifier le type de fichier
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(avatar.type)) {
+          return NextResponse.json(
+            { success: false, erreur: 'Format d\'image non supporté. Utilisez JPG, PNG, GIF ou WEBP' },
+            { status: 400 }
+          );
+        }
+
+        // Convertir le fichier en base64
+        const bytes = await avatar.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const base64 = buffer.toString('base64');
+        const mimeType = avatar.type;
+        
+        avatar_url = `data:${mimeType};base64,${base64}`;
+        console.log('✅ Avatar converti en base64');
+      } catch (uploadError) {
+        console.error('❌ Erreur conversion avatar:', uploadError);
+        return NextResponse.json(
+          { success: false, erreur: 'Erreur lors du traitement de l\'avatar' },
+          { status: 500 }
+        );
+      }
     }
 
-    // Construire la requête UPDATE en préservant les valeurs existantes
+    // Construire la requête UPDATE
     const updateFields = [];
     const queryParams: any[] = [];
 
-    // N'utiliser les nouvelles valeurs que si elles sont fournies
-    // Sinon, garder les valeurs existantes
     updateFields.push('email = ?');
     queryParams.push(email || existingUser.email);
 
@@ -164,10 +176,6 @@ export async function PUT(
       queryParams.push(hashedPassword);
     }
 
-    // ✅ IMPORTANT: Préserver le rôle et le statut
-    // On ne les modifie pas du tout dans cette requête
-    // Donc pas de champ role ou actif dans updateFields
-
     // Ajouter l'ID à la fin
     queryParams.push(id);
 
@@ -184,10 +192,10 @@ export async function PUT(
       message: 'Profil mis à jour avec succès'
     });
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur PUT utilisateur:', error);
     return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur' },
+      { success: false, erreur: `Erreur serveur: ${error.message}` },
       { status: 500 }
     );
   }
