@@ -54,6 +54,11 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
     return icons[type] || '🏢';
   };
 
+  // ✅ Déterminer le type d'affichage financier
+  const isVente = bien.statut === 'EN_VENTE';
+  const prixPrincipal = isVente ? bien.prix_vente : bien.loyer_mensuel;
+  const prixLabel = isVente ? 'Prix de vente' : 'Loyer mensuel';
+
   return (
     <motion.div 
       className="modal-overlay"
@@ -171,25 +176,34 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
             <div className="detail-section">
               <h3>
                 <span className="section-icon">💰</span>
-                Aspects financiers
+                {isVente ? 'Prix de vente' : 'Aspects financiers'}
               </h3>
               <div className="detail-finances">
-                <div className="finance-item">
-                  <span className="finance-label">Loyer mensuel</span>
-                  <span className="finance-value highlight">{formatMoney(bien.loyer_mensuel)}</span>
-                </div>
-                {bien.charges > 0 && (
+                {/* ✅ Prix principal (loyer ou vente) */}
+                {prixPrincipal !== undefined && prixPrincipal !== null && (
+                  <div className="finance-item">
+                    <span className="finance-label">{prixLabel}</span>
+                    <span className="finance-value highlight">{formatMoney(prixPrincipal)}</span>
+                  </div>
+                )}
+
+                {/* ✅ Charges (uniquement pour les locations) */}
+                {!isVente && bien.charges !== undefined && bien.charges > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Charges</span>
                     <span className="finance-value">{formatMoney(bien.charges)}</span>
                   </div>
                 )}
-                {bien.depot_garantie && (
+
+                {/* ✅ Dépôt de garantie (uniquement pour les locations) */}
+                {!isVente && bien.depot_garantie !== undefined && bien.depot_garantie > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Dépôt de garantie</span>
                     <span className="finance-value">{formatMoney(bien.depot_garantie)}</span>
                   </div>
                 )}
+
+                {/* ✅ Date d'acquisition */}
                 {bien.date_acquisition && (
                   <div className="finance-item">
                     <span className="finance-label">Date d'acquisition</span>

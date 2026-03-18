@@ -30,10 +30,10 @@ export interface Bien {
   pieces: number;
   etage?: number;
   description?: string;
-  loyer_mensuel?: number;      // ✅ Optionnel
-  charges?: number;             // ✅ Optionnel
-  depot_garantie?: number;      // ✅ Optionnel
-  prix_vente?: number;          // ✅ Nouveau champ
+  loyer_mensuel?: number;
+  charges?: number;
+  depot_garantie?: number;
+  prix_vente?: number;
   date_acquisition?: string;
   latitude?: number;
   longitude?: number;
@@ -56,6 +56,8 @@ export default function BiensPage() {
   const [selectedBien, setSelectedBien] = useState<Bien | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bienToDelete, setBienToDelete] = useState<Bien | null>(null);
+  
+  // ✅ Stats avec la propriété enVente
   const [stats, setStats] = useState({
     total: 0,
     loues: 0,
@@ -109,6 +111,7 @@ export default function BiensPage() {
     }
   };
 
+  // ✅ Calcul des stats avec enVente
   const calculerStats = (biensData: Bien[]) => {
     const total = biensData.length;
     const loues = biensData.filter(b => b.statut === 'LOUE').length;
@@ -262,7 +265,7 @@ export default function BiensPage() {
         />
         
         <div className="biens-content">
-          {/* Statistiques */}
+          {/* ✅ Statistiques - maintenant compatible */}
           <BienStats stats={stats} formatMoney={formatMoney} />
 
           {/* Barre d'actions */}

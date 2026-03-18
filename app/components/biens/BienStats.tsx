@@ -9,7 +9,7 @@ interface BienStatsProps {
     total: number;
     loues: number;
     disponibles: number;
-    enVente: number;        // ✅ Ajouté
+    enVente: number;
     revenusMensuels: number;
   };
   formatMoney: (amount: number) => string;
