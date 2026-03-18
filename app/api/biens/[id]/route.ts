@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 // GET - Récupérer un bien spécifique
 export async function GET(
@@ -81,6 +78,7 @@ export async function PUT(
     const loyer_mensuel = formData.get('loyer_mensuel') as string;
     const charges = formData.get('charges') as string;
     const depot_garantie = formData.get('depot_garantie') as string;
+    const prix_vente = formData.get('prix_vente') as string;
     const date_acquisition = formData.get('date_acquisition') as string;
     const latitude = formData.get('latitude') as string;
     const longitude = formData.get('longitude') as string;
@@ -92,7 +90,7 @@ export async function PUT(
     console.log('🗑️ Photos à supprimer:', photosToDelete);
     console.log('📸 Nouvelles photos:', newPhotos.length);
 
-    // Validation
+    // Validation des champs obligatoires
     if (!nom || !type_bien || !adresse || !commune || !district || !surface || !pieces || !loyer_mensuel) {
       return NextResponse.json(
         { success: false, erreur: 'Champs obligatoires manquants' },
@@ -102,9 +100,6 @@ export async function PUT(
 
     const surfaceNum = parseFloat(surface);
     const piecesNum = parseInt(pieces);
-    const loyerNum = parseFloat(loyer_mensuel);
-    const chargesNum = charges ? parseFloat(charges) : 0;
-    const depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
     const etageNum = etage ? parseInt(etage) : null;
     const latitudeNum = latitude ? parseFloat(latitude) : null;
     const longitudeNum = longitude ? parseFloat(longitude) : null;
@@ -116,6 +111,48 @@ export async function PUT(
         dateAcquisitionFormatted = date_acquisition.split('T')[0];
       } else {
         dateAcquisitionFormatted = date_acquisition;
+      }
+    }
+
+    // ✅ CORRECTION: Gestion des valeurs financières selon le statut
+    let loyerNum = 0;
+    let chargesNum = 0;
+    let depotNum = null;
+    let prixVenteNum = null;
+
+    if (statut === 'EN_VENTE') {
+      // Mode vente
+      if (prix_vente) {
+        prixVenteNum = parseFloat(prix_vente);
+        if (isNaN(prixVenteNum) || prixVenteNum <= 0) {
+          return NextResponse.json(
+            { success: false, erreur: 'Prix de vente invalide' },
+            { status: 400 }
+          );
+        }
+      }
+      loyerNum = 0;
+      chargesNum = 0;
+    } else {
+      // Mode location
+      if (loyer_mensuel) {
+        loyerNum = parseFloat(loyer_mensuel);
+        if (isNaN(loyerNum) || loyerNum < 0) {
+          return NextResponse.json(
+            { success: false, erreur: 'Loyer mensuel invalide' },
+            { status: 400 }
+          );
+        }
+      }
+      
+      chargesNum = charges ? parseFloat(charges) : 0;
+      if (isNaN(chargesNum) || chargesNum < 0) {
+        chargesNum = 0;
+      }
+      
+      depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
+      if (depotNum !== null && (isNaN(depotNum) || depotNum < 0)) {
+        depotNum = null;
       }
     }
 
@@ -133,14 +170,7 @@ export async function PUT(
       );
     }
 
-    if (isNaN(loyerNum) || loyerNum <= 0) {
-      return NextResponse.json(
-        { success: false, erreur: 'Loyer mensuel invalide' },
-        { status: 400 }
-      );
-    }
-
-    // ✅ 1. SUPPRIMER LES PHOTOS MARQUÉES (uniquement de la BDD, pas de fichiers)
+    // ✅ 1. SUPPRIMER LES PHOTOS MARQUÉES
     if (photosToDelete.length > 0) {
       for (const photoId of photosToDelete) {
         await queryInsert('DELETE FROM photos WHERE id = ?', [photoId]);
@@ -154,13 +184,17 @@ export async function PUT(
         nom = ?, type_bien = ?, statut = ?, adresse = ?, quartier = ?, commune = ?,
         ville = ?, district = ?, pays = ?, surface = ?, pieces = ?, etage = ?,
         description = ?, loyer_mensuel = ?, charges = ?, depot_garantie = ?,
-        date_acquisition = ?, latitude = ?, longitude = ?, updated_at = NOW()
+        prix_vente = ?, date_acquisition = ?, latitude = ?, longitude = ?, updated_at = NOW()
        WHERE id = ?`,
       [
         nom, type_bien, statut, adresse, quartier || null, commune,
         ville || 'Abidjan', district, pays || 'Côte d\'Ivoire',
         surfaceNum, piecesNum, etageNum,
-        description || null, loyerNum, chargesNum, depotNum,
+        description || null, 
+        loyerNum, 
+        chargesNum, 
+        depotNum,
+        prixVenteNum,
         dateAcquisitionFormatted,
         latitudeNum, longitudeNum, id
       ]
@@ -243,9 +277,18 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Plus besoin de supprimer les fichiers physiques
-    // La suppression en cascade s'occupe des photos dans la BDD
+    // Récupérer les photos pour les supprimer
+    const photos = await queryRows(
+      'SELECT url FROM photos WHERE bien_id = ?',
+      [id]
+    ) as any[];
 
+    console.log(`🗑️ Suppression du bien ${id} avec ${photos.length} photos`);
+
+    // Supprimer les photos de la BDD (les fichiers sont en base64, pas besoin de suppression physique)
+    await queryInsert('DELETE FROM photos WHERE bien_id = ?', [id]);
+
+    // Supprimer le bien
     await queryInsert('DELETE FROM biens WHERE id = ?', [id]);
 
     return NextResponse.json({

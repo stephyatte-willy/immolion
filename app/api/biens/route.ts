@@ -29,7 +29,6 @@ export async function GET(request: NextRequest) {
       params
     ) as any[];
 
-    // Traitement des JSON
     const biensFormatted = biens.map(b => {
       let photos = b.photos;
       if (typeof photos === 'string') {
@@ -117,11 +116,17 @@ export async function POST(request: NextRequest) {
       errors.push('pieces manquant');
     }
 
-    // Validation conditionnelle selon le statut
+    // ✅ CORRECTION: Validation selon le statut
     if (statut === 'EN_VENTE') {
-      if (!prix_vente) errors.push('prix_vente manquant');
+      if (!prix_vente) {
+        errors.push('prix_vente manquant');
+      }
+      // Pour une vente, le loyer n'est pas requis
     } else {
-      if (!loyer_mensuel) errors.push('loyer_mensuel manquant');
+      // Pour une location (LOUE, DISPONIBLE, etc.)
+      if (!loyer_mensuel) {
+        errors.push('loyer_mensuel manquant');
+      }
     }
 
     if (errors.length > 0) {
@@ -152,7 +157,7 @@ export async function POST(request: NextRequest) {
     const latitudeNum = latitude ? parseFloat(latitude) : null;
     const longitudeNum = longitude ? parseFloat(longitude) : null;
 
-    // Gestion des valeurs financières selon le statut
+    // ✅ CORRECTION: Gestion des valeurs financières selon le statut
     let loyerNum = 0;
     let chargesNum = 0;
     let depotNum = null;
@@ -169,6 +174,9 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+      // Pour une vente, loyer = 0
+      loyerNum = 0;
+      chargesNum = 0;
     } else {
       // Mode location
       if (loyer_mensuel) {
@@ -255,20 +263,17 @@ export async function POST(request: NextRequest) {
         const photo = photos[i];
         
         try {
-          // Limiter la taille à 5MB par photo
           if (photo.size > 5 * 1024 * 1024) {
             console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
             continue;
           }
 
-          // Vérifier le type
           const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
           if (!allowedTypes.includes(photo.type)) {
             console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
             continue;
           }
 
-          // Convertir en base64
           const bytes = await photo.arrayBuffer();
           const buffer = Buffer.from(bytes);
           const base64 = buffer.toString('base64');
