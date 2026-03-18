@@ -9,12 +9,11 @@ import Header from '@/app/components/layout/Header';
 import InfoEntreprise from '@/app/components/parametres/InfoEntreprise';
 import GestionRoles from '@/app/components/parametres/GestionRoles';
 import ConfigurationGenerale from '@/app/components/parametres/ConfigurationGenerale';
-import Securite from '@/app/components/parametres/Securite';
-import ApiKeys from '@/app/components/parametres/ApiKeys';
-import './parametres.css';
+import '@/app/components/layout/Header.css';
 
 export default function Parametres() {
   const [utilisateur, setUtilisateur] = useState<any>(null);
+  const [entreprise, setEntreprise] = useState<any>(null); // ✅ Ajout de l'état entreprise
   const [activeTab, setActiveTab] = useState('entreprise');
   const router = useRouter();
 
@@ -25,14 +24,28 @@ export default function Parametres() {
       return;
     }
     setUtilisateur(JSON.parse(userStr));
+    
+    // ✅ Charger les informations de l'entreprise
+    chargerEntreprise();
   }, []);
+
+  // ✅ Fonction pour charger l'entreprise
+  const chargerEntreprise = async () => {
+    try {
+      const response = await fetch('/api/entreprise');
+      const data = await response.json();
+      if (data.success) {
+        setEntreprise(data.entreprise);
+      }
+    } catch (error) {
+      console.error('Erreur chargement entreprise:', error);
+    }
+  };
 
   const tabs = [
     { id: 'entreprise', label: 'Entreprise', icon: '🏢' },
     { id: 'roles', label: 'Rôles & Permissions', icon: '👥' },
-    { id: 'general', label: 'Configuration', icon: '⚙️' },
-    { id: 'securite', label: 'Sécurité', icon: '🔒' },
-    { id: 'api', label: 'API & Intégrations', icon: '🔌' }
+    { id: 'general', label: 'Configuration', icon: '⚙️' }
   ];
 
   if (!utilisateur) {
@@ -47,12 +60,14 @@ export default function Parametres() {
   return (
     <div className="parametres-container">
       <Sidebar />
-      
       <div className="parametres-main">
+      
         <Header 
           utilisateur={utilisateur} 
           titre="Paramètres"
-          sousTitre="Configuration de l'application et de l'entreprise"
+          sousTitre={`Bienvenue, ${utilisateur?.prenom}`}
+          entreprise={entreprise?.nom}       
+          entrepriseLogo={entreprise?.logo_url} 
         />
         
         <div className="parametres-content">
@@ -79,8 +94,6 @@ export default function Parametres() {
             {activeTab === 'entreprise' && <InfoEntreprise />}
             {activeTab === 'roles' && <GestionRoles />}
             {activeTab === 'general' && <ConfigurationGenerale />}
-            {activeTab === 'securite' && <Securite />}
-            {activeTab === 'api' && <ApiKeys />}
           </motion.div>
         </div>
       </div>

@@ -70,9 +70,7 @@ const menuItems: MenuItem[] = [
 
 const getBadgeCount = (itemId: string): number | undefined => {
   const badges: Record<string, number> = {
-    'documents': 3,
-    'paiements': 2,
-    'calendrier': 1
+    
   };
   return badges[itemId];
 };
@@ -162,7 +160,6 @@ export default function Sidebar() {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className="sidebar-header">
-          <div className="logo-area">
             <div className="logo-wrapper">
               <div className="logo-glow"></div>
               <div className="logo-icon">
@@ -173,14 +170,11 @@ export default function Sidebar() {
               <div className="brand-text">
                 <span className="brand-name">ImmoLion</span>
                 <div className="sidebar-company">
-            <div className="company-badge">
               <span className="company-badge-name">Gestion Immobilière</span>
             </div>
           </div>
-              </div>
               
             )}
-          </div>
           
           <button 
             className="toggle-sidebar"

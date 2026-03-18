@@ -8,8 +8,6 @@ import Header from '@/app/components/layout/Header';
 import InfoEntreprise from '@/app/components/parametres/InfoEntreprise';
 import GestionRoles from '@/app/components/parametres/GestionRoles';
 import ConfigurationGenerale from '@/app/components/parametres/ConfigurationGenerale';
-import Securite from '@/app/components/parametres/Securite';
-import ApiKeys from '@/app/components/parametres/ApiKeys';
 import './parametres.css';
 
 export default function Parametres() {
@@ -43,9 +41,7 @@ export default function Parametres() {
   const tabs = [
     { id: 'entreprise', label: 'Entreprise', icon: '🏢' },
     { id: 'roles', label: 'Rôles & Permissions', icon: '👥' },
-    { id: 'general', label: 'Configuration', icon: '⚙️' },
-    { id: 'securite', label: 'Sécurité', icon: '🔒' },
-    { id: 'api', label: 'API & Intégrations', icon: '🔌' }
+    { id: 'general', label: 'Configuration', icon: '⚙️' }
   ];
 
   return (
@@ -85,8 +81,6 @@ export default function Parametres() {
             {activeTab === 'entreprise' && <InfoEntreprise />}
             {activeTab === 'roles' && <GestionRoles />}
             {activeTab === 'general' && <ConfigurationGenerale />}
-            {activeTab === 'securite' && <Securite />}
-            {activeTab === 'api' && <ApiKeys />}
           </motion.div>
         </div>
       </div>

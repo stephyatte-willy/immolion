@@ -1,6 +1,6 @@
 // app/api/auth/logout/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { destroySession } from './../../../lib/auth';
+import { destroySession } from '@/app/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {

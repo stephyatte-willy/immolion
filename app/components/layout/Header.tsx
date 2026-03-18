@@ -37,7 +37,9 @@ export default function Header({
       <div className="header-left">
         <div className="header-title-wrapper">
           <h1 className="header-titre">{titre}</h1>
-          <div className="header-entreprise">
+          
+        </div>
+        <div className="header-entreprise">
             {entrepriseLogo ? (
               <div className="header-entreprise-logo">
                 <img 
@@ -53,8 +55,6 @@ export default function Header({
             )}
             <span className="entreprise-name">{entreprise || 'ImmoLion'}</span>
           </div>
-        </div>
-        {sousTitre && <p className="header-sous-titre">{sousTitre}</p>}
       </div>
 
       <div className="header-right">
@@ -138,9 +138,14 @@ export default function Header({
               <a href="/profil" className="dropdown-item">
                 <span>👤</span> Mon profil
               </a>
-              <a href="/parametres" className="dropdown-item">
-                <span>⚙️</span> Paramètres
-              </a>
+              
+              {/* ✅ Lien Paramètres visible seulement pour SUPER_ADMIN et ADMIN */}
+              {utilisateur && (utilisateur.role === 'SUPER_ADMIN' || utilisateur.role === 'ADMIN') && (
+                <a href="/parametres" id='parametres' className="dropdown-item">
+                  <span>⚙️</span> Paramètres
+                </a>
+              )}
+              
               <div className="dropdown-divider"></div>
               <button onClick={handleLogout} className="dropdown-item logout">
                 <span>🚪</span> Déconnexion

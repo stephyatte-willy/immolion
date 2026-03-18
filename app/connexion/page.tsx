@@ -124,19 +124,14 @@ export default function PageConnexion() {
               </div>
             ) : (
               <>
-                <motion.div 
-                  className="brand-logo-wrapper"
-                  animate={{ 
-                    scale: [1, 1.05, 1],
-                  }}
-                  transition={{ 
-                    duration: 4,
-                    repeat: Infinity,
-                    repeatType: "reverse"
-                  }}
-                >    
-              <h2>Bienvenue</h2>
-                </motion.div>                
+              <div className="form-logo-mini">
+                <img src="/logo_immolion.png" alt="ImmoLion" />
+              </div>
+                <div className="brand-divider">
+                  <span className="divider-line"></span>
+                  <span className="divider-icon">ImmoLion</span>
+                  <span className="divider-line"></span>
+                </div>               
                 
               <div className="brand-company">
                 <div className="company-header">
@@ -213,14 +208,27 @@ export default function PageConnexion() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              <div className="form-logo-mini">
-                <img src="/logo_immolion.png" alt="ImmoLion" />
-              </div>
-              <div className="brand-divider">
-                  <span className="divider-line"></span>
-                  <span className="divider-icon">ImmoLion</span>
-                  <span className="divider-line"></span>
-                </div>
+              
+                  <AnimatePresence>
+                {utilisateurTrouve && (
+                  <motion.div 
+                    className="user-hint"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                  >
+                    <div className="user-info-mini">
+                      <span className="user-name-mini">
+                        Bienvenue 😀 ! {utilisateurTrouve.prenom} {utilisateurTrouve.nom}
+                      </span>
+                      <span className="user-role-mini">
+                        {formaterRole(utilisateurTrouve.role)}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>                 
+                  <span className="divider-line2">Connectez-vous pour accéder aux services</span>
             </motion.div>
 
             <form onSubmit={gererSoumission} className="connexion-form">
@@ -234,10 +242,12 @@ export default function PageConnexion() {
                 <div className="input-wrapper">
                   <span className="input-icon">✉️</span>
                   <input
+                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="votre@email.com"
+                    className="input-champ"
+                    placeholder="Votre email"
                     required
                     disabled={chargement}
                   />
@@ -263,29 +273,6 @@ export default function PageConnexion() {
                   />
                 </div>
               </motion.div>
-
-              <AnimatePresence>
-                {utilisateurTrouve && (
-                  <motion.div 
-                    className="user-hint"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                  >
-                    <div className="user-avatar-mini">
-                      {utilisateurTrouve.prenom[0]}{utilisateurTrouve.nom[0]}
-                    </div>
-                    <div className="user-info-mini">
-                      <span className="user-name-mini">
-                        {utilisateurTrouve.prenom} {utilisateurTrouve.nom}
-                      </span>
-                      <span className="user-role-mini">
-                        {formaterRole(utilisateurTrouve.role)}
-                      </span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
               <AnimatePresence>
                 {erreur && (

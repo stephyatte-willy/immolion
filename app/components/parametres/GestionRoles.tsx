@@ -36,14 +36,14 @@ export default function GestionRoles() {
   const [filterRole, setFilterRole] = useState<string>('');
 
   const permissionsParModule = {
-    dashboard: ['dashboard:view'],
-    biens: ['biens:view', 'biens:create', 'biens:edit', 'biens:delete'],
-    locataires: ['locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete'],
-    contrats: ['contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete'],
-    paiements: ['paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete'],
-    documents: ['documents:view', 'documents:upload', 'documents:delete'],
-    utilisateurs: ['utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit', 'utilisateurs:delete'],
-    administration: ['roles:manage', 'parametres:view', 'parametres:edit', 'logs:view', 'api:manage']
+    dashboard: ['dashboard:voir'],
+    biens: ['biens:voir', 'biens:créer', 'biens:modifier', 'biens:supprimer'],
+    locataires: ['locataires:voir', 'locataires:créer', 'locataires:modifier', 'locataires:supprimer'],
+    contrats: ['contrats:voir', 'contrats:créer', 'contrats:modifier', 'contrats:supprimer'],
+    paiements: ['paiements:voir', 'paiements:créer', 'paiements:modifier', 'paiements:supprimer'],
+    documents: ['documents:voir', 'documents:upload', 'documents:supprimer'],
+    utilisateurs: ['utilisateurs:voir', 'utilisateurs:créer', 'utilisateurs:modifier', 'utilisateurs:supprimer'],
+    administration: ['roles:paramétrer', 'parametres:voir', 'parametres:modifier', 'logs:voir', 'api:paramétrer']
   };
 
   // Charger les utilisateurs
@@ -212,7 +212,7 @@ export default function GestionRoles() {
             >
               {Object.entries(permissionsParModule).map(([module, permissions]) => (
                 <div key={module} className="permission-module">
-                  <h4>{module.charAt(0).toUpperCase() + module.slice(1)}</h4>
+                  <h4>● {module.charAt(0).toUpperCase() + module.slice(1)}</h4>
                   <div className="permissions-grid">
                     {permissions.map((permission) => (
                       <label key={permission} className="permission-checkbox">
@@ -243,7 +243,7 @@ export default function GestionRoles() {
             </motion.div>
           ) : (
             <motion.div
-              key="view"
+              key="voir"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}

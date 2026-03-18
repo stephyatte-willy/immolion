@@ -1,0 +1,984 @@
+/* app/locataires/locataires.css */
+.locataires-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.locataires-main {
+  flex: 1;
+  margin-left: 280px;
+}
+
+.locataires-content {
+  padding: 30px;
+}
+
+/* Statistiques */
+.locataires-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+/* Barre d'actions */
+.locataires-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  gap: 20px;
+}
+
+.btn-add-locataire {
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #bcb901, #776d01);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.btn-add-locataire:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
+}
+
+/* Grille des locataires */
+.locataires-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+/* Carte locataire */
+.locataire-card {
+  background: rgb(250, 249, 228);
+  border: 1px solid rgb(205, 203, 203);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.locataire-card:hover {
+  border-color: var(--lion-gold);
+  box-shadow: 0 20px 30px -10px rgba(212, 175, 55, 0.2);
+}
+
+.locataire-card-header {
+  padding: 20px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.locataire-avatar {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, rgb(36, 0, 215), rgb(147, 123, 244));
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
+}
+
+.locataire-statut {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.statut-actif {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.statut-inactif {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.statut-sorti {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.statut-prospect {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.locataire-card-body {
+  padding: 20px;
+}
+
+.locataire-nom {
+  font-size: 14px;
+  font-weight: 600;
+  color: #776d01;
+  margin-bottom: 15px;
+}
+
+.locataire-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #3e3f41;
+  font-size: 12px;
+}
+
+.info-icon {
+  width: 24px;
+  font-size: 16px;
+}
+
+.info-text {
+  flex: 1;
+  word-break: break-all;
+}
+
+.locataire-bien {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.bien-icon {
+  font-size: 14px;
+}
+
+.bien-nom {
+  font-weight: 500;
+}
+
+.locataire-alerte {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #ef4444;
+}
+
+.locataire-card-footer {
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Filtres */
+.locataires-filters {
+  position: relative;
+  flex: 1;
+}
+
+/* Modal formulaire */
+.locataire-form-modal {
+  max-width: 800px !important;
+  width: 95%;
+}
+
+/* Loading et empty states */
+.locataires-loading {
+  text-align: center;
+  padding: 60px;
+  color: var(--text-secondary);
+}
+
+.locataires-empty {
+  text-align: center;
+  padding: 60px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.locataires-empty h3 {
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.locataires-empty p {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .locataires-main {
+    margin-left: 0;
+  }
+  
+  .locataires-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .locataires-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .locataires-filters {
+    width: 100%;
+  }
+  
+  .locataires-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Ajouter à la fin du fichier locataires.css */
+
+/* Modale de détail */
+.locataire-detail-modal {
+  max-width: 900px !important;
+  width: 95%;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+/* En-tête */
+.locataire-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 25px 30px;
+  background: linear-gradient(135deg, rgb(36, 0, 215), rgb(147, 123, 244));
+  border-bottom: 2px solid var(--lion-gold);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.locataire-detail-avatar {
+  width: 70px;
+  height: 70px;
+  background: linear-gradient(135deg, rgb(134, 137, 0), rgb(222, 204, 0));
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
+}
+
+.locataire-detail-title h2 {
+  font-size: 24px;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+}
+
+.locataire-detail-subtitle {
+  display: flex;
+  gap: 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.detail-email::before {
+  content: '✉️';
+  margin-right: 5px;
+  opacity: 0.7;
+}
+
+.detail-tel::before {
+  content: '📞';
+  margin-right: 5px;
+  opacity: 0.7;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.locataire-detail-statut {
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* Onglets */
+.locataire-detail-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 0 30px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+  padding: 15px 20px;
+  background: linear-gradient(90deg, #996cfa, #4605eb);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  border: none;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: linear-gradient(90deg, #4605eb, #996cfa);
+}
+
+.tab-btn.active {
+  color: #3e3f41;
+  background: #e3daff;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #94a3b8;
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-icon {
+  font-size: 18px;
+}
+
+/* Corps */
+.locataire-detail-body {
+  padding: 30px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.tab-content {
+  min-height: 400px;
+}
+
+/* Cartes d'information */
+.detail-card {
+  background: var(--bg-tertiary);
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border-color);
+}
+
+.detail-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  color: var(--lion-gold);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.card-icon {
+  font-size: 20px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.detail-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.detail-value.highlight {
+  color: var(--lion-gold);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.notes-text {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+/* Contrats dans l'onglet */
+.contrats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.contrat-card {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+}
+
+.contrat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.contrat-numero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.contrat-icon {
+  font-size: 16px;
+}
+
+.contrat-statut {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.contrat-statut.actif {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.contrat-statut.termine {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+.contrat-statut.resilie {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.contrat-body p {
+  margin: 5px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.contrat-body strong {
+  color: var(--text-primary);
+  min-width: 60px;
+  display: inline-block;
+}
+
+/* Paiements dans l'onglet */
+.paiements-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 15px;
+}
+
+.paiement-card {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 15px;
+  border: 1px solid var(--border-color);
+}
+
+.paiement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.paiement-mois {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.paiement-statut {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.paiement-statut.effectue {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.paiement-statut.en_attente {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.paiement-statut.en_retard {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.paiement-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paiement-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.info-value {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.info-value.highlight {
+  color: var(--lion-gold);
+}
+
+/* Documents dans l'onglet */
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.document-card {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.document-card:hover {
+  border-color: var(--lion-gold);
+  transform: translateY(-2px);
+}
+
+.document-icon {
+  width: 40px;
+  height: 40px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.document-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.document-info h4 {
+  font-size: 14px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.document-info p {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.document-date {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.document-download {
+  width: 32px;
+  height: 32px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lion-gold);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.document-download:hover {
+  background: var(--lion-gold);
+  color: white;
+}
+
+/* État vide */
+.empty-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--text-tertiary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+  opacity: 0.3;
+}
+
+.empty-tab p {
+  font-size: 16px;
+}
+
+/* Pied de la modale */
+.locataire-detail-footer {
+  padding: 20px 30px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .locataire-detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .locataire-detail-tabs {
+    overflow-x: auto;
+    padding: 0 15px;
+  }
+  
+  .tab-btn {
+    padding: 12px 15px;
+    white-space: nowrap;
+  }
+  
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .paiements-list {
+    grid-template-columns: 1fr;
+  }
+  
+  .documents-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Ajouter à la fin du fichier */
+
+.tab-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.btn-add-contrat {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, var(--lion-gold), var(--lion-gold-dark));
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-add-contrat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
+}
+
+.btn-add-contrat.empty-btn {
+  margin-top: 20px;
+  display: inline-flex;
+}
+
+.contrats-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+/* Scrollbar personnalisée pour la liste des contrats */
+.contrats-list-compact::-webkit-scrollbar {
+  width: 4px;
+}
+
+.contrats-list-compact::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+}
+
+.contrats-list-compact::-webkit-scrollbar-thumb {
+  background: var(--lion-gold);
+  border-radius: 2px;
+}
+
+.contrat-item-with-export {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contrat-item-with-export .contrat-card {
+  flex: 1;
+}
+
+.btn-refresh {
+  padding: 10px 12px;
+  margin: 5px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 15px;
+}
+
+.loading-container p {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--lion-gold);
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+
+.contrat-item-with-export {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.contrat-item-with-export .contrat-card {
+  flex: 1;
+}
+
+.export-btn {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.export-btn:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.contrat-item-with-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.contrat-item-with-actions:hover {
+  border-color: var(--lion-gold);
+  transform: translateX(5px);
+}
+
+.contrat-item-with-actions .contrat-card {
+  flex: 1;
+  margin: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.contrat-actions-group {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.contrat-actions-group .action-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.contrat-actions-group .action-btn.edit {
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--lion-gold);
+}
+
+.contrat-actions-group .action-btn.edit:hover {
+  background: rgba(212, 175, 55, 0.2);
+  transform: scale(1.1);
+}
+
+.contrat-actions-group .action-btn.export {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.contrat-actions-group .action-btn.export:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.1) rotate(5deg);
+}
+
+.contrat-actions-group .action-btn.delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.contrat-actions-group .action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.1);
+}

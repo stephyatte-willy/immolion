@@ -1,0 +1,445 @@
+/* app/components/contrats/contrats.css */
+
+/* Contrat Card - Version compacte */
+.contrat-card.compact {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.contrat-card.compact:hover {
+  border-color: var(--lion-gold);
+  transform: translateX(5px);
+}
+
+.contrat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.contrat-type-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--lion-gold-light), var(--lion-gold));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: white;
+}
+
+.contrat-info-compact {
+  flex: 1;
+}
+
+.contrat-numero {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.contrat-periode {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.contrat-statut-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.contrat-card-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.contrat-loyer {
+  display: flex;
+  flex-direction: column;
+}
+
+.loyer-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.loyer-valeur {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--lion-gold);
+}
+
+.contrat-impaye {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 20px;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Contrat Card - Version détaillée */
+.contrat-card.detailed {
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.contrat-card.detailed:hover {
+  border-color: var(--lion-gold);
+  box-shadow: 0 20px 30px -10px rgba(212, 175, 55, 0.2);
+}
+
+.contrat-card.detailed .contrat-card-header {
+  padding: 20px 20px 0;
+  justify-content: space-between;
+}
+
+.contrat-type-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.contrat-type-icon.large {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  border-radius: 12px;
+}
+
+.contrat-type-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.contrat-statut-badge.large {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid;
+}
+
+.contrat-card.detailed .contrat-card-body {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 20px;
+  gap: 15px;
+}
+
+.contrat-numero-section {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.numero-label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.numero-valeur {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lion-gold);
+  letter-spacing: 0.5px;
+}
+
+.contrat-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.date-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.date-icon {
+  width: 20px;
+  color: var(--lion-gold);
+}
+
+.date-label {
+  color: var(--text-tertiary);
+  min-width: 40px;
+}
+
+.date-valeur {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.contrat-finances {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.finance-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.finance-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+}
+
+.finance-valeur {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.finance-valeur.highlight {
+  color: var(--lion-gold);
+}
+
+.contrat-bien,
+.contrat-locataire {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+}
+
+.bien-icon,
+.locataire-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.bien-info,
+.locataire-info {
+  flex: 1;
+}
+
+.bien-nom,
+.locataire-nom {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.bien-adresse,
+.locataire-contact {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.contrat-total-percu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.total-label {
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.total-valeur {
+  font-size: 18px;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.contrat-impaye-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 10px;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.contrat-clause {
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 10px;
+  border-left: 3px solid var(--lion-gold);
+}
+
+.clause-icon {
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+.clause-texte {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 5px;
+  white-space: pre-wrap;
+}
+
+.contrat-card-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 15px 20px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+}
+
+.action-btn.payment {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.action-btn.payment:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+/* Formulaire contrat */
+.contrat-form-modal {
+  max-width: 900px !important;
+  width: 95%;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+/* Grille des contrats */
+.contrats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+/* Liste des contrats (compacte) */
+.contrats-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .contrats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .contrat-finances {
+    grid-template-columns: 1fr;
+  }
+  
+  .contrat-card.detailed .contrat-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+.info-panel {
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 10px;
+  padding: 15px;
+  margin-top: 15px;
+}
+
+.info-panel h4 {
+  font-size: 14px;
+  color: var(--lion-gold);
+  margin-bottom: 10px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.info-grid strong {
+  color: var(--text-primary);
+}
+
+.field-hint {
+  display: block;
+  font-size: 11px;
+  color: #10b981;
+  margin-top: 4px;
+}
+
+.field-hint::before {
+  content: '✓ ';
+  font-weight: bold;
+}
+
+select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}

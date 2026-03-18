@@ -1,6 +1,6 @@
 // app/api/auth/search/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { queryRows } from './../../../lib/database';
+import { queryRows } from '@/app/lib/database';  // ✅ Chemin absolu
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Erreur recherche:', error);
+    console.error('❌ Erreur recherche:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur' },
       { status: 500 }

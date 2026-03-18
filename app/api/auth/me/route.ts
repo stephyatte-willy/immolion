@@ -1,6 +1,6 @@
 // app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { validateSession } from './../../../lib/auth';
+import { validateSession } from '@/app/lib/auth';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {

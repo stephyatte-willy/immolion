@@ -54,63 +54,63 @@ export const ROLES: Record<Role, RoleDefinition> = {
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [
-    'dashboard:view',
-    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
-    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
-    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
-    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
-    'documents:view', 'documents:upload', 'documents:delete',
-    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit', 'utilisateurs:delete',
-    'roles:manage',
-    'parametres:view', 'parametres:edit',
-    'statistiques:view',
-    'logs:view',
-    'api:manage',
+    'dashboard:voir',
+    'biens:voir', 'biens:créer', 'biens:modifier', 'biens:supprimer',
+    'locataires:voir', 'locataires:créer', 'locataires:modifier', 'locataires:supprimer',
+    'contrats:voir', 'contrats:créer', 'contrats:modifier', 'contrats:supprimer',
+    'paiements:voir', 'paiements:créer', 'paiements:modifier', 'paiements:supprimer',
+    'documents:voir', 'documents:upload', 'documents:supprimer',
+    'utilisateurs:voir', 'utilisateurs:créer', 'utilisateurs:modifier', 'utilisateurs:supprimer',
+    'roles:paramétrer',
+    'parametres:voir', 'parametres:modifier',
+    'statistiques:voir',
+    'logs:voir',
+    'api:paramétrer',
     'notifications:send'
   ],
   
   ADMIN: [
-    'dashboard:view',
-    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
-    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
-    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
-    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
-    'documents:view', 'documents:upload', 'documents:delete',
-    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit',
-    'parametres:view', 'parametres:edit',
-    'statistiques:view',
-    'logs:view',
+    'dashboard:voir',
+    'biens:voir', 'biens:créer', 'biens:modifier', 'biens:supprimer',
+    'locataires:voir', 'locataires:créer', 'locataires:modifier', 'locataires:supprimer',
+    'contrats:voir', 'contrats:créer', 'contrats:modifier', 'contrats:supprimer',
+    'paiements:voir', 'paiements:créer', 'paiements:modifier', 'paiements:supprimer',
+    'documents:voir', 'documents:upload', 'documents:supprimer',
+    'utilisateurs:voir', 'utilisateurs:créer', 'utilisateurs:modifier',
+    'parametres:voir', 'parametres:modifier',
+    'statistiques:voir',
+    'logs:voir',
     'notifications:send'
   ],
   
   PROPRIETAIRE: [
-    'dashboard:view',
-    'biens:view', 'biens:create', 'biens:edit',
-    'locataires:view', 'locataires:create', 'locataires:edit',
-    'contrats:view', 'contrats:create', 'contrats:edit',
-    'paiements:view', 'paiements:create',
-    'documents:view', 'documents:upload',
-    'statistiques:view',
+    'dashboard:voir',
+    'biens:voir', 'biens:créer', 'biens:modifier',
+    'locataires:voir', 'locataires:créer', 'locataires:modifier',
+    'contrats:voir', 'contrats:créer', 'contrats:modifier',
+    'paiements:voir', 'paiements:créer',
+    'documents:voir', 'documents:upload',
+    'statistiques:voir',
     'notifications:send'
   ],
   
   GESTIONNAIRE: [
-    'dashboard:view',
-    'biens:view', 'biens:edit',
-    'locataires:view', 'locataires:create', 'locataires:edit',
-    'contrats:view', 'contrats:create', 'contrats:edit',
-    'paiements:view', 'paiements:create',
-    'documents:view', 'documents:upload'
+    'dashboard:voir',
+    'biens:voir', 'biens:modifier',
+    'locataires:voir', 'locataires:créer', 'locataires:modifier',
+    'contrats:voir', 'contrats:créer', 'contrats:modifier',
+    'paiements:voir', 'paiements:créer',
+    'documents:voir', 'documents:upload'
   ],
   
   LOCATAIRE: [
-    'biens:view',
-    'documents:view',
-    'paiements:view'
+    'biens:voir',
+    'documents:voir',
+    'paiements:voir'
   ],
   
   PRESTATAIRE: [
-    'biens:view',
-    'documents:view'
+    'biens:voir',
+    'documents:voir'
   ]
 };
