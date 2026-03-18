@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // ✅ Ajout de AnimatePresence
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/app/components/layout/Sidebar';
 import Header from '@/app/components/layout/Header';
@@ -9,7 +9,7 @@ import ContratCard from '@/app/components/contrats/ContratCard';
 import ContratForm from '@/app/components/contrats/ContratForm';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import toast from 'react-hot-toast';
-import '@/app/contrats/contrats.css';
+import '@/app/components/contrats/contrats.css';
 
 export default function ContratDetail({ params }: { params: Promise<{ id: string }> }) {
   const [contrat, setContrat] = useState<any>(null);
