@@ -11,6 +11,7 @@ import BienFilters from '@/app/components/biens/BienFilters';
 import BienStats from '@/app/components/biens/BienStats';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
 import { useTheme } from '@/app/providers/ThemeProvider';
+import BienDetailModal from '@/app/components/biens/BienDetailModal';
 import toast from 'react-hot-toast';
 import './biens.css';
 
@@ -56,6 +57,8 @@ export default function BiensPage() {
   const [selectedBien, setSelectedBien] = useState<Bien | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [bienToDelete, setBienToDelete] = useState<Bien | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedBienForDetail, setSelectedBienForDetail] = useState<Bien | null>(null);
   
   // ✅ Stats avec la propriété enVente
   const [stats, setStats] = useState({
@@ -191,8 +194,12 @@ export default function BiensPage() {
   };
 
   const handleViewBien = (id: number) => {
-    router.push(`/biens/${id}`);
-  };
+  const bien = biens.find(b => b.id === id);
+  if (bien) {
+    setSelectedBienForDetail(bien);
+    setShowDetailModal(true);
+  }
+};
 
   const handleDeleteClick = (id: number) => {
     const bien = biens.find(b => b.id === id);
@@ -307,17 +314,14 @@ export default function BiensPage() {
           ) : (
             <div className="biens-grid">
               <AnimatePresence>
-                {filteredBiens.map((bien) => (
-                  <BienCard
-                    key={bien.id}
-                    bien={bien}
-                    onView={handleViewBien}
-                    onEdit={handleEditBien}
-                    onDelete={handleDeleteClick}
-                    formatMoney={formatMoney}
-                  />
-                ))}
-              </AnimatePresence>
+              {showDetailModal && selectedBienForDetail && (
+                <BienDetailModal
+                  bien={selectedBienForDetail}
+                  onClose={() => setShowDetailModal(false)}
+                  onEdit={handleEditBien}
+                />
+              )}
+            </AnimatePresence>
             </div>
           )}
         </div>

@@ -179,15 +179,15 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                 {isVente ? 'Prix de vente' : 'Aspects financiers'}
               </h3>
               <div className="detail-finances">
-                {/* ✅ Prix principal (loyer ou vente) */}
-                {prixPrincipal !== undefined && prixPrincipal !== null && (
+                {/* Prix principal (loyer ou vente) */}
+                {prixPrincipal !== undefined && prixPrincipal !== null && prixPrincipal > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">{prixLabel}</span>
                     <span className="finance-value highlight">{formatMoney(prixPrincipal)}</span>
                   </div>
                 )}
 
-                {/* ✅ Charges (uniquement pour les locations) */}
+                {/* Charges (uniquement pour les locations) */}
                 {!isVente && bien.charges !== undefined && bien.charges > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Charges</span>
@@ -195,7 +195,7 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                   </div>
                 )}
 
-                {/* ✅ Dépôt de garantie (uniquement pour les locations) */}
+                {/* Dépôt de garantie (uniquement pour les locations) */}
                 {!isVente && bien.depot_garantie !== undefined && bien.depot_garantie > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Dépôt de garantie</span>
@@ -203,7 +203,7 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                   </div>
                 )}
 
-                {/* ✅ Date d'acquisition */}
+                {/* Date d'acquisition */}
                 {bien.date_acquisition && (
                   <div className="finance-item">
                     <span className="finance-label">Date d'acquisition</span>
