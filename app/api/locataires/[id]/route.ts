@@ -9,9 +9,24 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // 1. Récupérer les infos du locataire
+    // Version simplifiée et corrigée
     const locataires = await queryRows(
-      `SELECT * FROM locataires WHERE id = ?`,
+      `SELECT l.*,
+        (SELECT JSON_OBJECT(
+          'id', b.id,
+          'nom', b.nom,
+          'adresse', b.adresse,
+          'loyer_mensuel', b.loyer_mensuel,
+          'charges', b.charges,
+          'statut', b.statut,
+          'prix_vente', b.prix_vente,
+          'commune', b.commune,
+          'quartier', b.quartier,
+          'ville', b.ville,
+          'district', b.district
+        ) FROM biens b WHERE b.id = l.bien_id) as bien_actuel
+       FROM locataires l
+       WHERE l.id = ?`,
       [id]
     ) as any[];
 
@@ -24,24 +39,29 @@ export async function GET(
 
     const locataire = locataires[0];
 
-    // 2. Récupérer le bien actuel séparément
-    if (locataire.bien_id) {
-      const biens = await queryRows(
-        `SELECT id, nom, adresse, loyer_mensuel FROM biens WHERE id = ?`,
-        [locataire.bien_id]
-      ) as any[];
-      locataire.bien_actuel = biens.length > 0 ? biens[0] : null;
-    } else {
-      locataire.bien_actuel = null;
-    }
-
-    // 3. Récupérer les contrats du locataire
+    // Récupérer les contrats séparément (plus simple)
     const contrats = await queryRows(
       `SELECT 
-        c.id, c.numero_contrat, c.type_contrat, c.date_debut, c.date_fin,
-        c.loyer_mensuel, c.charges_mensuelles, c.depot_garantie, c.statut,
-        c.bien_id,
-        b.nom as bien_nom
+        c.id,
+        c.numero_contrat,
+        c.type_contrat,
+        c.prix_vente,
+        c.date_debut,
+        c.date_fin,
+        c.statut,
+        c.loyer_mensuel,
+        c.charges_mensuelles,
+        c.depot_garantie,
+        c.clause_particuliere,
+        JSON_OBJECT(
+          'id', b.id,
+          'nom', b.nom,
+          'adresse', b.adresse,
+          'prix_vente', b.prix_vente,
+          'loyer_mensuel', b.loyer_mensuel,
+          'commune', b.commune,
+          'ville', b.ville
+        ) as bien
        FROM contrats c
        LEFT JOIN biens b ON c.bien_id = b.id
        WHERE c.locataire_id = ?
@@ -49,37 +69,39 @@ export async function GET(
       [id]
     ) as any[];
 
-    console.log(`✅ ${contrats.length} contrats trouvés pour le locataire ${id}`);
-    
-    // 4. Récupérer les paiements
-    const paiements = await queryRows(
-      `SELECT * FROM paiements WHERE locataire_id = ? ORDER BY date_paiement DESC LIMIT 12`,
-      [id]
-    ) as any[];
-
-    // 5. Convertir actif en statut
-    locataire.statut = locataire.actif ? 'ACTIF' : (locataire.bien_id ? 'INACTIF' : 'PROSPECT');
+    // Parser les JSON
+    try {
+      locataire.bien_actuel = locataire.bien_actuel ? 
+        (typeof locataire.bien_actuel === 'string' ? JSON.parse(locataire.bien_actuel) : locataire.bien_actuel) 
+        : null;
+      
+      // Parser chaque contrat
+      locataire.contrats = contrats.map((c: any) => ({
+        ...c,
+        bien: c.bien ? (typeof c.bien === 'string' ? JSON.parse(c.bien) : c.bien) : null
+      }));
+      
+      // Convertir actif en statut
+      locataire.statut = locataire.actif ? 'ACTIF' : (locataire.bien_id ? 'INACTIF' : 'PROSPECT');
+    } catch (e) {
+      console.error('❌ Erreur parsing JSON:', e);
+      locataire.contrats = [];
+    }
 
     return NextResponse.json({
       success: true,
-      locataire: {
-        ...locataire,
-        contrats: contrats || [],
-        paiements: paiements || [],
-        documents: [] // Pour l'instant
-      }
+      locataire
     });
-
   } catch (error) {
     console.error('❌ Erreur GET locataire:', error);
     return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },
+      { success: false, erreur: 'Erreur serveur' },
       { status: 500 }
     );
   }
 }
 
-// ✅ PUT - Modifier un locataire (AJOUTÉ)
+// PUT - Modifier un locataire
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -95,29 +117,16 @@ export async function PUT(
       statut, notes, bien_id
     } = body;
 
-    // Vérifier si le locataire existe
-    const existing = await queryRows(
-      'SELECT id FROM locataires WHERE id = ?',
-      [id]
-    ) as any[];
-
-    if (existing.length === 0) {
-      return NextResponse.json(
-        { success: false, erreur: 'Locataire non trouvé' },
-        { status: 404 }
-      );
-    }
-
     // Vérifier si l'email existe déjà pour un autre locataire
     if (email) {
-      const emailCheck = await queryRows(
+      const existing = await queryRows(
         'SELECT id FROM locataires WHERE email = ? AND id != ?',
         [email, id]
       ) as any[];
-      
-      if (emailCheck.length > 0) {
+
+      if (existing.length > 0) {
         return NextResponse.json(
-          { success: false, erreur: 'Cet email est déjà utilisé' },
+          { success: false, erreur: 'Un locataire avec cet email existe déjà' },
           { status: 400 }
         );
       }
@@ -127,7 +136,7 @@ export async function PUT(
     const actif = statut === 'ACTIF' ? 1 : 0;
 
     // Mettre à jour le locataire
-    const result = await queryInsert(
+    await queryInsert(
       `UPDATE locataires SET
         nom = ?, prenom = ?, email = ?, telephone = ?, telephone_secondaire = ?,
         date_naissance = ?, lieu_naissance = ?, nationalite = ?,
@@ -142,17 +151,10 @@ export async function PUT(
       ]
     );
 
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        message: 'Locataire modifié avec succès'
-      });
-    } else {
-      return NextResponse.json(
-        { success: false, erreur: 'Erreur lors de la modification' },
-        { status: 500 }
-      );
-    }
+    return NextResponse.json({
+      success: true,
+      message: 'Locataire modifié avec succès'
+    });
   } catch (error) {
     console.error('❌ Erreur PUT locataire:', error);
     return NextResponse.json(

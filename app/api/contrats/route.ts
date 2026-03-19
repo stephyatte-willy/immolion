@@ -29,8 +29,20 @@ export async function GET(request: NextRequest) {
 
     const contrats = await queryRows(
       `SELECT c.*,
-        (SELECT JSON_OBJECT('id', b.id, 'nom', b.nom, 'adresse', b.adresse) 
-         FROM biens b WHERE b.id = c.bien_id) as bien,
+          (SELECT JSON_OBJECT(
+    'id', b.id, 
+    'nom', b.nom, 
+    'adresse', b.adresse, 
+    'statut', b.statut, 
+    'prix_vente', b.prix_vente,
+    'surface', b.surface,
+    'pieces', b.pieces,
+    'commune', b.commune,
+    'ville', b.ville,
+    'quartier', b.quartier,
+    'district', b.district,
+    'description', b.description
+  ) FROM biens b WHERE b.id = c.bien_id) as bien,
         (SELECT JSON_OBJECT('id', l.id, 'nom', l.nom, 'prenom', l.prenom, 'email', l.email, 'telephone', l.telephone) 
          FROM locataires l WHERE l.id = c.locataire_id) as locataire,
         (SELECT JSON_ARRAYAGG(
@@ -63,7 +75,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Créer un contrat
+// POST - Créer un contrat (location ou vente)
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -72,9 +84,14 @@ export async function POST(request: NextRequest) {
       bien_id, locataire_id, type_contrat,
       date_debut, date_fin, date_signature,
       loyer_mensuel, charges_mensuelles, depot_garantie,
-      indexation, indice_reference, clause_particuliere,
+      prix_vente, clause_particuliere,
       statut
     } = body;
+
+    console.log('📦 Données reçues pour création de contrat:', {
+      type_contrat, bien_id, locataire_id, date_debut,
+      loyer_mensuel, prix_vente
+    });
 
     // Validation
     const errors = [];
@@ -82,7 +99,13 @@ export async function POST(request: NextRequest) {
     if (!locataire_id) errors.push('locataire_id manquant');
     if (!type_contrat) errors.push('type_contrat manquant');
     if (!date_debut) errors.push('date_debut manquante');
-    if (!loyer_mensuel) errors.push('loyer_mensuel manquant');
+
+    // Validation selon le type de contrat
+    if (type_contrat === 'VENTE') {
+      if (!prix_vente) errors.push('prix_vente manquant');
+    } else {
+      if (!loyer_mensuel) errors.push('loyer_mensuel manquant');
+    }
 
     if (errors.length > 0) {
       return NextResponse.json(
@@ -93,59 +116,96 @@ export async function POST(request: NextRequest) {
 
     // Générer un numéro de contrat unique
     const annee = new Date().getFullYear();
+    const prefix = type_contrat === 'VENTE' ? 'VT' : 'CT';
     const count = await queryRows(
       'SELECT COUNT(*) as total FROM contrats WHERE YEAR(created_at) = ?',
       [annee]
     ) as any[];
-    const numero = `CT-${annee}-${(count[0]?.total + 1).toString().padStart(4, '0')}`;
+    const numero = `${prefix}-${annee}-${(count[0]?.total + 1).toString().padStart(4, '0')}`;
+
+    // Préparer les valeurs selon le type de contrat
+    let loyerValue = 0;
+    let chargesValue = 0;
+    let depotValue = null;
+    let prixVenteValue = null;
+
+    if (type_contrat === 'VENTE') {
+      prixVenteValue = parseFloat(prix_vente);
+      if (isNaN(prixVenteValue) || prixVenteValue <= 0) {
+        return NextResponse.json(
+          { success: false, erreur: 'Prix de vente invalide' },
+          { status: 400 }
+        );
+      }
+    } else {
+      loyerValue = parseFloat(loyer_mensuel);
+      if (isNaN(loyerValue) || loyerValue <= 0) {
+        return NextResponse.json(
+          { success: false, erreur: 'Loyer mensuel invalide' },
+          { status: 400 }
+        );
+      }
+      chargesValue = charges_mensuelles ? parseFloat(charges_mensuelles) : 0;
+      depotValue = depot_garantie ? parseFloat(depot_garantie) : null;
+    }
 
     // Insérer le contrat
     const result = await queryInsert(
-  `INSERT INTO contrats (
-    numero_contrat, bien_id, locataire_id, type_contrat,
-    date_debut, date_fin, date_signature,
-    loyer_mensuel, charges_mensuelles, depot_garantie,
-    indexation, indice_reference, clause_particuliere,
-    statut, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-  [
-    numero, 
-    parseInt(bien_id), 
-    parseInt(locataire_id), 
-    type_contrat,
-    date_debut, 
-    date_fin || null, 
-    date_signature || null,
-    parseFloat(loyer_mensuel), 
-    parseFloat(charges_mensuelles || 0), 
-    parseFloat(depot_garantie || 0),
-    indexation ? 1 : 0,  // 1 si coché, 0 sinon
-    indice_reference || null,  // null si pas d'indice
-    clause_particuliere || null,
-    statut || 'ACTIF'
-  ]
-);
+      `INSERT INTO contrats (
+        numero_contrat, bien_id, locataire_id, type_contrat,
+        date_debut, date_fin, date_signature,
+        loyer_mensuel, charges_mensuelles, depot_garantie,
+        prix_vente, clause_particuliere,
+        statut, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        numero,
+        parseInt(bien_id),
+        parseInt(locataire_id),
+        type_contrat,
+        date_debut,
+        date_fin || null,
+        date_signature || null,
+        loyerValue,
+        chargesValue,
+        depotValue,
+        prixVenteValue,
+        clause_particuliere || null,
+        statut || 'ACTIF'
+      ]
+    );
 
     if (!result.success) {
+      console.error('❌ Erreur insertion:', result);
       return NextResponse.json(
-        { success: false, erreur: 'Erreur lors de la création' },
+        { success: false, erreur: 'Erreur lors de la création dans la base de données' },
         { status: 500 }
       );
     }
 
-    // ✅ CORRECTION: Mettre à jour le bien avec le locataire actuel
-    await queryInsert(
-      'UPDATE biens SET statut = ? WHERE id = ?',
-      ['LOUE', parseInt(bien_id)]
-    );
+    // ✅ Mettre à jour le statut du bien
+    if (type_contrat === 'VENTE') {
+      // Pour une vente, le bien n'est plus disponible
+      await queryInsert(
+        'UPDATE biens SET statut = ? WHERE id = ?',
+        ['VENDU', parseInt(bien_id)]
+      );
+    } else {
+      // Pour une location, le bien est loué
+      await queryInsert(
+        'UPDATE biens SET statut = ? WHERE id = ?',
+        ['LOUE', parseInt(bien_id)]
+      );
+    }
 
     return NextResponse.json({
       success: true,
       id: result.insertId,
       numero,
-      message: 'Contrat créé avec succès'
+      message: type_contrat === 'VENTE' ? 'Contrat de vente créé avec succès' : 'Contrat de location créé avec succès'
     });
-  } catch (error) {
+    
+  } catch (error: any) {
     console.error('❌ Erreur POST contrat:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },

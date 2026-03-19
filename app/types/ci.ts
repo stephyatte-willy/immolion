@@ -51,6 +51,7 @@ export const STATUTS_BIENS_CI = [
   { value: 'LOUE', label: 'Loué', couleur: '#3b82f6' },
   { value: 'EN_TRAVAUX', label: 'En travaux', couleur: '#f59e0b' },
   { value: 'EN_VENTE', label: 'En vente', couleur: '#8b5cf6' },
+  { value: 'VENDU', label: 'Vendu', couleur: '#6b7280' }, 
   { value: 'RESERVE', label: 'Réservé', couleur: '#ec4899' }
 ];
 

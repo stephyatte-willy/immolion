@@ -3,7 +3,7 @@ export const MODES_PAIEMENT = [
   { value: 'ESPECES', label: 'Espèces', icone: '💵' },
   { value: 'CHEQUE', label: 'Chèque', icone: '📝' },
   { value: 'VIREMENT', label: 'Virement bancaire', icone: '🏦' },
-  { value: 'MOBILE_MONEY', label: 'Mobile Money (Orange Money, MTN)', icone: '📱' },
+  { value: 'MOBILE_MONEY', label: 'Mobile Money', icone: '📱' },
   { value: 'WAVE', label: 'Wave', icone: '🌊' },
   { value: 'CARTE', label: 'Carte bancaire', icone: '💳' }
 ];
@@ -12,6 +12,14 @@ export const STATUTS_PAIEMENT = [
   { value: 'EFFECTUE', label: 'Effectué', couleur: '#10b981' },
   { value: 'EN_ATTENTE', label: 'En attente', couleur: '#f59e0b' },
   { value: 'EN_RETARD', label: 'En retard', couleur: '#ef4444' }
+];
+
+export const TYPES_PAIEMENT = [
+  { value: 'LOYER', label: 'Loyer', icone: '🏠' },
+  { value: 'ACOMPTE', label: 'Acompte', icone: '💵' },
+  { value: 'SOLDE', label: 'Solde', icone: '💰' },
+  { value: 'VERSEMENT', label: 'Versement', icone: '💳' },
+  { value: 'PENALITE', label: 'Pénalité', icone: '⚠️' }
 ];
 
 export const MOIS = [
@@ -26,11 +34,16 @@ export interface Paiement {
   locataire_id: number;
   gestionnaire_id?: number;
   type_paiement: string;
+  type_vente?: 'ACOMPTE' | 'SOLDE' | 'VERSEMENT';
   montant: number;
+  montant_total_vente?: number;
+  versement_numero?: number;
+  echeancier_id?: string;
   date_paiement: string;
   date_echeance?: string;
   mode_paiement: string;
   reference?: string;
+  numero_quittance?: string;
   statut: string;
   mois_concerne?: string;
   penalite?: number;

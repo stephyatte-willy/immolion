@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const contrat_id = searchParams.get('contrat_id');
     const bien_id = searchParams.get('bien_id');
     const statut = searchParams.get('statut');
+    const type_paiement = searchParams.get('type_paiement');
     const mois = searchParams.get('mois');
     const annee = searchParams.get('annee');
 
@@ -35,6 +36,17 @@ export async function GET(request: NextRequest) {
       params.push(statut);
     }
 
+    if (type_paiement) {
+      const types = type_paiement.split(',');
+      if (types.length > 1) {
+        whereClause += ' AND p.type_paiement IN (' + types.map(() => '?').join(',') + ')';
+        params.push(...types);
+      } else {
+        whereClause += ' AND p.type_paiement = ?';
+        params.push(type_paiement);
+      }
+    }
+
     if (mois) {
       whereClause += ' AND p.mois_concerne = ?';
       params.push(mois);
@@ -48,6 +60,9 @@ export async function GET(request: NextRequest) {
     const paiements = await queryRows(
       `SELECT p.*,
         c.numero_contrat as contrat_numero,
+        c.type_contrat,
+        c.prix_vente,
+        c.loyer_mensuel,
         b.nom as bien_nom,
         CONCAT(l.prenom, ' ', l.nom) as locataire_nom_complet
        FROM paiements p
@@ -82,7 +97,11 @@ export async function POST(request: NextRequest) {
       bien_id,
       locataire_id,
       type_paiement,
+      type_vente,
       montant,
+      montant_total_vente,
+      versement_numero,
+      echeancier_id,
       date_paiement,
       date_echeance,
       mode_paiement,
@@ -93,6 +112,10 @@ export async function POST(request: NextRequest) {
       commentaire,
       gestionnaire_id
     } = body;
+
+    console.log('📦 Données reçues pour paiement:', {
+      contrat_id, type_paiement, type_vente, montant, date_paiement
+    });
 
     // Validation
     const errors = [];
@@ -110,7 +133,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Générer une référence unique si non fournie
+    // ✅ Récupérer les informations du contrat pour validation
+    const contrats = await queryRows(
+      'SELECT type_contrat, prix_vente, loyer_mensuel FROM contrats WHERE id = ?',
+      [parseInt(contrat_id)]
+    ) as any[];
+
+    if (contrats.length === 0) {
+      return NextResponse.json(
+        { success: false, erreur: 'Contrat non trouvé' },
+        { status: 404 }
+      );
+    }
+
+    const contrat = contrats[0];
+    const isVente = contrat.type_contrat === 'VENTE';
+    const montantSaisi = parseFloat(montant);
+
+    // ✅ Validation spécifique pour les ventes
+    if (isVente) {
+      if (!type_vente) {
+        return NextResponse.json(
+          { success: false, erreur: 'Le type de versement est requis pour une vente' },
+          { status: 400 }
+        );
+      }
+
+      // Calculer le total déjà versé
+      const totalVerse = await queryRows(
+        `SELECT SUM(montant) as total FROM paiements 
+         WHERE contrat_id = ? AND type_paiement IN ('ACOMPTE', 'VERSEMENT', 'SOLDE')`,
+        [parseInt(contrat_id)]
+      ) as any[];
+
+      const totalDejaVerse = totalVerse[0]?.total || 0;
+      const nouveauTotal = totalDejaVerse + montantSaisi;
+      const prixVente = parseFloat(contrat.prix_vente || '0');
+
+      if (prixVente <= 0) {
+        return NextResponse.json(
+          { success: false, erreur: 'Prix de vente invalide' },
+          { status: 400 }
+        );
+      }
+
+      if (type_vente === 'ACOMPTE') {
+        if (montantSaisi > prixVente) {
+          return NextResponse.json(
+            { success: false, erreur: "L'acompte ne peut pas dépasser le prix total" },
+            { status: 400 }
+          );
+        }
+      } else if (type_vente === 'VERSEMENT') {
+        if (nouveauTotal > prixVente) {
+          return NextResponse.json(
+            { success: false, erreur: 'Le total des versements dépasse le prix de vente' },
+            { status: 400 }
+          );
+        }
+      } else if (type_vente === 'SOLDE') {
+        if (nouveauTotal !== prixVente) {
+          return NextResponse.json(
+            { success: false, erreur: 'Le solde doit correspondre au prix total' },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    // ✅ Générer une référence unique si non fournie
     let referenceFinale = reference;
     if (!referenceFinale) {
       const now = new Date();
@@ -123,13 +214,13 @@ export async function POST(request: NextRequest) {
       referenceFinale = `PAY-${annee}${mois}-${(count[0]?.total + 1).toString().padStart(4, '0')}`;
     }
 
-    // ✅ GÉNÉRATION DU NUMÉRO DE QUITTANCE CORRIGÉE
+    // ✅ Générer le numéro de quittance
     const datePaiementObj = new Date(date_paiement);
     const annee = datePaiementObj.getFullYear();
     const mois = String(datePaiementObj.getMonth() + 1).padStart(2, '0');
     const moisNum = parseInt(mois);
 
-    // ✅ Vérifier si un compteur existe déjà pour ce mois
+    // Vérifier si un compteur existe déjà pour ce mois
     let compteur = await queryRows(
       'SELECT valeur FROM compteurs WHERE type = ? AND annee = ? AND mois = ?',
       ['QUITTANCE', annee, moisNum]
@@ -138,14 +229,12 @@ export async function POST(request: NextRequest) {
     let compteurValeur;
 
     if (compteur.length === 0) {
-      // ✅ Créer un nouveau compteur
       compteurValeur = 1;
       await queryInsert(
         'INSERT INTO compteurs (type, valeur, annee, mois) VALUES (?, ?, ?, ?)',
         ['QUITTANCE', 1, annee, moisNum]
       );
     } else {
-      // ✅ Mettre à jour le compteur existant
       compteurValeur = compteur[0].valeur + 1;
       await queryInsert(
         'UPDATE compteurs SET valeur = ? WHERE type = ? AND annee = ? AND mois = ?',
@@ -156,34 +245,43 @@ export async function POST(request: NextRequest) {
     // Format: QUIT-2026-03-000001
     const numeroQuittance = `QUIT-${annee}-${mois}-${String(compteurValeur).padStart(6, '0')}`;
 
-    // Insérer le paiement
+    // ✅ Déterminer le type_paiement final
+    const typePaiementFinal = isVente ? type_vente : (type_paiement || 'LOYER');
+
+    // ✅ Insérer le paiement
     const result = await queryInsert(
       `INSERT INTO paiements (
         contrat_id, bien_id, locataire_id, gestionnaire_id,
-        type_paiement, montant, date_paiement, date_echeance,
-        mode_paiement, reference, statut, mois_concerne,
-        penalite, commentaire, numero_quittance, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        type_paiement, type_vente, montant, montant_total_vente,
+        versement_numero, echeancier_id, date_paiement, date_echeance,
+        mode_paiement, reference, numero_quittance, statut, mois_concerne,
+        penalite, commentaire, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         parseInt(contrat_id),
         parseInt(bien_id),
         parseInt(locataire_id),
         gestionnaire_id ? parseInt(gestionnaire_id) : null,
-        type_paiement || 'LOYER',
-        parseFloat(montant),
+        typePaiementFinal,
+        isVente ? type_vente : null,
+        montantSaisi,
+        isVente && montant_total_vente ? parseFloat(montant_total_vente) : null,
+        isVente && versement_numero ? parseInt(versement_numero) : null,
+        isVente ? (echeancier_id || `VENTE-${contrat_id}-${annee}`) : null,
         date_paiement,
         date_echeance || null,
         mode_paiement,
         referenceFinale,
+        numeroQuittance,
         statut || 'EFFECTUE',
-        mois_concerne || null,
-        penalite ? parseFloat(penalite) : 0,
-        commentaire || null,
-        numeroQuittance
+        !isVente ? (mois_concerne || null) : null,
+        !isVente && penalite ? parseFloat(penalite) : 0,
+        commentaire || null
       ]
     );
 
     if (!result.success) {
+      console.error('❌ Erreur insertion:', result);
       return NextResponse.json(
         { success: false, erreur: 'Erreur lors de la création' },
         { status: 500 }
@@ -195,9 +293,10 @@ export async function POST(request: NextRequest) {
       id: result.insertId,
       reference: referenceFinale,
       numero_quittance: numeroQuittance,
-      message: 'Paiement enregistré avec succès'
+      message: isVente ? 'Versement enregistré avec succès' : 'Paiement enregistré avec succès'
     });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('❌ Erreur POST paiement:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },

@@ -26,13 +26,17 @@ const contrats = await queryRows(
     c.loyer_mensuel,
     c.charges_mensuelles,
     c.depot_garantie,
+    c.prix_vente,  -- ✅ Vérifiez que cette ligne existe
     c.clause_particuliere,
     c.statut,
     c.created_at,
     c.updated_at,
-    (SELECT JSON_OBJECT('id', b.id, 'nom', b.nom, 'adresse', b.adresse, 'loyer_mensuel', b.loyer_mensuel) 
+    (SELECT JSON_OBJECT('id', b.id, 'nom', b.nom, 'adresse', b.adresse, 
+                        'loyer_mensuel', b.loyer_mensuel, 'prix_vente', b.prix_vente,
+                        'commune', b.commune, 'ville', b.ville) 
      FROM biens b WHERE b.id = c.bien_id) as bien,
-    (SELECT JSON_OBJECT('id', l.id, 'nom', l.nom, 'prenom', l.prenom, 'email', l.email, 'telephone', l.telephone) 
+    (SELECT JSON_OBJECT('id', l.id, 'nom', l.nom, 'prenom', l.prenom, 
+                        'email', l.email, 'telephone', l.telephone) 
      FROM locataires l WHERE l.id = c.locataire_id) as locataire
    FROM contrats c
    WHERE c.id = ?`,
@@ -88,7 +92,6 @@ export async function PUT(
     const body = await request.json();
 
     console.log('📦 Données reçues pour modification:', body);
-    console.log('🔧 Modification du contrat ID:', id);
 
     const {
       type_contrat,
@@ -100,13 +103,14 @@ export async function PUT(
       loyer_mensuel,
       charges_mensuelles,
       depot_garantie,
+      prix_vente,
       clause_particuliere,
       statut
     } = body;
 
-    // Récupérer l'ancien statut pour comparer
+    // Récupérer l'ancien contrat
     const ancienContrat = await queryRows(
-      'SELECT statut, bien_id FROM contrats WHERE id = ?',
+      'SELECT statut, bien_id, type_contrat FROM contrats WHERE id = ?',
       [id]
     ) as any[];
 
@@ -119,16 +123,43 @@ export async function PUT(
 
     const ancienStatut = ancienContrat[0].statut;
     const bien_id = ancienContrat[0].bien_id;
+    const isVente = type_contrat === 'VENTE' || ancienContrat[0].type_contrat === 'VENTE';
 
     // Validation des données
-    if (!type_contrat || !date_debut || !loyer_mensuel || !statut) {
+    if (!type_contrat || !date_debut || !statut) {
       return NextResponse.json(
         { success: false, erreur: 'Champs obligatoires manquants' },
         { status: 400 }
       );
     }
 
-    // ✅ Mettre à jour le contrat avec TOUS les champs
+    // Préparer les valeurs selon le type
+    let loyerValue = 0;
+    let chargesValue = 0;
+    let depotValue = null;
+    let prixVenteValue = null;
+
+    if (isVente) {
+      prixVenteValue = prix_vente ? parseFloat(prix_vente) : null;
+      if (!prixVenteValue || prixVenteValue <= 0) {
+        return NextResponse.json(
+          { success: false, erreur: 'Prix de vente invalide' },
+          { status: 400 }
+        );
+      }
+    } else {
+      loyerValue = loyer_mensuel ? parseFloat(loyer_mensuel) : 0;
+      if (loyerValue <= 0) {
+        return NextResponse.json(
+          { success: false, erreur: 'Loyer mensuel invalide' },
+          { status: 400 }
+        );
+      }
+      chargesValue = charges_mensuelles ? parseFloat(charges_mensuelles) : 0;
+      depotValue = depot_garantie ? parseFloat(depot_garantie) : null;
+    }
+
+    // Mettre à jour le contrat
     const result = await queryInsert(
       `UPDATE contrats SET
         type_contrat = ?,
@@ -140,6 +171,7 @@ export async function PUT(
         loyer_mensuel = ?,
         charges_mensuelles = ?,
         depot_garantie = ?,
+        prix_vente = ?,
         clause_particuliere = ?,
         statut = ?,
         updated_at = NOW()
@@ -151,9 +183,10 @@ export async function PUT(
         date_signature || null,
         date_etat_lieux_entree || null,
         date_etat_lieux_sortie || null,
-        parseFloat(loyer_mensuel),
-        parseFloat(charges_mensuelles || 0),
-        parseFloat(depot_garantie || 0),
+        loyerValue,
+        chargesValue,
+        depotValue,
+        prixVenteValue,
         clause_particuliere || null,
         statut,
         id
@@ -172,9 +205,8 @@ export async function PUT(
 
     // Gérer le statut du bien si nécessaire
     if (statut !== ancienStatut) {
-      console.log(`🔄 Changement de statut: ${ancienStatut} -> ${statut}`);
-      
       if (statut === 'TERMINE' || statut === 'RESILIE') {
+        // Vérifier s'il y a d'autres contrats actifs pour ce bien
         const autresContrats = await queryRows(
           'SELECT id FROM contrats WHERE bien_id = ? AND id != ? AND statut = ?',
           [bien_id, id, 'ACTIF']
@@ -183,16 +215,14 @@ export async function PUT(
         if (autresContrats.length === 0) {
           await queryInsert(
             'UPDATE biens SET statut = ? WHERE id = ?',
-            ['DISPONIBLE', bien_id]
+            [isVente ? 'DISPONIBLE' : 'DISPONIBLE', bien_id]
           );
-          console.log('✅ Bien remis en disponible');
         }
       } else if (statut === 'ACTIF' && ancienStatut !== 'ACTIF') {
         await queryInsert(
           'UPDATE biens SET statut = ? WHERE id = ?',
-          ['LOUE', bien_id]
+          [isVente ? 'VENDU' : 'LOUE', bien_id]
         );
-        console.log('✅ Bien marqué comme loué');
       }
     }
 

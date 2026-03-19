@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/app/providers/ThemeProvider';
-import { quittanceService } from '@/app/services/quittanceService';
+import { documentPaiementService } from '@/app/services/quittanceService'; 
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -62,13 +62,13 @@ export default function QuittancePreviewModal({
   };
 
   const handlePrint = async () => {
-    setIsGenerating(true);
-    try {
-      await onPrint();
-    } finally {
-      setIsGenerating(false);
-    }
-  };
+  setIsGenerating(true);
+  try {
+    await onPrint();
+  } finally {
+    setIsGenerating(false);
+  }
+};
 
   // ✅ Si pas de paiement ou pas ouvert, ne rien afficher
   if (!isOpen || !paiement || !locataire || !contrat || !bien || !entreprise) {

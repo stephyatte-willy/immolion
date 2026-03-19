@@ -1,9 +1,10 @@
 // app/types/contrats.ts
 export const TYPES_CONTRAT = [
-  { value: 'BAIL_VIDE', label: 'Bail vide', icone: '🏠' },
-  { value: 'BAIL_MEUBLE', label: 'Bail meublé', icone: '🛋️' },
-  { value: 'BAIL_COMMERCIAL', label: 'Bail commercial', icone: '🏪' },
-  { value: 'SOUS_LOCATION', label: 'Sous-location', icone: '📄' }
+  { value: 'BAIL_VIDE', label: 'Bail vide (location)', icone: '🏠' },
+  { value: 'BAIL_MEUBLE', label: 'Bail meublé (location)', icone: '🛋️' },
+  { value: 'BAIL_COMMERCIAL', label: 'Bail commercial (location)', icone: '🏪' },
+  { value: 'SOUS_LOCATION', label: 'Sous-location', icone: '📄' },
+  { value: 'VENTE', label: 'Contrat de vente', icone: '💰' } // ✅ Nouveau
 ];
 
 export const STATUTS_CONTRAT = [
@@ -16,31 +17,31 @@ export const STATUTS_CONTRAT = [
 export const MODES_PAIEMENT = [
   { value: 'ESPECES', label: 'Espèces', icone: '💵' },
   { value: 'CHEQUE', label: 'Chèque', icone: '📝' },
-  { value: 'VIREMENT', label: 'Virement', icone: '🏦' },
+  { value: 'VIREMENT', label: 'Virement bancaire', icone: '🏦' },
   { value: 'MOBILE_MONEY', label: 'Mobile Money', icone: '📱' },
+  { value: 'WAVE', label: 'Wave', icone: '🌊' },
   { value: 'CARTE', label: 'Carte bancaire', icone: '💳' }
 ];
 
 export interface Contrat {
   id: number;
-  numero: string;
   bien_id: number;
   locataire_id: number;
+  numero_contrat: string;
   type_contrat: string;
   date_debut: string;
   date_fin: string | null;
   date_signature?: string;
   date_etat_lieux_entree?: string;
   date_etat_lieux_sortie?: string;
-  loyer_mensuel: number;
-  charges_mensuelles: number;
-  depot_garantie: number;
-  indexation: boolean;
+  loyer_mensuel?: number;      // Optionnel pour la vente
+  charges_mensuelles?: number;  // Optionnel pour la vente
+  depot_garantie?: number;      // Optionnel pour la vente
+  prix_vente?: number;          // ✅ Nouveau pour la vente
+  indexation?: boolean;
   indice_reference?: string;
   clause_particuliere?: string;
   statut: string;
-  documents?: Document[];
-  paiements?: Paiement[];
   created_at: string;
   updated_at: string;
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { MODES_PAIEMENT, STATUTS_PAIEMENT, MOIS } from '@/app/types/paiements';
+import { MODES_PAIEMENT, STATUTS_PAIEMENT, TYPES_PAIEMENT, MOIS } from '@/app/types/paiements';
 import toast from 'react-hot-toast';
 import './paiements.css';
 
@@ -28,7 +28,11 @@ export default function PaiementForm({
     locataire_id: locataire_id || '',
     bien_id: bien_id || '',
     type_paiement: 'LOYER',
+    type_vente: '',
     montant: '',
+    montant_total_vente: '',
+    versement_numero: '',
+    echeancier_id: '',
     date_paiement: new Date().toISOString().split('T')[0],
     date_echeance: '',
     mode_paiement: 'ESPECES',
@@ -42,10 +46,16 @@ export default function PaiementForm({
   const [contratUnique, setContratUnique] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [versementsPrecedents, setVersementsPrecedents] = useState<any[]>([]);
+  const [totalVersements, setTotalVersements] = useState(0);
 
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 1, currentYear, currentYear + 1];
   const months = MOIS;
+
+  // ✅ Déterminer si c'est une vente
+  const isVente = contratUnique?.type_contrat === 'VENTE';
+  const typePaiementVente = formData.type_vente;
 
   // ✅ Charger le contrat unique du locataire
   useEffect(() => {
@@ -54,15 +64,26 @@ export default function PaiementForm({
     }
   }, [locataire_id]);
 
+  // ✅ Charger les versements précédents pour une vente
+  useEffect(() => {
+    if (contratUnique && isVente) {
+      chargerVersementsPrecedents();
+    }
+  }, [contratUnique, isVente]);
+
   // ✅ Pré-remplir automatiquement avec le contrat unique
   useEffect(() => {
     if (contratUnique) {
+      const isContratVente = contratUnique.type_contrat === 'VENTE';
+      
       setFormData(prev => ({
         ...prev,
         contrat_id: contratUnique.id.toString(),
         locataire_id: contratUnique.locataire_id?.toString() || '',
         bien_id: contratUnique.bien_id?.toString() || '',
-        montant: contratUnique.loyer_mensuel?.toString() || prev.montant
+        montant: isContratVente ? '' : (contratUnique.loyer_mensuel?.toString() || prev.montant),
+        montant_total_vente: isContratVente ? (contratUnique.prix_vente?.toString() || '') : '',
+        type_paiement: isContratVente ? 'ACOMPTE' : 'LOYER',
       }));
     }
   }, [contratUnique]);
@@ -75,7 +96,11 @@ export default function PaiementForm({
         locataire_id: paiement.locataire_id?.toString() || '',
         bien_id: paiement.bien_id?.toString() || '',
         type_paiement: paiement.type_paiement || 'LOYER',
+        type_vente: paiement.type_vente || '',
         montant: paiement.montant?.toString() || '',
+        montant_total_vente: paiement.montant_total_vente?.toString() || '',
+        versement_numero: paiement.versement_numero?.toString() || '',
+        echeancier_id: paiement.echeancier_id || '',
         date_paiement: paiement.date_paiement?.split('T')[0] || new Date().toISOString().split('T')[0],
         date_echeance: paiement.date_echeance?.split('T')[0] || '',
         mode_paiement: paiement.mode_paiement || 'ESPECES',
@@ -90,16 +115,37 @@ export default function PaiementForm({
 
   const chargerContratUnique = async () => {
     try {
-      // Récupérer le contrat actif du locataire
       const response = await fetch(`/api/contrats?locataire_id=${locataire_id}&statut=ACTIF`);
       const data = await response.json();
       if (data.success && data.contrats && data.contrats.length > 0) {
-        setContratUnique(data.contrats[0]); // Prendre le premier contrat actif
+        setContratUnique(data.contrats[0]);
       } else {
-        toast.error('Aucun contrat actif trouvé pour ce locataire');
+        toast.error('Aucun contrat actif trouvé pour ce client');
       }
     } catch (error) {
       console.error('Erreur chargement contrat:', error);
+    }
+  };
+
+  const chargerVersementsPrecedents = async () => {
+    try {
+      const response = await fetch(`/api/paiements?contrat_id=${contratUnique.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
+      const data = await response.json();
+      if (data.success) {
+        setVersementsPrecedents(data.paiements);
+        const total = data.paiements.reduce((sum: number, p: any) => sum + p.montant, 0);
+        setTotalVersements(total);
+        
+        // Déterminer le prochain numéro de versement
+        const maxNumero = Math.max(...data.paiements.map((p: any) => p.versement_numero || 0), 0);
+        setFormData(prev => ({
+          ...prev,
+          versement_numero: (maxNumero + 1).toString(),
+          echeancier_id: `VENTE-${contratUnique.id}-${new Date().getFullYear()}`
+        }));
+      }
+    } catch (error) {
+      console.error('Erreur chargement versements:', error);
     }
   };
 
@@ -113,6 +159,17 @@ export default function PaiementForm({
       newErrors.montant = 'Le montant doit être positif';
     }
     if (!formData.date_paiement) newErrors.date_paiement = 'La date de paiement est requise';
+
+    // Validation pour une vente
+    if (isVente) {
+      if (typePaiementVente === 'ACOMPTE') {
+        const montantSaisi = parseFloat(formData.montant);
+        const totalVente = parseFloat(formData.montant_total_vente || '0');
+        if (montantSaisi > totalVente) {
+          newErrors.montant = 'L\'acompte ne peut pas dépasser le prix total';
+        }
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -129,6 +186,12 @@ export default function PaiementForm({
     setIsLoading(true);
 
     try {
+      const dataToSend = {
+        ...formData,
+        // Pour une vente, on garde la trace du type
+        type_paiement: isVente ? typePaiementVente : formData.type_paiement,
+      };
+
       const url = paiement 
         ? `/api/paiements/${paiement.id}`
         : '/api/paiements';
@@ -138,7 +201,7 @@ export default function PaiementForm({
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSend)
       });
 
       const data = await response.json();
@@ -156,6 +219,10 @@ export default function PaiementForm({
       setIsLoading(false);
     }
   };
+
+  const resteAPayer = isVente && contratUnique?.prix_vente 
+    ? (parseFloat(contratUnique.prix_vente) - totalVersements) 
+    : 0;
 
   return (
     <motion.div 
@@ -184,30 +251,45 @@ export default function PaiementForm({
         <div className="modal-body">
           <form onSubmit={handleSubmit} className="paiement-form">
             <div className="form-sections">
-              {/* ✅ Contrat automatiquement sélectionné avec détails */}
+              {/* Contrat */}
               <div className="form-section">
                 <div className="modal-section-title">
-                  <span>📄</span> Contrat de bail
+                  <span>📄</span> Contrat
                 </div>
                 
                 {contratUnique ? (
                   <>
-                    {/* Champ caché pour l'ID du contrat */}
                     <input type="hidden" name="contrat_id" value={contratUnique.id} />
                     
-                    {/* Affichage des détails du contrat */}
                     <div className="info-panel">
                       <h4>Détails du contrat</h4>
                       <div className="info-grid">
                         <div>
-                          <strong>Locataire:</strong> {contratUnique.locataire?.prenom} {contratUnique.locataire?.nom}
+                          <strong>Client:</strong> {contratUnique.locataire?.prenom} {contratUnique.locataire?.nom}
                         </div>
                         <div>
                           <strong>Bien:</strong> {contratUnique.bien?.nom}
                         </div>
                         <div>
-                          <strong>Loyer mensuel:</strong> {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA
+                          <strong>Type:</strong> {isVente ? 'VENTE' : 'LOCATION'}
                         </div>
+                        {isVente ? (
+                          <>
+                            <div>
+                              <strong>Prix de vente:</strong> {parseFloat(contratUnique.prix_vente).toLocaleString()} FCFA
+                            </div>
+                            <div>
+                              <strong>Déjà versé:</strong> {totalVersements.toLocaleString()} FCFA
+                            </div>
+                            <div>
+                              <strong>Reste à payer:</strong> {resteAPayer.toLocaleString()} FCFA
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <strong>Loyer mensuel:</strong> {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA
+                          </div>
+                        )}
                         <div>
                           <strong>N° contrat:</strong> {contratUnique.numero_contrat}
                         </div>
@@ -217,9 +299,69 @@ export default function PaiementForm({
                 ) : (
                   <div className="warning-panel">
                     <span className="warning-icon">⚠️</span>
-                    <p>Aucun contrat actif trouvé pour ce locataire</p>
+                    <p>Aucun contrat actif trouvé pour ce client</p>
                   </div>
                 )}
+              </div>
+
+              {/* Type de paiement - adapté */}
+              <div className="form-section">
+                <div className="modal-section-title">
+                  <span>🏷️</span> Type de paiement
+                </div>
+                <div className="form-grid">
+                  {isVente ? (
+                    // ✅ Pour une vente
+                    <>
+                      <div className="form-group">
+                        <label>Type de versement *</label>
+                        <select
+                          value={formData.type_vente}
+                          onChange={(e) => setFormData({...formData, type_vente: e.target.value})}
+                        >
+                          <option value="">Sélectionnez le type</option>
+                          <option value="ACOMPTE">Acompte</option>
+                          <option value="VERSEMENT">Versement</option>
+                          <option value="SOLDE">Solde final</option>
+                        </select>
+                      </div>
+
+                      {formData.type_vente && (
+                        <div className="form-group">
+                          <label>N° versement</label>
+                          <input
+                            type="number"
+                            value={formData.versement_numero}
+                            onChange={(e) => setFormData({...formData, versement_numero: e.target.value})}
+                            placeholder="1"
+                            readOnly={formData.type_vente !== 'VERSEMENT'}
+                          />
+                        </div>
+                      )}
+
+                      <input
+                        type="hidden"
+                        name="echeancier_id"
+                        value={formData.echeancier_id}
+                      />
+                    </>
+                  ) : (
+                    // ✅ Pour une location
+                    <div className="form-group">
+                      <label>Type de paiement</label>
+                      <select
+                        value={formData.type_paiement}
+                        onChange={(e) => setFormData({...formData, type_paiement: e.target.value})}
+                      >
+                        {TYPES_PAIEMENT.map(type => (
+                          <option key={type.value} value={type.value}>
+                            {type.icone} {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Montant et dates */}
@@ -236,24 +378,48 @@ export default function PaiementForm({
                       value={formData.montant}
                       onChange={(e) => setFormData({...formData, montant: e.target.value})}
                       className={errors.montant ? 'error' : ''}
-                      placeholder={contratUnique?.loyer_mensuel?.toLocaleString() || "150000"}
+                      placeholder={isVente ? "Montant du versement" : "150000"}
                     />
                     {errors.montant && <span className="error-message">{errors.montant}</span>}
-                    {contratUnique && (
-                      <small className="field-hint">Loyer mensuel: {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA</small>
+                    
+                    {isVente && resteAPayer > 0 && (
+                      <small className="field-hint">
+                        Reste à payer: {resteAPayer.toLocaleString()} FCFA
+                      </small>
+                    )}
+                    
+                    {!isVente && contratUnique && (
+                      <small className="field-hint">
+                        Loyer mensuel: {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA
+                      </small>
                     )}
                   </div>
 
-                  <div className="form-group">
-                    <label>Pénalité (FCFA)</label>
-                    <input
-                      type="number"
-                      step="100"
-                      value={formData.penalite}
-                      onChange={(e) => setFormData({...formData, penalite: e.target.value})}
-                      placeholder="0"
-                    />
-                  </div>
+                  {isVente && (
+                    <div className="form-group">
+                      <label>Prix total de vente</label>
+                      <input
+                        type="number"
+                        step="10000"
+                        value={formData.montant_total_vente}
+                        readOnly
+                        className="readonly"
+                      />
+                    </div>
+                  )}
+
+                  {!isVente && (
+                    <div className="form-group">
+                      <label>Pénalité (FCFA)</label>
+                      <input
+                        type="number"
+                        step="100"
+                        value={formData.penalite}
+                        onChange={(e) => setFormData({...formData, penalite: e.target.value})}
+                        placeholder="0"
+                      />
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label>Date de paiement *</label>
@@ -277,49 +443,51 @@ export default function PaiementForm({
                 </div>
               </div>
 
-              {/* Mois concerné */}
-              <div className="form-section">
-                <div className="modal-section-title">
-                  <span>📅</span> Période concernée
-                </div>
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Mois</label>
-                    <select
-                      value={formData.mois_concerne?.split('-')[1] || ''}
-                      onChange={(e) => {
-                        const annee = formData.mois_concerne?.split('-')[0] || currentYear.toString();
-                        const newMois = e.target.value ? `${annee}-${e.target.value}` : '';
-                        setFormData({...formData, mois_concerne: newMois});
-                      }}
-                    >
-                      <option value="">Sélectionnez un mois</option>
-                      {months.map((mois, index) => (
-                        <option key={index} value={String(index + 1).padStart(2, '0')}>
-                          {mois}
-                        </option>
-                      ))}
-                    </select>
+              {/* Période concernée - uniquement pour location */}
+              {!isVente && (
+                <div className="form-section">
+                  <div className="modal-section-title">
+                    <span>📅</span> Période concernée
                   </div>
+                  <div className="form-grid">
+                    <div className="form-group">
+                      <label>Mois</label>
+                      <select
+                        value={formData.mois_concerne?.split('-')[1] || ''}
+                        onChange={(e) => {
+                          const annee = formData.mois_concerne?.split('-')[0] || currentYear.toString();
+                          const newMois = e.target.value ? `${annee}-${e.target.value}` : '';
+                          setFormData({...formData, mois_concerne: newMois});
+                        }}
+                      >
+                        <option value="">Sélectionnez un mois</option>
+                        {months.map((mois, index) => (
+                          <option key={index} value={String(index + 1).padStart(2, '0')}>
+                            {mois}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div className="form-group">
-                    <label>Année</label>
-                    <select
-                      value={formData.mois_concerne?.split('-')[0] || ''}
-                      onChange={(e) => {
-                        const mois = formData.mois_concerne?.split('-')[1] || '';
-                        const newAnnee = e.target.value;
-                        setFormData({...formData, mois_concerne: newAnnee ? `${newAnnee}-${mois}` : ''});
-                      }}
-                    >
-                      <option value="">Sélectionnez une année</option>
-                      {years.map(annee => (
-                        <option key={annee} value={annee}>{annee}</option>
-                      ))}
-                    </select>
+                    <div className="form-group">
+                      <label>Année</label>
+                      <select
+                        value={formData.mois_concerne?.split('-')[0] || ''}
+                        onChange={(e) => {
+                          const mois = formData.mois_concerne?.split('-')[1] || '';
+                          const newAnnee = e.target.value;
+                          setFormData({...formData, mois_concerne: newAnnee ? `${newAnnee}-${mois}` : ''});
+                        }}
+                      >
+                        <option value="">Sélectionnez une année</option>
+                        {years.map(annee => (
+                          <option key={annee} value={annee}>{annee}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Mode de paiement et statut */}
               <div className="form-section">
@@ -406,7 +574,7 @@ export default function PaiementForm({
                 Enregistrement...
               </>
             ) : (
-              paiement ? '💾 Modifier' : '💾 Enregistrer le paiement'
+              paiement ? '💾 Modifier' : '💾 Enregistrer'
             )}
           </button>
         </div>
