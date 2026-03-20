@@ -360,10 +360,45 @@ const handleUpdateDocument = async (id: number, type: string, dateExpiration: st
     setShowContratForm(true);
   };
 
-  const handleEditContrat = (contrat: any) => {
-    setSelectedContrat(contrat);
-    setShowContratForm(true);
-  };
+// Remplacer la fonction handleEditContrat par :
+
+const handleEditContrat = (contrat: any) => {
+  // ✅ Utiliser les données déjà disponibles dans locataireData
+  // Le locataire est déjà dans locataireData
+  // Le bien peut être trouvé dans les contrats ou dans bien_actuel
+  
+  // Chercher le bien dans les données existantes
+  let bienInfo = null;
+  
+  // D'abord, chercher dans le contrat s'il a un bien
+  if (contrat.bien) {
+    bienInfo = contrat.bien;
+  } 
+  // Sinon, chercher dans les contrats du locataire
+  else if (locataireData.contrats) {
+    const contratAvecBien = locataireData.contrats.find((c: any) => c.id === contrat.id);
+    if (contratAvecBien && contratAvecBien.bien) {
+      bienInfo = contratAvecBien.bien;
+    }
+  }
+  // En dernier recours, utiliser bien_actuel du locataire
+  else if (locataireData.bien_actuel) {
+    bienInfo = locataireData.bien_actuel;
+  }
+  
+  setSelectedContrat({
+    ...contrat,
+    locataire: {
+      id: locataireData.id,
+      nom: locataireData.nom,
+      prenom: locataireData.prenom,
+      email: locataireData.email,
+      telephone: locataireData.telephone
+    }, // ✅ Le locataire vient de locataireData
+    bien: bienInfo // ✅ Le bien trouvé
+  });
+  setShowContratForm(true);
+};
 
   const handleDeleteContrat = (contrat: any) => {
     setItemToDelete({ type: 'contrat', id: contrat.id, item: contrat });

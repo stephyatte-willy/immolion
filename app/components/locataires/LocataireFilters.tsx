@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { STATUTS_LOCATAIRE } from '@/app/types/locataires';
+import { STATUTS_BIENS } from '@/app/types/ci'; // ✅ Importer les statuts des biens
 import '@/app/locataires/locataires.css';
 
 interface LocataireFiltersProps {
@@ -14,6 +15,7 @@ export default function LocataireFilters({ onFilter }: LocataireFiltersProps) {
   const [filters, setFilters] = useState({
     search: '',
     statut: 'TOUS',
+    statutBien: 'TOUS', // ✅ Filtre pour le statut du bien
     hasBien: 'tous'
   });
 
@@ -27,6 +29,7 @@ export default function LocataireFilters({ onFilter }: LocataireFiltersProps) {
     const resetFilters = {
       search: '',
       statut: 'TOUS',
+      statutBien: 'TOUS',
       hasBien: 'tous'
     };
     setFilters(resetFilters);
@@ -68,8 +71,9 @@ export default function LocataireFilters({ onFilter }: LocataireFiltersProps) {
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="filters-grid">
+              {/* Filtre par statut du locataire */}
               <div className="filter-group">
-                <label>Statut</label>
+                <label>Statut locataire</label>
                 <select
                   value={filters.statut}
                   onChange={(e) => handleChange('statut', e.target.value)}
@@ -83,6 +87,23 @@ export default function LocataireFilters({ onFilter }: LocataireFiltersProps) {
                 </select>
               </div>
 
+              {/* ✅ Filtre par statut du bien - avec les 6 statuts demandés */}
+              <div className="filter-group">
+                <label>Statut du bien</label>
+                <select
+                  value={filters.statutBien}
+                  onChange={(e) => handleChange('statutBien', e.target.value)}
+                >
+                  <option value="TOUS">Tous les statuts</option>
+                  {STATUTS_BIENS.map(statut => (
+                    <option key={statut.value} value={statut.value}>
+                      {statut.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtre par présence de logement */}
               <div className="filter-group">
                 <label>Logement</label>
                 <select

@@ -20,9 +20,10 @@ interface LocataireCardProps {
   onView: (id: number) => void;
   onEdit: (locataire: any) => void;
   onDelete: (locataire: any) => void;
+  formatMoney: (montant: number) => string; // ✅ Ajout de formatMoney
 }
 
-export default function LocataireCard({ locataire, onView, onEdit, onDelete }: LocataireCardProps) {
+export default function LocataireCard({ locataire, onView, onEdit, onDelete, formatMoney }: LocataireCardProps) {
   const getStatutClass = (statut: string) => {
     const classes: Record<string, string> = {
       'ACTIF': 'statut-actif',
@@ -91,7 +92,7 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete }: L
         {locataire.impayes && locataire.impayes > 0 && (
           <div className="locataire-alerte">
             <span className="alerte-icon">⚠️</span>
-            <span className="alerte-text">{locataire.impayes} impayé(s)</span>
+            <span className="alerte-text">{formatMoney(locataire.impayes)} impayé(s)</span> {/* ✅ Formaté */}
           </div>
         )}
       </div>

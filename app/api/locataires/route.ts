@@ -46,16 +46,16 @@ export async function GET(request: NextRequest) {
 
     // ✅ CORRECTION: Utiliser bien_id au lieu de bien_actuel_id
     const locataires = await queryRows(
-      `SELECT l.*,
-        (SELECT JSON_OBJECT('id', b.id, 'nom', b.nom, 'adresse', b.adresse, 'loyer_mensuel', b.loyer_mensuel) 
-         FROM biens b WHERE b.id = l.bien_id) as bien_actuel,
-        (SELECT COUNT(*) FROM paiements p WHERE p.locataire_id = l.id AND p.statut = 'EN_RETARD') as impayes
-       FROM locataires l
-       ${whereClause}
-       ORDER BY l.created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, limit, offset]
-    ) as any[];
+  `SELECT l.*,
+    (SELECT JSON_OBJECT('id', b.id, 'nom', b.nom, 'adresse', b.adresse, 'statut', b.statut) 
+     FROM biens b WHERE b.id = l.bien_id) as bien_actuel,
+    (SELECT COUNT(*) FROM paiements p WHERE p.locataire_id = l.id AND p.statut = 'EN_RETARD') as impayes
+   FROM locataires l
+   ${whereClause}
+   ORDER BY l.created_at DESC
+   LIMIT ? OFFSET ?`,
+  [...params, limit, offset]
+) as any[];
 
     // ✅ CORRECTION: Ne pas parser si c'est déjà un objet
     const locatairesFormatted = locataires.map(l => {

@@ -39,15 +39,15 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // ✅ Déterminer si c'est une vente (basé sur type_contrat)
   const isVente = formData.type_contrat === 'VENTE';
 
+  // Charger les listes
   useEffect(() => {
     chargerBiens();
     chargerLocataires();
   }, []);
 
-  // ✅ Mode édition - CORRIGÉ
+  // MODE ÉDITION
   useEffect(() => {
     if (contrat) {
       console.log('📦 Contrat reçu pour édition:', contrat);
@@ -72,7 +72,6 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
         date_signature: formatDate(contrat.date_signature),
         date_etat_lieux_entree: formatDate(contrat.date_etat_lieux_entree),
         date_etat_lieux_sortie: formatDate(contrat.date_etat_lieux_sortie),
-        // ✅ Pour une vente, on utilise prix_vente, sinon loyer_mensuel
         loyer_mensuel: !estVente ? (contrat.loyer_mensuel?.toString() || '') : '',
         charges_mensuelles: !estVente ? (contrat.charges_mensuelles?.toString() || '') : '',
         depot_garantie: !estVente ? (contrat.depot_garantie?.toString() || '') : '',
@@ -81,24 +80,31 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
         statut: contrat.statut || 'ACTIF'
       });
 
-      if (contrat.bien) setBienSelectionne(contrat.bien);
-      if (contrat.locataire) setLocataireSelectionne(contrat.locataire);
+      // Définir le locataire
+      if (contrat.locataire) {
+        setLocataireSelectionne(contrat.locataire);
+      }
+
+      // Définir le bien
+      if (contrat.bien) {
+        setBienSelectionne(contrat.bien);
+      }
     }
   }, [contrat]);
 
-  // ✅ Charger les données initiales quand locataire_id est fourni
+  // MODE CRÉATION - Quand locataire_id est fourni
   useEffect(() => {
     if (locataire_id && locataires.length > 0 && !contrat) {
-      const locataire = locataires.find(l => l.id === locataire_id);
+      const locataire = locataires.find((l: any) => l.id === locataire_id);
       if (locataire) {
         setLocataireSelectionne(locataire);
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
           ...prev,
           locataire_id: locataire_id.toString()
         }));
 
         if (locataire.bien_actuel) {
-          setFormData(prev => ({
+          setFormData((prev: any) => ({
             ...prev,
             bien_id: locataire.bien_actuel.id.toString()
           }));
@@ -107,15 +113,14 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
     }
   }, [locataire_id, locataires, contrat]);
 
-  // ✅ Charger les données initiales quand bien_id est fourni (pour création)
+  // MODE CRÉATION - Quand bien_id est fourni
   useEffect(() => {
     if (bien_id && biens.length > 0 && !contrat) {
-      const bien = biens.find(b => b.id === bien_id);
+      const bien = biens.find((b: any) => b.id === bien_id);
       if (bien) {
         setBienSelectionne(bien);
-        // ✅ Pré-remplir selon le statut du bien
         if (bien.statut === 'EN_VENTE') {
-          setFormData(prev => ({
+          setFormData((prev: any) => ({
             ...prev,
             bien_id: bien_id.toString(),
             type_contrat: 'VENTE',
@@ -125,7 +130,7 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
             depot_garantie: ''
           }));
         } else {
-          setFormData(prev => ({
+          setFormData((prev: any) => ({
             ...prev,
             bien_id: bien_id.toString(),
             loyer_mensuel: bien.loyer_mensuel?.toString() || prev.loyer_mensuel,
@@ -135,7 +140,7 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
         }
 
         if (bien.locataire_actuel) {
-          setFormData(prev => ({
+          setFormData((prev: any) => ({
             ...prev,
             locataire_id: bien.locataire_actuel.id.toString()
           }));
@@ -144,11 +149,11 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
     }
   }, [bien_id, biens, contrat]);
 
-  // ✅ Quand on sélectionne un bien (manuellement), pré-remplir selon son statut
+  // MODE CRÉATION - Quand on sélectionne un bien manuellement
   useEffect(() => {
     if (bienSelectionne && !contrat) {
       if (bienSelectionne.statut === 'EN_VENTE' || bienSelectionne.prix_vente) {
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
           ...prev,
           type_contrat: 'VENTE',
           prix_vente: bienSelectionne.prix_vente?.toString() || prev.prix_vente,
@@ -157,7 +162,7 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
           depot_garantie: ''
         }));
       } else {
-        setFormData(prev => ({
+        setFormData((prev: any) => ({
           ...prev,
           type_contrat: prev.type_contrat === 'VENTE' ? 'BAIL_VIDE' : prev.type_contrat,
           loyer_mensuel: bienSelectionne.loyer_mensuel?.toString() || prev.loyer_mensuel,
@@ -169,15 +174,15 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
     }
   }, [bienSelectionne, contrat]);
 
-  // ✅ Pré-remplissage bidirectionnel
+  // MODE CRÉATION - Pré-remplissage bidirectionnel
   useEffect(() => {
     if (locataireSelectionne && locataireSelectionne.bien_actuel && !contrat) {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         bien_id: locataireSelectionne.bien_actuel.id.toString()
       }));
       
-      const bienAssocie = biens.find(b => b.id === locataireSelectionne.bien_actuel.id);
+      const bienAssocie = biens.find((b: any) => b.id === locataireSelectionne.bien_actuel.id);
       if (bienAssocie) {
         setBienSelectionne(bienAssocie);
       }
@@ -186,12 +191,12 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
 
   useEffect(() => {
     if (bienSelectionne && bienSelectionne.locataire_actuel && !contrat) {
-      setFormData(prev => ({
+      setFormData((prev: any) => ({
         ...prev,
         locataire_id: bienSelectionne.locataire_actuel.id.toString()
       }));
       
-      const locataireAssocie = locataires.find(l => l.id === bienSelectionne.locataire_actuel.id);
+      const locataireAssocie = locataires.find((l: any) => l.id === bienSelectionne.locataire_actuel.id);
       if (locataireAssocie) {
         setLocataireSelectionne(locataireAssocie);
       }
@@ -229,7 +234,6 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
     if (!formData.locataire_id) newErrors.locataire_id = 'Le locataire est requis';
     if (!formData.date_debut) newErrors.date_debut = 'La date de début est requise';
     
-    // ✅ Validation selon le type de contrat
     if (isVente) {
       if (!formData.prix_vente) {
         newErrors.prix_vente = 'Le prix de vente est requis';
@@ -335,84 +339,123 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
                   <span>🤝</span> Parties prenantes
                 </div>
                 <div className="form-grid">
-                  <div className="form-group">
-                    <label>{isVente ? 'Acheteur *' : 'Locataire *'}</label>
-                    <select
-                      value={formData.locataire_id}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setFormData({...formData, locataire_id: id});
-                        const loc = locataires.find(l => l.id.toString() === id);
-                        setLocataireSelectionne(loc || null);
-                      }}
-                      className={errors.locataire_id ? 'error' : ''}
-                      disabled={!!contrat}
-                    >
-                      <option value="">{isVente ? 'Sélectionnez un acheteur' : 'Sélectionnez un locataire'}</option>
-                      {locataires.map(loc => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.prenom} {loc.nom} - {loc.email}
-                          {loc.bien_actuel && ' (👤 avec bien)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.locataire_id && <span className="error-message">{errors.locataire_id}</span>}
-                    
-                    {locataireSelectionne && locataireSelectionne.bien_actuel && (
-                      <small className="field-hint">
-                        ⚡ Ce client a déjà un bien ({locataireSelectionne.bien_actuel.nom})
-                      </small>
-                    )}
-                  </div>
+                  {/* ✅ MODE ÉDITION : juste prénom + nom */}
+                  {contrat ? (
+                    <>
+                      <div className="form-group">
+                        <label>{isVente ? 'Acheteur' : 'Locataire'}</label>
+                        <input
+                          type="text"
+                          value={
+                            locataireSelectionne 
+                              ? `${locataireSelectionne.prenom} ${locataireSelectionne.nom}`
+                              : contrat.locataire 
+                                ? `${contrat.locataire.prenom} ${contrat.locataire.nom}`
+                                : 'Client non disponible'
+                          }
+                          disabled
+                          className="readonly"
+                        />
+                      </div>
 
-                  <div className="form-group">
-                    <label>Bien *</label>
-                    <select
-                      value={formData.bien_id}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setFormData({...formData, bien_id: id});
-                        const bien = biens.find(b => b.id.toString() === id);
-                        setBienSelectionne(bien || null);
-                      }}
-                      className={errors.bien_id ? 'error' : ''}
-                      disabled={!!contrat}
-                    >
-                      <option value="">Sélectionnez un bien</option>
-                      {biens.map(bien => (
-                        <option key={bien.id} value={bien.id}>
-                          {bien.nom} - {bien.ville} 
-                          {bien.statut === 'EN_VENTE' ? ' (💰 En vente)' : bien.statut === 'LOUE' ? ' (🔒 Loué)' : ' (✅ Disponible)'}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.bien_id && <span className="error-message">{errors.bien_id}</span>}
-                  </div>
+                      <div className="form-group">
+                        <label>Bien</label>
+                        <input
+                          type="text"
+                          value={
+                            bienSelectionne 
+                              ? bienSelectionne.nom
+                              : contrat.bien 
+                                ? contrat.bien.nom
+                                : 'Bien non disponible'
+                          }
+                          disabled
+                          className="readonly"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* ✅ MODE CRÉATION : selects normaux */
+                    <>
+                      <div className="form-group">
+                        <label>{isVente ? 'Acheteur *' : 'Locataire *'}</label>
+                        <select
+                          value={formData.locataire_id}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            setFormData({...formData, locataire_id: id});
+                            const loc = locataires.find((l: any) => l.id.toString() === id);
+                            setLocataireSelectionne(loc || null);
+                          }}
+                          className={errors.locataire_id ? 'error' : ''}
+                        >
+                          <option value="">{isVente ? 'Sélectionnez un acheteur' : 'Sélectionnez un locataire'}</option>
+                          {locataires.map((loc: any) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.prenom} {loc.nom} - {loc.email}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.locataire_id && <span className="error-message">{errors.locataire_id}</span>}
+                      </div>
+
+                      <div className="form-group">
+                        <label>Bien *</label>
+                        <select
+                          value={formData.bien_id}
+                          onChange={(e) => {
+                            const id = e.target.value;
+                            setFormData({...formData, bien_id: id});
+                            const bien = biens.find((b: any) => b.id.toString() === id);
+                            setBienSelectionne(bien || null);
+                          }}
+                          className={errors.bien_id ? 'error' : ''}
+                        >
+                          <option value="">Sélectionnez un bien</option>
+                          {biens.map((bien: any) => (
+                            <option key={bien.id} value={bien.id}>
+                              {bien.nom} - {bien.ville} 
+                              {bien.statut === 'EN_VENTE' ? ' (💰 En vente)' : bien.statut === 'LOUE' ? ' (🔒 Loué)' : ' (✅ Disponible)'}
+                            </option>
+                          ))}
+                        </select>
+                        {errors.bien_id && <span className="error-message">{errors.bien_id}</span>}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Affichage des infos du bien sélectionné */}
-                {bienSelectionne && (
+                {(bienSelectionne || contrat?.bien) && (
                   <div className="info-panel">
                     <h4>Informations du bien</h4>
                     <div className="info-grid">
-                      <div><strong>Adresse:</strong> {bienSelectionne.adresse}, {bienSelectionne.commune}</div>
-                      <div><strong>Surface:</strong> {bienSelectionne.surface} m²</div>
-                      <div><strong>Pièces:</strong> {bienSelectionne.pieces}</div>
+                      <div><strong>Adresse:</strong> {
+                        (bienSelectionne || contrat?.bien)?.adresse
+                      }, {
+                        (bienSelectionne || contrat?.bien)?.commune
+                      }</div>
+                      <div><strong>Surface:</strong> {
+                        (bienSelectionne || contrat?.bien)?.surface
+                      } m²</div>
+                      <div><strong>Pièces:</strong> {
+                        (bienSelectionne || contrat?.bien)?.pieces
+                      }</div>
                       
-                      {/* ✅ Affichage conditionnel : prix de vente OU loyer */}
-                      {bienSelectionne.statut === 'EN_VENTE' || bienSelectionne.prix_vente ? (
-                        <div>
-                          <strong>Prix de vente:</strong> {bienSelectionne.prix_vente?.toLocaleString()} FCFA
-                        </div>
+                      {(bienSelectionne || contrat?.bien)?.statut === 'EN_VENTE' || 
+                       (bienSelectionne || contrat?.bien)?.prix_vente ? (
+                        <div><strong>Prix de vente:</strong> {
+                          ((bienSelectionne || contrat?.bien)?.prix_vente || 0).toLocaleString()
+                        } FCFA</div>
                       ) : (
                         <>
-                          <div>
-                            <strong>Loyer:</strong> {bienSelectionne.loyer_mensuel?.toLocaleString()} FCFA
-                          </div>
-                          {bienSelectionne.charges > 0 && (
-                            <div>
-                              <strong>Charges:</strong> {bienSelectionne.charges?.toLocaleString()} FCFA
-                            </div>
+                          <div><strong>Loyer:</strong> {
+                            ((bienSelectionne || contrat?.bien)?.loyer_mensuel || 0).toLocaleString()
+                          } FCFA</div>
+                          {(bienSelectionne || contrat?.bien)?.charges > 0 && (
+                            <div><strong>Charges:</strong> {
+                              ((bienSelectionne || contrat?.bien)?.charges || 0).toLocaleString()
+                            } FCFA</div>
                           )}
                         </>
                       )}
@@ -432,8 +475,9 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
                     <select
                       value={formData.type_contrat}
                       onChange={(e) => setFormData({...formData, type_contrat: e.target.value})}
+                      disabled={!!contrat}
                     >
-                      {TYPES_CONTRAT.map(type => (
+                      {TYPES_CONTRAT.map((type: any) => (
                         <option key={type.value} value={type.value}>
                           {type.icone} {type.label}
                         </option>
@@ -447,7 +491,7 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
                       value={formData.statut}
                       onChange={(e) => setFormData({...formData, statut: e.target.value})}
                     >
-                      {STATUTS_CONTRAT.map(statut => (
+                      {STATUTS_CONTRAT.map((statut: any) => (
                         <option key={statut.value} value={statut.value}>
                           {statut.label}
                         </option>
@@ -510,14 +554,13 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
                 </div>
               </div>
 
-              {/* ✅ Aspects financiers adaptés - comme dans BienForm */}
+              {/* Aspects financiers */}
               <div className="form-section">
                 <div className="modal-section-title">
                   <span>💰</span> {isVente ? 'Prix de vente' : 'Aspects financiers'}
                 </div>
                 <div className="form-grid">
                   {isVente ? (
-                    // ✅ Mode vente
                     <div className="form-group full-width">
                       <label>Prix de vente (FCFA) *</label>
                       <input
@@ -534,7 +577,6 @@ export default function ContratForm({ contrat, locataire_id, bien_id, onClose, o
                       )}
                     </div>
                   ) : (
-                    // ✅ Mode location
                     <>
                       <div className="form-group">
                         <label>Loyer mensuel (FCFA) *</label>

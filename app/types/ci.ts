@@ -64,3 +64,12 @@ export const QUARTIERS_CI: Record<string, string[]> = {
   'Koumassi': ['Grands Moulins', 'Remblais', 'Sogefia'],
   'Port-Bouët': ['Vridi', 'Cité Verte']
 };
+
+export const STATUTS_BIENS = [
+  { value: 'DISPONIBLE', label: 'Disponible', couleur: '#10b981' },
+  { value: 'LOUE', label: 'Loué', couleur: '#3b82f6' },
+  { value: 'EN_TRAVAUX', label: 'En travaux', couleur: '#f59e0b' },
+  { value: 'EN_VENTE', label: 'En vente', couleur: '#8b5cf6' },
+  { value: 'VENDU', label: 'Vendu', couleur: '#6b7280' },
+  { value: 'RESERVE', label: 'Réservé', couleur: '#ec4899' }
+];

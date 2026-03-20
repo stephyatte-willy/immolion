@@ -11,7 +11,8 @@ import LocataireFilters from '@/app/components/locataires/LocataireFilters';
 import LocataireDetailModal from '@/app/components/locataires/LocataireDetailModal';
 import LocataireStats from '@/app/components/locataires/LocataireStats';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
-import { useTheme } from '@/app/providers/ThemeProvider';
+import { useTheme } from '@/app/providers/ThemeProvider'; // ✅ Pour formatDate
+import { useFormatMoney } from '@/app/hooks/useFormatMoney'; // ✅ Pour formatMoney
 import { STATUTS_LOCATAIRE } from '@/app/types/locataires';
 import toast from 'react-hot-toast';
 import './locataires.css';
@@ -26,6 +27,7 @@ interface Locataire {
   bien_actuel?: {
     id: number;
     nom: string;
+    statut: string; // ✅ Ajout du statut du bien
   };
   impayes?: number;
   created_at: string;
@@ -52,7 +54,8 @@ export default function LocatairesPage() {
   });
   
   const router = useRouter();
-  const { formatDate } = useTheme();
+  const { formatDate } = useTheme(); // Gardé pour les dates
+  const { formatMoney } = useFormatMoney(); // ✅ Nouveau hook pour l'argent
 
   useEffect(() => {
     const userStr = localStorage.getItem('utilisateur');
@@ -105,31 +108,44 @@ export default function LocatairesPage() {
     setStats({ total, actifs, prospects, impayes });
   };
 
-  const handleFilter = (filters: any) => {
-    let filtered = [...locataires];
+// Dans la fonction handleFilter, ajoutez le filtrage par statut du bien
 
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(l => 
-        l.nom.toLowerCase().includes(searchLower) ||
-        l.prenom.toLowerCase().includes(searchLower) ||
-        l.email.toLowerCase().includes(searchLower) ||
-        l.telephone.includes(filters.search)
-      );
-    }
+const handleFilter = (filters: any) => {
+  let filtered = [...locataires];
 
-    if (filters.statut && filters.statut !== 'TOUS') {
-      filtered = filtered.filter(l => l.statut === filters.statut);
-    }
+  // Filtre par recherche textuelle
+  if (filters.search) {
+    const searchLower = filters.search.toLowerCase();
+    filtered = filtered.filter(l => 
+      l.nom.toLowerCase().includes(searchLower) ||
+      l.prenom.toLowerCase().includes(searchLower) ||
+      l.email.toLowerCase().includes(searchLower) ||
+      l.telephone.includes(filters.search)
+    );
+  }
 
-    if (filters.hasBien === 'oui') {
-      filtered = filtered.filter(l => l.bien_actuel);
-    } else if (filters.hasBien === 'non') {
-      filtered = filtered.filter(l => !l.bien_actuel);
-    }
+  // Filtre par statut du locataire
+  if (filters.statut && filters.statut !== 'TOUS') {
+    filtered = filtered.filter(l => l.statut === filters.statut);
+  }
 
-    setFilteredLocataires(filtered);
-  };
+  // ✅ Filtre par statut du bien
+  if (filters.statutBien && filters.statutBien !== 'TOUS') {
+    filtered = filtered.filter(l => {
+      // Si le locataire a un bien et que son statut correspond
+      return l.bien_actuel && l.bien_actuel.statut === filters.statutBien;
+    });
+  }
+
+  // Filtre par présence de logement
+  if (filters.hasBien === 'oui') {
+    filtered = filtered.filter(l => l.bien_actuel);
+  } else if (filters.hasBien === 'non') {
+    filtered = filtered.filter(l => !l.bien_actuel);
+  }
+
+  setFilteredLocataires(filtered);
+};
 
   const handleAddLocataire = () => {
     setSelectedLocataire(null);
@@ -254,6 +270,7 @@ export default function LocatairesPage() {
                     onView={handleViewLocataire}
                     onEdit={handleEditLocataire}
                     onDelete={handleDeleteClick}
+                    formatMoney={formatMoney} // ✅ Passer formatMoney à la carte
                   />
                 ))}
               </AnimatePresence>
@@ -279,7 +296,6 @@ export default function LocatairesPage() {
       locataire={selectedLocataireForDetail}
       onClose={() => setShowDetailModal(false)}
       onEdit={handleEditLocataire}
-      // onRefresh={refreshLocataires}  ← Supprimez cette ligne
     />
   )}
 </AnimatePresence>

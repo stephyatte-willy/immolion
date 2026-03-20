@@ -43,7 +43,8 @@ export default function PaiementForm({
     commentaire: ''
   });
 
-  const [contratUnique, setContratUnique] = useState<any>(null);
+  const [contrats, setContrats] = useState<any[]>([]); // ✅ Liste des contrats
+  const [contratSelectionne, setContratSelectionne] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [versementsPrecedents, setVersementsPrecedents] = useState<any[]>([]);
@@ -54,39 +55,39 @@ export default function PaiementForm({
   const months = MOIS;
 
   // ✅ Déterminer si c'est une vente
-  const isVente = contratUnique?.type_contrat === 'VENTE';
+  const isVente = contratSelectionne?.type_contrat === 'VENTE';
   const typePaiementVente = formData.type_vente;
 
-  // ✅ Charger le contrat unique du locataire
+  // ✅ Charger tous les contrats du locataire
   useEffect(() => {
     if (locataire_id) {
-      chargerContratUnique();
+      chargerContrats();
     }
   }, [locataire_id]);
 
-  // ✅ Charger les versements précédents pour une vente
+  // ✅ Charger les versements précédents quand un contrat est sélectionné
   useEffect(() => {
-    if (contratUnique && isVente) {
+    if (contratSelectionne && isVente) {
       chargerVersementsPrecedents();
     }
-  }, [contratUnique, isVente]);
+  }, [contratSelectionne, isVente]);
 
-  // ✅ Pré-remplir automatiquement avec le contrat unique
+  // ✅ Pré-remplir quand un contrat est sélectionné
   useEffect(() => {
-    if (contratUnique) {
-      const isContratVente = contratUnique.type_contrat === 'VENTE';
+    if (contratSelectionne) {
+      const isContratVente = contratSelectionne.type_contrat === 'VENTE';
       
       setFormData(prev => ({
         ...prev,
-        contrat_id: contratUnique.id.toString(),
-        locataire_id: contratUnique.locataire_id?.toString() || '',
-        bien_id: contratUnique.bien_id?.toString() || '',
-        montant: isContratVente ? '' : (contratUnique.loyer_mensuel?.toString() || prev.montant),
-        montant_total_vente: isContratVente ? (contratUnique.prix_vente?.toString() || '') : '',
+        contrat_id: contratSelectionne.id.toString(),
+        locataire_id: contratSelectionne.locataire_id?.toString() || '',
+        bien_id: contratSelectionne.bien_id?.toString() || '',
+        montant: isContratVente ? '' : (contratSelectionne.loyer_mensuel?.toString() || prev.montant),
+        montant_total_vente: isContratVente ? (contratSelectionne.prix_vente?.toString() || '') : '',
         type_paiement: isContratVente ? 'ACOMPTE' : 'LOYER',
       }));
     }
-  }, [contratUnique]);
+  }, [contratSelectionne]);
 
   // ✅ Mode édition
   useEffect(() => {
@@ -110,26 +111,44 @@ export default function PaiementForm({
         penalite: paiement.penalite?.toString() || '0',
         commentaire: paiement.commentaire || ''
       });
+      
+      // Sélectionner le contrat correspondant
+      if (paiement.contrat_id && contrats.length > 0) {
+        const contrat = contrats.find(c => c.id === paiement.contrat_id);
+        if (contrat) {
+          setContratSelectionne(contrat);
+        }
+      }
     }
-  }, [paiement]);
+  }, [paiement, contrats]);
 
-  const chargerContratUnique = async () => {
+  const chargerContrats = async () => {
     try {
-      const response = await fetch(`/api/contrats?locataire_id=${locataire_id}&statut=ACTIF`);
+      const response = await fetch(`/api/contrats?locataire_id=${locataire_id}`);
       const data = await response.json();
-      if (data.success && data.contrats && data.contrats.length > 0) {
-        setContratUnique(data.contrats[0]);
+      if (data.success && data.contrats) {
+        setContrats(data.contrats);
+        
+        // ✅ Si un contrat_id est fourni, le sélectionner automatiquement
+        if (contrat_id) {
+          const contrat = data.contrats.find((c: any) => c.id === contrat_id);
+          if (contrat) {
+            setContratSelectionne(contrat);
+          }
+        }
       } else {
-        toast.error('Aucun contrat actif trouvé pour ce client');
+        toast.error('Aucun contrat trouvé pour ce client');
       }
     } catch (error) {
-      console.error('Erreur chargement contrat:', error);
+      console.error('Erreur chargement contrats:', error);
     }
   };
 
   const chargerVersementsPrecedents = async () => {
+    if (!contratSelectionne) return;
+    
     try {
-      const response = await fetch(`/api/paiements?contrat_id=${contratUnique.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
+      const response = await fetch(`/api/paiements?contrat_id=${contratSelectionne.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
       const data = await response.json();
       if (data.success) {
         setVersementsPrecedents(data.paiements);
@@ -141,12 +160,23 @@ export default function PaiementForm({
         setFormData(prev => ({
           ...prev,
           versement_numero: (maxNumero + 1).toString(),
-          echeancier_id: `VENTE-${contratUnique.id}-${new Date().getFullYear()}`
+          echeancier_id: `VENTE-${contratSelectionne.id}-${new Date().getFullYear()}`
         }));
       }
     } catch (error) {
       console.error('Erreur chargement versements:', error);
     }
+  };
+
+  const handleContratChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const id = e.target.value;
+    if (!id) {
+      setContratSelectionne(null);
+      return;
+    }
+    
+    const contrat = contrats.find(c => c.id.toString() === id);
+    setContratSelectionne(contrat || null);
   };
 
   const validateForm = (): boolean => {
@@ -220,8 +250,8 @@ export default function PaiementForm({
     }
   };
 
-  const resteAPayer = isVente && contratUnique?.prix_vente 
-    ? (parseFloat(contratUnique.prix_vente) - totalVersements) 
+  const resteAPayer = isVente && contratSelectionne?.prix_vente 
+    ? (parseFloat(contratSelectionne.prix_vente) - totalVersements) 
     : 0;
 
   return (
@@ -251,55 +281,65 @@ export default function PaiementForm({
         <div className="modal-body">
           <form onSubmit={handleSubmit} className="paiement-form">
             <div className="form-sections">
-              {/* Contrat */}
+              {/* ✅ Sélection du contrat */}
               <div className="form-section">
                 <div className="modal-section-title">
-                  <span>📄</span> Contrat
+                  <span>📄</span> Sélection du contrat
+                </div>
+                <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Contrat *</label>
+                    <select
+                      value={formData.contrat_id}
+                      onChange={handleContratChange}
+                      className={errors.contrat_id ? 'error' : ''}
+                      disabled={!!paiement} // Désactivé en mode édition
+                    >
+                      <option value="">Sélectionnez un contrat</option>
+                      {contrats.map((contrat: any) => (
+                        <option key={contrat.id} value={contrat.id}>
+                          {contrat.numero_contrat} - {contrat.type_contrat === 'VENTE' ? 'VENTE' : 'LOCATION'} - {contrat.bien?.nom || 'Bien'}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.contrat_id && <span className="error-message">{errors.contrat_id}</span>}
+                  </div>
                 </div>
                 
-                {contratUnique ? (
-                  <>
-                    <input type="hidden" name="contrat_id" value={contratUnique.id} />
-                    
-                    <div className="info-panel">
-                      <h4>Détails du contrat</h4>
-                      <div className="info-grid">
-                        <div>
-                          <strong>Client:</strong> {contratUnique.locataire?.prenom} {contratUnique.locataire?.nom}
-                        </div>
-                        <div>
-                          <strong>Bien:</strong> {contratUnique.bien?.nom}
-                        </div>
-                        <div>
-                          <strong>Type:</strong> {isVente ? 'VENTE' : 'LOCATION'}
-                        </div>
-                        {isVente ? (
-                          <>
-                            <div>
-                              <strong>Prix de vente:</strong> {parseFloat(contratUnique.prix_vente).toLocaleString()} FCFA
-                            </div>
-                            <div>
-                              <strong>Déjà versé:</strong> {totalVersements.toLocaleString()} FCFA
-                            </div>
-                            <div>
-                              <strong>Reste à payer:</strong> {resteAPayer.toLocaleString()} FCFA
-                            </div>
-                          </>
-                        ) : (
-                          <div>
-                            <strong>Loyer mensuel:</strong> {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA
-                          </div>
-                        )}
-                        <div>
-                          <strong>N° contrat:</strong> {contratUnique.numero_contrat}
-                        </div>
+                {contratSelectionne && (
+                  <div className="info-panel">
+                    <h4>Détails du contrat</h4>
+                    <div className="info-grid">
+                      <div>
+                        <strong>Client:</strong> {contratSelectionne.locataire?.prenom} {contratSelectionne.locataire?.nom}
                       </div>
+                      <div>
+                        <strong>Bien:</strong> {contratSelectionne.bien?.nom}
+                      </div>
+                      <div>
+                        <strong>Type:</strong> {isVente ? 'VENTE' : 'LOCATION'}
+                      </div>
+                      <div>
+                        <strong>N° contrat:</strong> {contratSelectionne.numero_contrat}
+                      </div>
+                      {isVente ? (
+                        <>
+                          <div>
+                            <strong>Prix de vente:</strong> {parseFloat(contratSelectionne.prix_vente || 0).toLocaleString()} FCFA
+                          </div>
+                          <div>
+                            <strong>Déjà versé:</strong> {totalVersements.toLocaleString()} FCFA
+                          </div>
+                          <div>
+                            <strong>Reste à payer:</strong> {resteAPayer.toLocaleString()} FCFA
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <strong>Loyer mensuel:</strong> {parseFloat(contratSelectionne.loyer_mensuel || 0).toLocaleString()} FCFA
+                        </div>
+                      )}
                     </div>
-                  </>
-                ) : (
-                  <div className="warning-panel">
-                    <span className="warning-icon">⚠️</span>
-                    <p>Aucun contrat actif trouvé pour ce client</p>
                   </div>
                 )}
               </div>
@@ -338,12 +378,6 @@ export default function PaiementForm({
                           />
                         </div>
                       )}
-
-                      <input
-                        type="hidden"
-                        name="echeancier_id"
-                        value={formData.echeancier_id}
-                      />
                     </>
                   ) : (
                     // ✅ Pour une location
@@ -388,9 +422,9 @@ export default function PaiementForm({
                       </small>
                     )}
                     
-                    {!isVente && contratUnique && (
+                    {!isVente && contratSelectionne && (
                       <small className="field-hint">
-                        Loyer mensuel: {parseFloat(contratUnique.loyer_mensuel).toLocaleString()} FCFA
+                        Loyer mensuel: {parseFloat(contratSelectionne.loyer_mensuel || 0).toLocaleString()} FCFA
                       </small>
                     )}
                   </div>
