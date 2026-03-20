@@ -19,6 +19,7 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
   const [typeDocument, setTypeDocument] = useState(document.type_document);
   const [dateExpiration, setDateExpiration] = useState(document.date_expiration || '');
   const [isHovered, setIsHovered] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const getDocumentTypeInfo = (type: string) => {
     const typeInfo = TYPES_DOCUMENTS.find(t => t.value === type) || TYPES_DOCUMENTS[0];
@@ -44,21 +45,67 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
     });
   };
 
+  // ✅ Fonction de téléchargement améliorée
   const handleDownload = () => {
-  // Pour les données base64, on peut ouvrir dans un nouvel onglet
-  if (document.url.startsWith('data:')) {
-    // Créer un lien temporaire pour télécharger
-    const link = document.createElement('a');
-    link.href = document.url;
-    link.download = document.nom; // Nom du fichier pour le téléchargement
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } else {
-    // Pour les URLs normales, ouvrir dans un nouvel onglet
-    window.open(document.url, '_blank');
-  }
-};
+    try {
+      if (document.url.startsWith('data:')) {
+        // C'est une donnée base64
+        const link = document.createElement('a');
+        link.href = document.url;
+        link.download = document.nom; // Nom du fichier pour le téléchargement
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Téléchargement lancé');
+      } else {
+        // C'est une URL normale
+        window.open(document.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Erreur téléchargement:', error);
+      toast.error('Erreur lors du téléchargement');
+    }
+  };
+
+  // ✅ Fonction pour voir le document
+  const handleView = () => {
+    try {
+      if (document.url.startsWith('data:')) {
+        // Pour les données base64, ouvrir dans un nouvel onglet
+        const newWindow = window.open();
+        if (newWindow) {
+          // Si c'est une image, on peut l'afficher directement
+          if (document.url.startsWith('data:image')) {
+            newWindow.document.write(`
+              <html>
+                <head><title>${document.nom}</title></head>
+                <body style="margin:0; display:flex; align-items:center; justify-content:center; background:#f5f5f5;">
+                  <img src="${document.url}" style="max-width:100%; max-height:100vh; object-fit:contain;" />
+                </body>
+              </html>
+            `);
+          } else {
+            // Pour les PDF et autres, utiliser un embed
+            newWindow.document.write(`
+              <html>
+                <head><title>${document.nom}</title></head>
+                <body style="margin:0;">
+                  <embed src="${document.url}" type="${document.url.split(';')[0].replace('data:', '')}" width="100%" height="100%" />
+                </body>
+              </html>
+            `);
+          }
+          newWindow.document.close();
+        }
+      } else {
+        // C'est une URL normale
+        window.open(document.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Erreur visualisation:', error);
+      toast.error('Erreur lors de la visualisation');
+    }
+  };
 
   const handleUpdate = () => {
     if (onUpdate) {
@@ -68,6 +115,10 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
   };
 
   const isExpired = document.date_expiration && new Date(document.date_expiration) < new Date();
+
+  // Déterminer si c'est une image
+  const isImage = document.url.startsWith('data:image') || 
+                  document.nom.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
   return (
     <>
@@ -104,6 +155,17 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
             </div>
           )}
 
+          {isImage && (
+            <div className="document-image-preview">
+              <img 
+                src={document.url} 
+                alt={document.nom}
+                style={{ maxWidth: '100px', maxHeight: '60px', objectFit: 'cover', borderRadius: '4px' }}
+                onClick={handleView}
+              />
+            </div>
+          )}
+
           {isEditing && (
             <div className="document-edit-form">
               <select
@@ -133,6 +195,13 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
         </div>
 
         <div className={`document-actions ${isHovered ? 'visible' : ''}`}>
+          <button 
+            className="action-btn view"
+            onClick={handleView}
+            title="Voir le document"
+          >
+            👁️
+          </button>
           <button 
             className="action-btn download"
             onClick={handleDownload}

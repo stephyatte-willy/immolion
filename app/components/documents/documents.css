@@ -412,3 +412,45 @@
     opacity: 1;
   }
 }
+
+/* Aperçu d'image dans la carte */
+.document-image-preview {
+  margin-top: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.document-image-preview:hover {
+  transform: scale(1.02);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.document-image-preview img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Amélioration des boutons d'action */
+.action-btn.view {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.action-btn.view:hover {
+  background: rgba(59, 130, 246, 0.2);
+  transform: scale(1.1);
+}
+
+.action-btn.download {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.action-btn.download:hover {
+  background: rgba(16, 185, 129, 0.2);
+  transform: scale(1.1);
+}
