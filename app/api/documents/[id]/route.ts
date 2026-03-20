@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
-import { unlink } from 'fs/promises';
-import path from 'path';
 
 // GET - Récupérer un document
 export async function GET(
@@ -81,22 +79,8 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Récupérer l'URL du document avant suppression
-    const documents = await queryRows(
-      'SELECT url FROM documents WHERE id = ?',
-      [id]
-    ) as any[];
-
-    if (documents.length > 0) {
-      const filePath = path.join(process.cwd(), 'public', documents[0].url);
-      try {
-        await unlink(filePath);
-        console.log('✅ Fichier supprimé:', filePath);
-      } catch (error) {
-        console.log('⚠️ Fichier non trouvé:', filePath);
-      }
-    }
-
+    // Plus besoin de supprimer les fichiers physiques
+    // On supprime simplement l'entrée dans la base de données
     await queryInsert('DELETE FROM documents WHERE id = ?', [id]);
 
     return NextResponse.json({

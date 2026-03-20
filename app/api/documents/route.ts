@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
-import { writeFile, mkdir, unlink } from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 
 // GET - Liste des documents avec filtres
 export async function GET(request: NextRequest) {
@@ -56,7 +53,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Upload de documents
+// POST - Upload de documents en base64
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -103,62 +100,70 @@ export async function POST(request: NextRequest) {
         'image/jpeg',
         'image/jpg',
         'image/png',
+        'image/gif',
+        'image/webp',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'text/plain',
+        'application/rtf'
       ];
 
-      if (!typesAutorises.includes(fichier.type) && !fichier.type.startsWith('image/')) {
+      // Pour les types d'images qui commencent par 'image/'
+      const typeEstAutorise = typesAutorises.includes(fichier.type) || fichier.type.startsWith('image/');
+      
+      if (!typeEstAutorise) {
         return NextResponse.json(
-          { success: false, erreur: `Type de fichier non autorisé: ${fichier.name}` },
+          { success: false, erreur: `Type de fichier non autorisé: ${fichier.name} (${fichier.type})` },
           { status: 400 }
         );
       }
 
-      // Créer le dossier uploads s'il n'existe pas
-      const uploadDir = path.join(process.cwd(), 'public/uploads/documents');
-      await mkdir(uploadDir, { recursive: true });
+      try {
+        // Convertir le fichier en base64
+        const bytes = await fichier.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        const base64 = buffer.toString('base64');
+        const mimeType = fichier.type;
+        
+        // Stocker directement le contenu base64 dans l'URL
+        const url = `data:${mimeType};base64,${base64}`;
 
-      // Générer un nom de fichier unique
-      const timestamp = Date.now();
-      const fileExtension = fichier.name.split('.').pop() || 'pdf';
-      const fileName = `doc-${locataire_id}-${timestamp}-${uuidv4().slice(0, 8)}.${fileExtension}`;
-      const filePath = path.join(uploadDir, fileName);
+        // Insérer dans la base de données
+        const result = await queryInsert(
+          `INSERT INTO documents (
+            locataire_id, contrat_id, bien_id, type_document, 
+            nom, url, taille, date_expiration, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          [
+            parseInt(locataire_id),
+            contrat_id ? parseInt(contrat_id) : null,
+            bien_id ? parseInt(bien_id) : null,
+            type_document || 'AUTRE',
+            fichier.name,
+            url,
+            fichier.size,
+            date_expiration || null
+          ]
+        );
 
-      // Sauvegarder le fichier
-      const bytes = await fichier.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      await writeFile(filePath, buffer);
-
-      const url = `/uploads/documents/${fileName}`;
-
-      // Insérer dans la base de données
-      const result = await queryInsert(
-        `INSERT INTO documents (
-          locataire_id, contrat_id, bien_id, type_document, 
-          nom, url, taille, date_expiration, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [
-          parseInt(locataire_id),
-          contrat_id ? parseInt(contrat_id) : null,
-          bien_id ? parseInt(bien_id) : null,
-          type_document || 'AUTRE',
-          fichier.name,
-          url,
-          fichier.size,
-          date_expiration || null
-        ]
-      );
-
-      if (result.success) {
-        documentsAjoutes.push({
-          id: result.insertId,
-          nom: fichier.name,
-          url,
-          taille: fichier.size,
-          type_document: type_document || 'AUTRE'
-        });
+        if (result.success) {
+          documentsAjoutes.push({
+            id: result.insertId,
+            nom: fichier.name,
+            url,
+            taille: fichier.size,
+            type_document: type_document || 'AUTRE'
+          });
+          console.log(`✅ Document ${fichier.name} ajouté en base64 (${(fichier.size / 1024).toFixed(2)} KB)`);
+        }
+      } catch (docError) {
+        console.error(`❌ Erreur traitement document ${fichier.name}:`, docError);
+        return NextResponse.json(
+          { success: false, erreur: `Erreur lors du traitement de ${fichier.name}` },
+          { status: 500 }
+        );
       }
     }
 
@@ -168,7 +173,7 @@ export async function POST(request: NextRequest) {
       documents: documentsAjoutes
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Erreur POST documents:', error);
     return NextResponse.json(
       { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },

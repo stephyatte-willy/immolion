@@ -45,8 +45,20 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
   };
 
   const handleDownload = () => {
+  // Pour les données base64, on peut ouvrir dans un nouvel onglet
+  if (document.url.startsWith('data:')) {
+    // Créer un lien temporaire pour télécharger
+    const link = document.createElement('a');
+    link.href = document.url;
+    link.download = document.nom; // Nom du fichier pour le téléchargement
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else {
+    // Pour les URLs normales, ouvrir dans un nouvel onglet
     window.open(document.url, '_blank');
-  };
+  }
+};
 
   const handleUpdate = () => {
     if (onUpdate) {
