@@ -202,13 +202,6 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
           >
             👁️
           </button>
-          <button 
-            className="action-btn download"
-            onClick={handleDownload}
-            title="Télécharger"
-          >
-            📥
-          </button>
           {onUpdate && (
             <button 
               className="action-btn edit"
