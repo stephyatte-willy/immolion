@@ -87,7 +87,7 @@ export default function PageConnexion() {
         localStorage.setItem('estConnecte', 'true');
         router.push('/dashboard');
       } else {
-        setErreur(resultat.erreur || 'Email ou mot de passe incorrect');
+        setErreur(resultat.erreur || '');
       }
     } catch (error) {
       setErreur('Une erreur est survenue');
@@ -122,7 +122,7 @@ export default function PageConnexion() {
           setResetEmail('');
           setResetTelephone('');
           setResetMessage('');
-        }, 3000);
+        }, 7000);
       } else {
         setResetMessage(data.erreur || 'Une erreur est survenue');
         toast.error(data.erreur || 'Erreur');
@@ -335,7 +335,14 @@ export default function PageConnexion() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                   >
-                    ❌ {erreur}
+                    ❌ Les informations que vous avez saisies sont incorrectes. <button 
+                  type="button"
+                  className="link-button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                  style={{ color: '#0037ff', fontWidth: '600' }}
+                >
+                  Réinitialiser votre mot de passe.
+                </button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -373,7 +380,6 @@ export default function PageConnexion() {
                 >
                   Mot de passe oublié ?
                 </button>
-                <a href="#">Créer un compte</a>
               </motion.div>
             </form>
           </div>
