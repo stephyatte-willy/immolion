@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { authService } from './../services/authService';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
 import './connexion.css';
 
 export default function PageConnexion() {
@@ -17,6 +18,16 @@ export default function PageConnexion() {
   const [utilisateurTrouve, setUtilisateurTrouve] = useState<{nom: string, prenom: string, role: string} | null>(null);
   const [rechercheEnCours, setRechercheEnCours] = useState(false);
   const [entreprise, setEntreprise] = useState<any>(null);
+  
+  // ✅ Nouveaux états pour le mot de passe oublié et l'œil
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetTelephone, setResetTelephone] = useState('');
+  const [resetMethod, setResetMethod] = useState<'email' | 'telephone'>('email');
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -45,10 +56,7 @@ export default function PageConnexion() {
 
   const chargerDonnees = async () => {
     try {
-      // Charger les paramètres de l'app
       const resultat = await authService.obtenirParametresApp();
-      
-      // Charger les infos de l'entreprise
       const response = await fetch('/api/entreprise');
       const data = await response.json();
       
@@ -88,6 +96,46 @@ export default function PageConnexion() {
     }
   };
 
+  // ✅ Fonction pour réinitialiser le mot de passe
+  const handleResetPassword = async () => {
+    setIsResetting(true);
+    setResetMessage('');
+    
+    try {
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: resetEmail,
+          telephone: resetTelephone,
+          method: resetMethod
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setResetMessage(data.message);
+        toast.success('Instructions envoyées !');
+        setTimeout(() => {
+          setShowForgotPasswordModal(false);
+          setResetEmail('');
+          setResetTelephone('');
+          setResetMessage('');
+        }, 3000);
+      } else {
+        setResetMessage(data.erreur || 'Une erreur est survenue');
+        toast.error(data.erreur || 'Erreur');
+      }
+    } catch (error) {
+      console.error('Erreur reset password:', error);
+      setResetMessage('Erreur de connexion au serveur');
+      toast.error('Erreur de connexion');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const formaterRole = (role: string) => {
     const roles: { [key: string]: string } = {
       'ADMIN': 'Administrateur',
@@ -100,7 +148,6 @@ export default function PageConnexion() {
 
   return (
     <div className="connexion-container">
-      {/* Éléments décoratifs */}
       <div className="connexion-bg-pattern"></div>
       <div className="connexion-bg-gradient"></div>
       
@@ -110,7 +157,6 @@ export default function PageConnexion() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8 }}
       >
-        {/* Section gauche - Branding */}
         <motion.div 
           className="connexion-brand"
           initial={{ x: -50, opacity: 0 }}
@@ -124,56 +170,56 @@ export default function PageConnexion() {
               </div>
             ) : (
               <>
-              <div className="form-logo-mini">
-                <img src="/logo_immolion.png" alt="ImmoLion" />
-              </div>
+                <div className="form-logo-mini">
+                  <img src="/logo_immolion.png" alt="ImmoLion" />
+                </div>
                 <div className="brand-divider">
                   <span className="divider-line"></span>
                   <span className="divider-icon">ImmoLion</span>
                   <span className="divider-line"></span>
                 </div>               
                 
-              <div className="brand-company">
-                <div className="company-header">
-                  {entreprise?.logo_url ? (
-                    <div className="company-logo-mini">
-                      <img 
-                        src={entreprise.logo_url} 
-                        alt={entreprise.nom}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div className="company-logo-placeholder">
-                      <span>🏢</span>
-                    </div>
-                  )}
-                  <h2>{entreprise?.nom || 'Gestion Immobilière'}</h2>
-                </div>
-                
-                <div className="company-details">
-                  <div className="company-item">
-                    <span className="company-icon">📍</span>
-                    <span>{entreprise?.ville || 'Côte d\'Ivoire'}</span>
+                <div className="brand-company">
+                  <div className="company-header">
+                    {entreprise?.logo_url ? (
+                      <div className="company-logo-mini">
+                        <img 
+                          src={entreprise.logo_url} 
+                          alt={entreprise.nom}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="company-logo-placeholder">
+                        <span>🏢</span>
+                      </div>
+                    )}
+                    <h2>{entreprise?.nom || 'Gestion Immobilière'}</h2>
                   </div>
-                  <div className="company-item">
-                    <span className="company-icon">📞</span>
-                    <span>{entreprise?.telephone || '+225 00 00 00 00'}</span>
-                  </div>
-                  <div className="company-item">
-                    <span className="company-icon">✉️</span>
-                    <span>{entreprise?.email || 'contact@immolion.ci'}</span>
-                  </div>
-                  {entreprise?.site_web && (
+                  
+                  <div className="company-details">
                     <div className="company-item">
-                      <span className="company-icon">🌐</span>
-                      <span>{entreprise.site_web}</span>
+                      <span className="company-icon">📍</span>
+                      <span>{entreprise?.ville || 'Côte d\'Ivoire'}</span>
                     </div>
-                  )}
+                    <div className="company-item">
+                      <span className="company-icon">📞</span>
+                      <span>{entreprise?.telephone || '+225 00 00 00 00'}</span>
+                    </div>
+                    <div className="company-item">
+                      <span className="company-icon">✉️</span>
+                      <span>{entreprise?.email || 'contact@immolion.ci'}</span>
+                    </div>
+                    {entreprise?.site_web && (
+                      <div className="company-item">
+                        <span className="company-icon">🌐</span>
+                        <span>{entreprise.site_web}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
                 <div className="brand-stats-connexion">
                   <div className="stat-item-connexion">
@@ -194,7 +240,6 @@ export default function PageConnexion() {
           </div>
         </motion.div>
 
-        {/* Section droite - Formulaire */}
         <motion.div 
           className="connexion-form-section"
           initial={{ x: 50, opacity: 0 }}
@@ -208,8 +253,7 @@ export default function PageConnexion() {
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.4 }}
             >
-              
-                  <AnimatePresence>
+              <AnimatePresence>
                 {utilisateurTrouve && (
                   <motion.div 
                     className="user-hint"
@@ -228,7 +272,7 @@ export default function PageConnexion() {
                   </motion.div>
                 )}
               </AnimatePresence>                 
-                  <span className="divider-line2">Connectez-vous pour accéder aux services</span>
+              <span className="divider-line2">Connectez-vous pour accéder aux services</span>
             </motion.div>
 
             <form onSubmit={gererSoumission} className="connexion-form">
@@ -264,13 +308,22 @@ export default function PageConnexion() {
                 <div className="input-wrapper">
                   <span className="input-icon">🔒</span>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={motDePasse}
                     onChange={(e) => setMotDePasse(e.target.value)}
                     placeholder="••••••••"
                     required
                     disabled={chargement}
                   />
+                  {/* ✅ Œil pour afficher/masquer le mot de passe */}
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? '👁️' : '👁️‍🗨️'}
+                  </button>
                 </div>
               </motion.div>
 
@@ -313,13 +366,135 @@ export default function PageConnexion() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}
               >
-                <a href="#">Mot de passe oublié ?</a>
+                <button 
+                  type="button"
+                  className="link-button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                >
+                  Mot de passe oublié ?
+                </button>
                 <a href="#">Créer un compte</a>
               </motion.div>
             </form>
           </div>
         </motion.div>
       </motion.div>
+
+      {/* ✅ Modale Mot de passe oublié */}
+      <AnimatePresence>
+        {showForgotPasswordModal && (
+          <motion.div 
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowForgotPasswordModal(false)}
+          >
+            <motion.div 
+              className="modal-content reset-password-modal"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2>Réinitialisation du mot de passe</h2>
+                <button className="modal-close-btn" onClick={() => setShowForgotPasswordModal(false)}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <p className="reset-info">
+                  Entrez votre email ou numéro de téléphone pour recevoir un nouveau mot de passe.
+                </p>
+
+                {/* Sélecteur de méthode */}
+                <div className="reset-method-selector">
+                  <button
+                    type="button"
+                    className={`method-btn ${resetMethod === 'email' ? 'active' : ''}`}
+                    onClick={() => setResetMethod('email')}
+                  >
+                    ✉️ Par email
+                  </button>
+                  <button
+                    type="button"
+                    className={`method-btn ${resetMethod === 'telephone' ? 'active' : ''}`}
+                    onClick={() => setResetMethod('telephone')}
+                  >
+                    📱 Par téléphone
+                  </button>
+                </div>
+
+                {resetMethod === 'email' ? (
+                  <div className="form-group">
+                    <label>Adresse email</label>
+                    <div className="input-wrapper">
+                      <span className="input-icon">✉️</span>
+                      <input
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="votre@email.com"
+                        disabled={isResetting}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label>Numéro de téléphone</label>
+                    <div className="input-wrapper">
+                      <span className="input-icon">📞</span>
+                      <input
+                        type="tel"
+                        value={resetTelephone}
+                        onChange={(e) => setResetTelephone(e.target.value)}
+                        placeholder="+225 00 00 00 00"
+                        disabled={isResetting}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {resetMessage && (
+                  <div className={`reset-message ${resetMessage.includes('succès') ? 'success' : 'error'}`}>
+                    {resetMessage}
+                  </div>
+                )}
+
+                <div className="reset-actions">
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    onClick={() => setShowForgotPasswordModal(false)}
+                    disabled={isResetting}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-submit"
+                    onClick={handleResetPassword}
+                    disabled={isResetting || (resetMethod === 'email' ? !resetEmail : !resetTelephone)}
+                  >
+                    {isResetting ? (
+                      <>
+                        <span className="spinner-small"></span>
+                        Envoi en cours...
+                      </>
+                    ) : (
+                      'Envoyer'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
