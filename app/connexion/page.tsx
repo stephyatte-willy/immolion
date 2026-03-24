@@ -97,44 +97,39 @@ export default function PageConnexion() {
   };
 
   // ✅ Fonction pour réinitialiser le mot de passe
-  const handleResetPassword = async () => {
-    setIsResetting(true);
-    setResetMessage('');
+const handleResetPassword = async () => {
+  setIsResetting(true);
+  setResetMessage('');
+  
+  try {
+    const response = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: resetEmail })
+    });
     
-    try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: resetEmail,
-          telephone: resetTelephone,
-          method: resetMethod
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setResetMessage(data.message);
-        toast.success('Instructions envoyées !');
-        setTimeout(() => {
-          setShowForgotPasswordModal(false);
-          setResetEmail('');
-          setResetTelephone('');
-          setResetMessage('');
-        }, 7000);
-      } else {
-        setResetMessage(data.erreur || 'Une erreur est survenue');
-        toast.error(data.erreur || 'Erreur');
-      }
-    } catch (error) {
-      console.error('Erreur reset password:', error);
-      setResetMessage('Erreur de connexion au serveur');
-      toast.error('Erreur de connexion');
-    } finally {
-      setIsResetting(false);
+    const data = await response.json();
+    
+    if (data.success) {
+      setResetMessage(data.message);
+      toast.success('Email envoyé !');
+      setTimeout(() => {
+        setShowForgotPasswordModal(false);
+        setResetEmail('');
+        setResetMessage('');
+      }, 3000);
+    } else {
+      setResetMessage(data.erreur || 'Une erreur est survenue');
+      toast.error(data.erreur || 'Erreur');
     }
-  };
+  } catch (error) {
+    console.error('Erreur reset password:', error);
+    setResetMessage('Erreur de connexion au serveur');
+    toast.error('Erreur de connexion');
+  } finally {
+    setIsResetting(false);
+  }
+};
 
   const formaterRole = (role: string) => {
     const roles: { [key: string]: string } = {
@@ -411,92 +406,58 @@ export default function PageConnexion() {
                   </svg>
                 </button>
               </div>
+            <div className="modal-body">
+              <p className="reset-info">
+                Entrez votre adresse email pour recevoir un nouveau mot de passe.
+              </p>
 
-              <div className="modal-body">
-                <p className="reset-info">
-                  Entrez votre email ou numéro de téléphone pour recevoir un nouveau mot de passe.
-                </p>
-
-                {/* Sélecteur de méthode */}
-                <div className="reset-method-selector">
-                  <button
-                    type="button"
-                    className={`method-btn ${resetMethod === 'email' ? 'active' : ''}`}
-                    onClick={() => setResetMethod('email')}
-                  >
-                    ✉️ Par email
-                  </button>
-                  <button
-                    type="button"
-                    className={`method-btn ${resetMethod === 'telephone' ? 'active' : ''}`}
-                    onClick={() => setResetMethod('telephone')}
-                  >
-                    📱 Par téléphone
-                  </button>
-                </div>
-
-                {resetMethod === 'email' ? (
-                  <div className="form-group">
-                    <label>Adresse email</label>
-                    <div className="input-wrapper">
-                      <span className="input-icon">✉️</span>
-                      <input
-                        type="email"
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        placeholder="votre@email.com"
-                        disabled={isResetting}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="form-group">
-                    <label>Numéro de téléphone</label>
-                    <div className="input-wrapper">
-                      <span className="input-icon">📞</span>
-                      <input
-                        type="tel"
-                        value={resetTelephone}
-                        onChange={(e) => setResetTelephone(e.target.value)}
-                        placeholder="+225 00 00 00 00"
-                        disabled={isResetting}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {resetMessage && (
-                  <div className={`reset-message ${resetMessage.includes('succès') ? 'success' : 'error'}`}>
-                    {resetMessage}
-                  </div>
-                )}
-
-                <div className="reset-actions">
-                  <button
-                    type="button"
-                    className="btn-cancel"
-                    onClick={() => setShowForgotPasswordModal(false)}
+              <div className="form-group">
+                <label>Adresse email</label>
+                <div className="input-wrapper">
+                  <span className="input-icon">✉️</span>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    placeholder="votre@email.com"
                     disabled={isResetting}
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="button"
-                    className="btn-submit"
-                    onClick={handleResetPassword}
-                    disabled={isResetting || (resetMethod === 'email' ? !resetEmail : !resetTelephone)}
-                  >
-                    {isResetting ? (
-                      <>
-                        <span className="spinner-small"></span>
-                        Envoi en cours...
-                      </>
-                    ) : (
-                      'Envoyer'
-                    )}
-                  </button>
+                    autoFocus
+                  />
                 </div>
               </div>
+
+              {resetMessage && (
+                <div className={`reset-message ${resetMessage.includes('envoyé') ? 'success' : 'error'}`}>
+                  {resetMessage}
+                </div>
+              )}
+
+              <div className="reset-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  onClick={() => setShowForgotPasswordModal(false)}
+                  disabled={isResetting}
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  className="btn-submit"
+                  onClick={handleResetPassword}
+                  disabled={isResetting || !resetEmail}
+                >
+                  {isResetting ? (
+                    <>
+                      <span className="spinner-small"></span>
+                      Envoi en cours...
+                    </>
+                  ) : (
+                    'Envoyer'
+                  )}
+                </button>
+              </div>
+            </div>
             </motion.div>
           </motion.div>
         )}
