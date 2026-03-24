@@ -399,7 +399,7 @@ const handleResetPassword = async () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="modal-header">
-                <h2>Réinitialisation du mot de passe</h2>
+                <span className='style_1'>⚠ Réinitialiser mot de passe</span>
                 <button className="modal-close-btn" onClick={() => setShowForgotPasswordModal(false)}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

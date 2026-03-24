@@ -223,6 +223,12 @@
   font-weight: 600;
 }
 
+.style_1 {
+  color: #dc3545;
+  font-size: 22px;
+  font-weight: 600;
+}
+
 .company-details {
   display: flex;
   flex-direction: column;
