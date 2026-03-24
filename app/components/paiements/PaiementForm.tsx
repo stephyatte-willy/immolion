@@ -43,7 +43,7 @@ export default function PaiementForm({
     commentaire: ''
   });
 
-  const [contrats, setContrats] = useState<any[]>([]); // ✅ Liste des contrats
+  const [contrats, setContrats] = useState<any[]>([]);
   const [contratSelectionne, setContratSelectionne] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -58,10 +58,14 @@ export default function PaiementForm({
   const isVente = contratSelectionne?.type_contrat === 'VENTE';
   const typePaiementVente = formData.type_vente;
 
-  // ✅ Charger tous les contrats du locataire
+  // ✅ Charger les contrats (adapté pour les deux cas)
   useEffect(() => {
     if (locataire_id) {
-      chargerContrats();
+      // Cas 1: On a un locataire spécifique (onglet locataire)
+      chargerContratsParLocataire();
+    } else {
+      // Cas 2: Page générale - charger tous les contrats actifs
+      chargerTousContrats();
     }
   }, [locataire_id]);
 
@@ -122,14 +126,36 @@ export default function PaiementForm({
     }
   }, [paiement, contrats]);
 
-  const chargerContrats = async () => {
+  // ✅ NOUVELLE FONCTION: Charger tous les contrats (pour la page générale)
+  const chargerTousContrats = async () => {
+    try {
+      const response = await fetch('/api/contrats?statut=ACTIF');
+      const data = await response.json();
+      if (data.success && data.contrats) {
+        setContrats(data.contrats);
+        
+        // Si un contrat_id est fourni, le sélectionner
+        if (contrat_id) {
+          const contrat = data.contrats.find((c: any) => c.id === contrat_id);
+          if (contrat) {
+            setContratSelectionne(contrat);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erreur chargement contrats:', error);
+    }
+  };
+
+  // ✅ Fonction existante mais renommée pour clarté
+  const chargerContratsParLocataire = async () => {
     try {
       const response = await fetch(`/api/contrats?locataire_id=${locataire_id}`);
       const data = await response.json();
       if (data.success && data.contrats) {
         setContrats(data.contrats);
         
-        // ✅ Si un contrat_id est fourni, le sélectionner automatiquement
+        // Si un contrat_id est fourni, le sélectionner
         if (contrat_id) {
           const contrat = data.contrats.find((c: any) => c.id === contrat_id);
           if (contrat) {
@@ -192,7 +218,9 @@ export default function PaiementForm({
 
     // Validation pour une vente
     if (isVente) {
-      if (typePaiementVente === 'ACOMPTE') {
+      if (!formData.type_vente) {
+        newErrors.type_vente = 'Le type de versement est requis';
+      } else if (formData.type_vente === 'ACOMPTE') {
         const montantSaisi = parseFloat(formData.montant);
         const totalVente = parseFloat(formData.montant_total_vente || '0');
         if (montantSaisi > totalVente) {
@@ -218,8 +246,7 @@ export default function PaiementForm({
     try {
       const dataToSend = {
         ...formData,
-        // Pour une vente, on garde la trace du type
-        type_paiement: isVente ? typePaiementVente : formData.type_paiement,
+        type_paiement: isVente ? formData.type_vente : formData.type_paiement,
       };
 
       const url = paiement 
@@ -281,7 +308,7 @@ export default function PaiementForm({
         <div className="modal-body">
           <form onSubmit={handleSubmit} className="paiement-form">
             <div className="form-sections">
-              {/* ✅ Sélection du contrat */}
+              {/* Sélection du contrat */}
               <div className="form-section">
                 <div className="modal-section-title">
                   <span>📄</span> Sélection du contrat
@@ -293,12 +320,13 @@ export default function PaiementForm({
                       value={formData.contrat_id}
                       onChange={handleContratChange}
                       className={errors.contrat_id ? 'error' : ''}
-                      disabled={!!paiement} // Désactivé en mode édition
+                      disabled={!!paiement}
                     >
                       <option value="">Sélectionnez un contrat</option>
                       {contrats.map((contrat: any) => (
                         <option key={contrat.id} value={contrat.id}>
                           {contrat.numero_contrat} - {contrat.type_contrat === 'VENTE' ? 'VENTE' : 'LOCATION'} - {contrat.bien?.nom || 'Bien'}
+                          {contrat.locataire && ` - ${contrat.locataire.prenom} ${contrat.locataire.nom}`}
                         </option>
                       ))}
                     </select>
@@ -344,26 +372,27 @@ export default function PaiementForm({
                 )}
               </div>
 
-              {/* Type de paiement - adapté */}
+              {/* Type de paiement */}
               <div className="form-section">
                 <div className="modal-section-title">
                   <span>🏷️</span> Type de paiement
                 </div>
                 <div className="form-grid">
                   {isVente ? (
-                    // ✅ Pour une vente
                     <>
                       <div className="form-group">
                         <label>Type de versement *</label>
                         <select
                           value={formData.type_vente}
                           onChange={(e) => setFormData({...formData, type_vente: e.target.value})}
+                          className={errors.type_vente ? 'error' : ''}
                         >
                           <option value="">Sélectionnez le type</option>
                           <option value="ACOMPTE">Acompte</option>
                           <option value="VERSEMENT">Versement</option>
                           <option value="SOLDE">Solde final</option>
                         </select>
+                        {errors.type_vente && <span className="error-message">{errors.type_vente}</span>}
                       </div>
 
                       {formData.type_vente && (
@@ -380,7 +409,6 @@ export default function PaiementForm({
                       )}
                     </>
                   ) : (
-                    // ✅ Pour une location
                     <div className="form-group">
                       <label>Type de paiement</label>
                       <select

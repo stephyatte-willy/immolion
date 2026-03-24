@@ -249,7 +249,7 @@
 }
 
 /* Statistiques */
-.brand-stats {
+.brand-stats-connexion {
   display: flex;
   justify-content: space-around;
   gap: 20px;
@@ -259,11 +259,11 @@
   padding: 20px;
 }
 
-.stat-item {
+.stat-item-connexion {
   text-align: center;
 }
 
-.stat-value {
+.stat-value-connexion {
   display: block;
   font-size: 24px;
   font-weight: 700;
@@ -271,7 +271,7 @@
   margin-bottom: 5px;
 }
 
-.stat-label {
+.stat-label-connexion {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
@@ -575,7 +575,7 @@
     padding: 40px 20px;
   }
   
-  .brand-stats {
+  .brand-stats-connexion {
     flex-wrap: wrap;
   }
 }

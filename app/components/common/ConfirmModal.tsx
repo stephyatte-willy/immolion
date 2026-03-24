@@ -12,7 +12,7 @@ interface ConfirmModalProps {
   type?: 'danger' | 'warning' | 'info';
   onConfirm: () => void;
   onCancel: () => void;
-  disabled?: boolean; // ✅ Nouvelle prop
+  isLoading?: boolean;
 }
 
 export default function ConfirmModal({
@@ -24,7 +24,7 @@ export default function ConfirmModal({
   type = 'danger',
   onConfirm,
   onCancel,
-  disabled = false // ✅ Valeur par défaut
+  isLoading = false
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -74,7 +74,7 @@ export default function ConfirmModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      onClick={disabled ? undefined : onCancel}
+      onClick={isLoading ? undefined : onCancel}
     >
       <motion.div 
         className="modal-content confirm-modal"
@@ -95,7 +95,7 @@ export default function ConfirmModal({
           <button 
             className="modal-close-btn" 
             onClick={onCancel}
-            disabled={disabled}
+            disabled={isLoading}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -114,7 +114,7 @@ export default function ConfirmModal({
           <button 
             className="confirm-btn cancel"
             onClick={onCancel}
-            disabled={disabled}
+            disabled={isLoading}
           >
             {cancelText}
           </button>
@@ -122,16 +122,9 @@ export default function ConfirmModal({
             className="confirm-btn confirm"
             style={{ background: colors.gradient }}
             onClick={onConfirm}
-            disabled={disabled}
+            disabled={isLoading}
           >
-            {disabled ? (
-              <>
-                <span className="spinner-small"></span>
-                {confirmText}
-              </>
-            ) : (
-              confirmText
-            )}
+            {isLoading ? <span className="spinner-mini"></span> : confirmText}
           </button>
         </div>
       </motion.div>

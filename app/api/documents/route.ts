@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
 
-// GET - Liste des documents avec filtres
+// GET - Liste des documents avec jointure sur locataires
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,29 +14,36 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (locataire_id) {
-      whereClause += ' AND locataire_id = ?';
+      whereClause += ' AND d.locataire_id = ?';
       params.push(locataire_id);
     }
 
     if (contrat_id) {
-      whereClause += ' AND contrat_id = ?';
+      whereClause += ' AND d.contrat_id = ?';
       params.push(contrat_id);
     }
 
     if (bien_id) {
-      whereClause += ' AND bien_id = ?';
+      whereClause += ' AND d.bien_id = ?';
       params.push(bien_id);
     }
 
     if (type) {
-      whereClause += ' AND type_document = ?';
+      whereClause += ' AND d.type_document = ?';
       params.push(type);
     }
 
+    // ✅ Jointure avec la table locataires pour récupérer les informations du client
     const documents = await queryRows(
-      `SELECT * FROM documents 
+      `SELECT d.*, 
+        l.nom as locataire_nom, 
+        l.prenom as locataire_prenom,
+        l.email as locataire_email,
+        l.telephone as locataire_telephone
+       FROM documents d
+       LEFT JOIN locataires l ON d.locataire_id = l.id
        ${whereClause}
-       ORDER BY date_upload DESC`,
+       ORDER BY d.date_upload DESC`,
       params
     ) as any[];
 
@@ -53,7 +60,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Upload de documents en base64
+// POST - Upload de documents
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -66,10 +73,10 @@ export async function POST(request: NextRequest) {
     
     const fichiers = formData.getAll('documents') as File[];
 
-    // Validation
-    if (!locataire_id) {
+    // ✅ Validation: un locataire est obligatoire
+    if (!locataire_id || locataire_id === 'null') {
       return NextResponse.json(
-        { success: false, erreur: 'ID du locataire requis' },
+        { success: false, erreur: 'Un client doit être sélectionné' },
         { status: 400 }
       );
     }
@@ -81,12 +88,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Limite de taille : 10 MB par fichier
     const MAX_SIZE = 10 * 1024 * 1024;
     const documentsAjoutes = [];
 
     for (const fichier of fichiers) {
-      // Vérifier la taille
       if (fichier.size > MAX_SIZE) {
         return NextResponse.json(
           { success: false, erreur: `Le fichier ${fichier.name} dépasse 10 MB` },
@@ -94,43 +99,32 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Vérifier le type
       const typesAutorises = [
         'application/pdf',
-        'image/jpeg',
-        'image/jpg',
-        'image/png',
-        'image/gif',
-        'image/webp',
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain',
-        'application/rtf'
+        'text/plain', 'application/rtf'
       ];
 
-      // Pour les types d'images qui commencent par 'image/'
       const typeEstAutorise = typesAutorises.includes(fichier.type) || fichier.type.startsWith('image/');
       
       if (!typeEstAutorise) {
         return NextResponse.json(
-          { success: false, erreur: `Type de fichier non autorisé: ${fichier.name} (${fichier.type})` },
+          { success: false, erreur: `Type de fichier non autorisé: ${fichier.name}` },
           { status: 400 }
         );
       }
 
       try {
-        // Convertir le fichier en base64
         const bytes = await fichier.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const base64 = buffer.toString('base64');
         const mimeType = fichier.type;
-        
-        // Stocker directement le contenu base64 dans l'URL
         const url = `data:${mimeType};base64,${base64}`;
 
-        // Insérer dans la base de données
         const result = await queryInsert(
           `INSERT INTO documents (
             locataire_id, contrat_id, bien_id, type_document, 
@@ -138,8 +132,8 @@ export async function POST(request: NextRequest) {
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
           [
             parseInt(locataire_id),
-            contrat_id ? parseInt(contrat_id) : null,
-            bien_id ? parseInt(bien_id) : null,
+            contrat_id && contrat_id !== 'null' ? parseInt(contrat_id) : null,
+            bien_id && bien_id !== 'null' ? parseInt(bien_id) : null,
             type_document || 'AUTRE',
             fichier.name,
             url,
@@ -156,12 +150,11 @@ export async function POST(request: NextRequest) {
             taille: fichier.size,
             type_document: type_document || 'AUTRE'
           });
-          console.log(`✅ Document ${fichier.name} ajouté en base64 (${(fichier.size / 1024).toFixed(2)} KB)`);
         }
       } catch (docError) {
-        console.error(`❌ Erreur traitement document ${fichier.name}:`, docError);
+        console.error(`❌ Erreur traitement document:`, docError);
         return NextResponse.json(
-          { success: false, erreur: `Erreur lors du traitement de ${fichier.name}` },
+          { success: false, erreur: `Erreur lors du traitement du fichier` },
           { status: 500 }
         );
       }

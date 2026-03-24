@@ -234,7 +234,7 @@ const handleFilter = (filters: any) => {
             <LocataireFilters onFilter={handleFilter} />
             
             <button 
-              className="btn-add-locataire"
+              className="btn-add"
               onClick={handleAddLocataire}
             >
               <span className="btn-icon">➕</span>

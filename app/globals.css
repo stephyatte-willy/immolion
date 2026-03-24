@@ -560,6 +560,28 @@ tr:hover td {
 }
 
 /* Amélioration du bouton submit */
+
+.btn-add {
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #bcb901, #776d01);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.3s ease;
+}
+
+.btn-add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
+}
+
 .btn-submit {
   padding: 12px 24px;
   background: linear-gradient(135deg, var(--lion-gold, #D4AF37), var(--lion-gold-dark, #996515));
@@ -617,4 +639,190 @@ tr:hover td {
   border-radius: 50%;
   animation: spin 0.8s infinite linear;
   display: inline-block;
+}
+
+
+.stat-card {
+  padding: 10px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: white;
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.stat-icon {
+  width: 34px;
+  height: 34px;
+  margin: 4px;
+  background: rgba(255, 255, 255, 0.752);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 249, 187, 0.862);
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+}
+
+/* Filtres */
+.filters {
+  position: relative;
+  flex: 1;
+}
+
+.filters-search {
+  position: relative;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  z-index: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  background: var(--bg-secondary);
+  border: 1px solid #b5d0fb;
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  color: #000000;
+  border-color: #a5c5f9;
+  box-shadow: 0 0 0 3px rgba(55, 186, 212, 0.1);
+}
+
+.filters-toggle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  padding: 0 20px;
+  background: #c4ad2d;
+  border: 1px solid #ffc801;
+  border-left: none;
+  border-radius: 0 24px 24px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+
+.filters-toggle:hover {
+  background: #746a2d;
+  color: #ffffff;
+}
+
+.filters-toggle.active {
+  background: #746a2d;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.filters-icon {
+  font-size: 16px;
+}
+
+.filters-badge {
+  width: 20px;
+  height: 20px;
+  background: var(--lion-gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lion-navy);
+}
+
+.filters-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 20px;
+  z-index: 10;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-group label {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.reset-filters {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.reset-filters:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
 }

@@ -31,27 +31,6 @@
   gap: 20px;
 }
 
-.btn-add-locataire {
-  padding: 10px 12px;
-  background: linear-gradient(135deg, #bcb901, #776d01);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  transition: all 0.3s ease;
-}
-
-.btn-add-locataire:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
-}
-
 /* Grille des locataires */
 .locataires-grid {
   display: grid;
@@ -201,12 +180,6 @@
   gap: 10px;
 }
 
-/* Filtres */
-.locataires-filters {
-  position: relative;
-  flex: 1;
-}
-
 /* Modal formulaire */
 .locataire-form-modal {
   max-width: 800px !important;
@@ -287,12 +260,6 @@
   padding: 25px 30px;
   background: linear-gradient(135deg, rgb(36, 0, 215), rgb(147, 123, 244));
   border-bottom: 2px solid var(--lion-gold);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
 }
 
 .locataire-detail-avatar {
@@ -981,4 +948,16 @@
 .contrat-actions-group .action-btn.delete:hover {
   background: rgba(239, 68, 68, 0.2);
   transform: scale(1.1);
+}
+
+/* État de chargement pour le bouton */
+.action-btn.print:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }

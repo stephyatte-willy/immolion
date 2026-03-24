@@ -2,25 +2,21 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TYPES_BIENS_CI, STATUTS_BIENS_CI } from '@/app/types/ci';
-import '@/app/biens/biens.css';
+import { TYPES_DOCUMENTS } from '@/app/types/documents';
+import './documents.css';
 
-interface BienFiltersProps {
+interface DocumentFiltersProps {
   onFilter: (filters: any) => void;
-  types: string[];
-  statuts: string[];
-  districts: string[];
 }
 
-export default function BienFilters({ onFilter, types, statuts, districts }: BienFiltersProps) {
+export default function DocumentFilters({ onFilter }: DocumentFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     type: 'TOUS',
     statut: 'TOUS',
-    district: '',
-    prixMin: '',
-    prixMax: ''
+    dateDebut: '',
+    dateFin: ''
   });
 
   const handleChange = (key: string, value: string) => {
@@ -34,15 +30,23 @@ export default function BienFilters({ onFilter, types, statuts, districts }: Bie
       search: '',
       type: 'TOUS',
       statut: 'TOUS',
-      district: '',
-      prixMin: '',
-      prixMax: ''
+      dateDebut: '',
+      dateFin: ''
     };
     setFilters(resetFilters);
     onFilter(resetFilters);
   };
 
-  const activeFiltersCount = Object.values(filters).filter(v => v && v !== 'TOUS').length;
+  const activeFiltersCount = Object.values(filters).filter(v => 
+    v && v !== 'TOUS' && v !== ''
+  ).length;
+
+  const statutOptions = [
+    { value: 'TOUS', label: 'Tous' },
+    { value: 'VALIDE', label: 'Valides' },
+    { value: 'EXPIRANT', label: 'Expirant (30j)' },
+    { value: 'EXPIRES', label: 'Expirés' }
+  ];
 
   return (
     <div className="filters">
@@ -50,7 +54,7 @@ export default function BienFilters({ onFilter, types, statuts, districts }: Bie
         <span className="search-icon">🔍</span>
         <input
           type="text"
-          placeholder="Rechercher un bien (nom, commune, quartier)..."
+          placeholder="Rechercher un document..."
           value={filters.search}
           onChange={(e) => handleChange('search', e.target.value)}
           className="search-input"
@@ -77,14 +81,15 @@ export default function BienFilters({ onFilter, types, statuts, districts }: Bie
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="filters-grid">
+              {/* Type de document */}
               <div className="filter-group">
-                <label>Type de bien</label>
+                <label>Type de document</label>
                 <select
                   value={filters.type}
                   onChange={(e) => handleChange('type', e.target.value)}
                 >
                   <option value="TOUS">Tous les types</option>
-                  {TYPES_BIENS_CI.map(type => (
+                  {TYPES_DOCUMENTS.map(type => (
                     <option key={type.value} value={type.value}>
                       {type.icone} {type.label}
                     </option>
@@ -92,59 +97,43 @@ export default function BienFilters({ onFilter, types, statuts, districts }: Bie
                 </select>
               </div>
 
+              {/* Statut */}
               <div className="filter-group">
                 <label>Statut</label>
                 <select
                   value={filters.statut}
                   onChange={(e) => handleChange('statut', e.target.value)}
                 >
-                  <option value="TOUS">Tous les statuts</option>
-                  {STATUTS_BIENS_CI.map(statut => (
-                    <option key={statut.value} value={statut.value}>
-                      {statut.label}
+                  {statutOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* Période d'upload */}
               <div className="filter-group">
-                <label>District</label>
-                <select
-                  value={filters.district}
-                  onChange={(e) => handleChange('district', e.target.value)}
-                >
-                  <option value="">Tous les districts</option>
-                  {districts.map(district => (
-                    <option key={district} value={district}>
-                      {district}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="filter-group">
-                <label>Prix min (FCFA)</label>
+                <label>Date début</label>
                 <input
-                  type="number"
-                  value={filters.prixMin}
-                  onChange={(e) => handleChange('prixMin', e.target.value)}
-                  placeholder="100000"
+                  type="date"
+                  value={filters.dateDebut}
+                  onChange={(e) => handleChange('dateDebut', e.target.value)}
                 />
               </div>
 
               <div className="filter-group">
-                <label>Prix max (FCFA)</label>
+                <label>Date fin</label>
                 <input
-                  type="number"
-                  value={filters.prixMax}
-                  onChange={(e) => handleChange('prixMax', e.target.value)}
-                  placeholder="1000000"
+                  type="date"
+                  value={filters.dateFin}
+                  onChange={(e) => handleChange('dateFin', e.target.value)}
                 />
               </div>
             </div>
 
             <button className="reset-filters" onClick={resetFilters}>
-              Réinitialiser les filtres
+              Réinitialiser tous les filtres
             </button>
           </motion.div>
         )}

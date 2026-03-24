@@ -7,24 +7,24 @@ import toast from 'react-hot-toast';
 import './documents.css';
 
 interface DocumentFormProps {
-  locataire_id: number;
-  contrat_id?: number;
-  bien_id?: number;
+  locataire_id?: number;
+  locataire_nom?: string;
+  document?: any;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export default function DocumentForm({ 
   locataire_id, 
-  contrat_id, 
-  bien_id, 
+  locataire_nom,
+  document,
   onClose, 
   onSuccess 
 }: DocumentFormProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [typeDocument, setTypeDocument] = useState('AUTRE');
-  const [dateExpiration, setDateExpiration] = useState('');
+  const [typeDocument, setTypeDocument] = useState(document?.type_document || 'AUTRE');
+  const [dateExpiration, setDateExpiration] = useState(document?.date_expiration?.split('T')[0] || '');
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,7 +32,6 @@ export default function DocumentForm({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     
-    // Vérifier la taille (max 10MB par fichier)
     const validFiles = files.filter(f => f.size <= 10 * 1024 * 1024);
     if (validFiles.length !== files.length) {
       toast.error('Certains fichiers dépassent 10MB et ont été ignorés');
@@ -40,12 +39,10 @@ export default function DocumentForm({
 
     setSelectedFiles(validFiles);
 
-    // Créer les previews pour les images
     const newPreviews = validFiles.map(file => {
       if (file.type.startsWith('image/')) {
         return URL.createObjectURL(file);
       }
-      // Pour les PDF et autres, utiliser une icône
       return `/icons/${file.type.includes('pdf') ? 'pdf' : 'document'}.png`;
     });
     setPreviews(newPreviews);
@@ -65,7 +62,7 @@ export default function DocumentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (selectedFiles.length === 0) {
+    if (!document && selectedFiles.length === 0) {
       toast.error('Veuillez sélectionner au moins un fichier');
       return;
     }
@@ -75,17 +72,27 @@ export default function DocumentForm({
 
     try {
       const formData = new FormData();
-      formData.append('locataire_id', locataire_id.toString());
-      if (contrat_id) formData.append('contrat_id', contrat_id.toString());
-      if (bien_id) formData.append('bien_id', bien_id.toString());
+      
+      if (locataire_id) {
+        formData.append('locataire_id', locataire_id.toString());
+      }
+      
       formData.append('type_document', typeDocument);
       if (dateExpiration) formData.append('date_expiration', dateExpiration);
 
-      selectedFiles.forEach(file => {
-        formData.append('documents', file);
-      });
+      if (document) {
+        // Mode modification
+        formData.append('_method', 'PUT');
+        selectedFiles.forEach(file => {
+          formData.append('documents', file);
+        });
+      } else {
+        // Mode création
+        selectedFiles.forEach(file => {
+          formData.append('documents', file);
+        });
+      }
 
-      // Simulation de progression
       const interval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -96,8 +103,11 @@ export default function DocumentForm({
         });
       }, 200);
 
-      const response = await fetch('/api/documents', {
-        method: 'POST',
+      const url = document ? `/api/documents/${document.id}` : '/api/documents';
+      const method = document ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         body: formData
       });
 
@@ -107,10 +117,10 @@ export default function DocumentForm({
       const data = await response.json();
 
       if (data.success) {
-        toast.success(data.message || 'Documents uploadés avec succès');
+        toast.success(document ? 'Document modifié avec succès' : 'Document ajouté avec succès');
         onSuccess();
       } else {
-        toast.error(data.erreur || 'Erreur lors de l\'upload');
+        toast.error(data.erreur || 'Erreur lors de l\'opération');
       }
     } catch (error) {
       console.error('Erreur:', error);
@@ -149,7 +159,7 @@ export default function DocumentForm({
         <div className="modal-header">
           <div className="modal-title">
             <span className="title-icon">📎</span>
-            <h2>Ajouter des documents</h2>
+            <h2>{document ? 'Modifier le document' : 'Ajouter un document'}</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -162,15 +172,36 @@ export default function DocumentForm({
           <form onSubmit={handleSubmit} className="document-form">
             <div className="form-section">
               <div className="modal-section-title">
+                <span>👤</span> Client
+              </div>
+              
+              <div className="info-panel">
+                <div className="client-info">
+                  <span className="client-icon">👥</span>
+                  <span className="client-name">
+                    {locataire_nom || (document?.locataire_prenom && document?.locataire_nom ? 
+                      `${document.locataire_prenom} ${document.locataire_nom}` : 
+                      'Client sélectionné')}
+                  </span>
+                </div>
+                {!locataire_id && !document?.locataire_id && (
+                  <p className="warning-text">⚠️ Aucun client sélectionné. Veuillez fermer et sélectionner un client.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="form-section">
+              <div className="modal-section-title">
                 <span>📋</span> Informations du document
               </div>
               
               <div className="form-grid">
                 <div className="form-group">
-                  <label>Type de document</label>
+                  <label>Type de document *</label>
                   <select
                     value={typeDocument}
                     onChange={(e) => setTypeDocument(e.target.value)}
+                    disabled={isLoading}
                   >
                     {TYPES_DOCUMENTS.map(type => (
                       <option key={type.value} value={type.value}>
@@ -186,6 +217,7 @@ export default function DocumentForm({
                     type="date"
                     value={dateExpiration}
                     onChange={(e) => setDateExpiration(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -193,19 +225,19 @@ export default function DocumentForm({
 
             <div className="form-section">
               <div className="modal-section-title">
-                <span>📁</span> Fichiers
+                <span>📁</span> Fichier
               </div>
 
-              {/* Zone d'upload */}
               <div 
-                className="upload-area"
-                onClick={() => fileInputRef.current?.click()}
+                className={`upload-area ${isLoading ? 'disabled' : ''}`}
+                onClick={() => !isLoading && fileInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
+                  if (isLoading) return;
                   const files = Array.from(e.dataTransfer.files);
                   const validFiles = files.filter(f => f.size <= 10 * 1024 * 1024);
-                  setSelectedFiles(prev => [...prev, ...validFiles]);
+                  setSelectedFiles(validFiles);
                   
                   const newPreviews = validFiles.map(file => {
                     if (file.type.startsWith('image/')) {
@@ -213,30 +245,30 @@ export default function DocumentForm({
                     }
                     return `/icons/${file.type.includes('pdf') ? 'pdf' : 'document'}.png`;
                   });
-                  setPreviews(prev => [...prev, ...newPreviews]);
+                  setPreviews(newPreviews);
                 }}
               >
                 <input
                   ref={fileInputRef}
                   type="file"
-                  multiple
+                  multiple={!document}
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
+                  disabled={isLoading}
                   style={{ display: 'none' }}
                 />
                 <div className="upload-icon">📤</div>
                 <p className="upload-text">
-                  Cliquez ou glissez-déposez vos fichiers ici
+                  {document ? 'Cliquez pour remplacer le fichier' : 'Cliquez ou glissez-déposez votre fichier ici'}
                 </p>
                 <p className="upload-hint">
                   Formats acceptés: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG (Max 10MB)
                 </p>
               </div>
 
-              {/* Liste des fichiers sélectionnés */}
               {selectedFiles.length > 0 && (
                 <div className="selected-files">
-                  <h4>Fichiers sélectionnés ({selectedFiles.length})</h4>
+                  <h4>Fichier sélectionné</h4>
                   <div className="files-list">
                     {selectedFiles.map((file, index) => (
                       <div key={index} className="file-item">
@@ -251,6 +283,7 @@ export default function DocumentForm({
                           type="button"
                           className="file-remove"
                           onClick={() => removeFile(index)}
+                          disabled={isLoading}
                         >
                           ✕
                         </button>
@@ -260,8 +293,15 @@ export default function DocumentForm({
                 </div>
               )}
 
-              {/* Barre de progression */}
-              {isLoading && uploadProgress > 0 && (
+              {document && !selectedFiles.length && (
+                <div className="current-file">
+                  <span className="current-file-icon">📄</span>
+                  <span className="current-file-name">Fichier actuel: {document.nom}</span>
+                  <span className="current-file-hint">(Laissez vide pour conserver le fichier actuel)</span>
+                </div>
+              )}
+
+              {isLoading && (
                 <div className="upload-progress">
                   <div className="progress-bar">
                     <div 
@@ -291,18 +331,15 @@ export default function DocumentForm({
             type="submit" 
             className="btn-submit"
             onClick={handleSubmit}
-            disabled={isLoading || selectedFiles.length === 0}
+            disabled={isLoading || (!document && selectedFiles.length === 0)}
           >
             {isLoading ? (
               <>
                 <span className="spinner-small"></span>
-                Upload en cours...
+                {document ? 'Modification...' : 'Upload en cours...'} {uploadProgress}%
               </>
             ) : (
-              <>
-                <span className="btn-icon">📤</span>
-                Uploader {selectedFiles.length} fichier(s)
-              </>
+              document ? '💾 Modifier' : '📤 Ajouter'
             )}
           </button>
         </div>

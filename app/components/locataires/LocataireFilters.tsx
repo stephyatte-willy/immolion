@@ -39,7 +39,7 @@ export default function LocataireFilters({ onFilter }: LocataireFiltersProps) {
   const activeFiltersCount = Object.values(filters).filter(v => v && v !== 'TOUS' && v !== 'tous').length;
 
   return (
-    <div className="locataires-filters">
+    <div className="filters">
       <div className="filters-search">
         <span className="search-icon">🔍</span>
         <input

@@ -285,7 +285,7 @@ export default function BiensPage() {
             />
             
             <button 
-              className="btn-add-bien"
+              className="btn-add"
               onClick={handleAddBien}
             >
               <span className="btn-icon">➕</span>
@@ -305,7 +305,7 @@ export default function BiensPage() {
               <h3>Aucun bien trouvé</h3>
               <p>Commencez par ajouter votre premier bien immobilier</p>
               <button 
-                className="btn-add-bien empty-btn"
+                className="btn-add empty-btn"
                 onClick={handleAddBien}
               >
                 Ajouter un bien

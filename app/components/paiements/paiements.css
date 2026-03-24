@@ -502,3 +502,90 @@
 .quittance-paper {
   animation: slideIn 0.3s ease;
 }
+
+/* Section échéancier pour les ventes */
+.echeancier-section {
+  margin: 25px 0;
+  padding: 15px;
+  background: rgba(212, 175, 55, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.echeancier-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--lion-gold);
+  text-align: center;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.echeancier-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: center;
+}
+
+.echeancier-table th {
+  padding: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.echeancier-table td {
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.echeancier-value {
+  color: var(--text-primary);
+}
+
+.echeancier-value.reste {
+  color: #ef4444;
+}
+
+.echeancier-value.soldat {
+  color: #10b981;
+}
+
+/* Document summary */
+.document-summary {
+  text-align: center;
+  padding: 20px;
+}
+
+.summary-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.document-summary h3 {
+  font-size: 20px;
+  color: var(--lion-gold);
+  margin-bottom: 20px;
+}
+
+.summary-details {
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: left;
+}
+
+.summary-details p {
+  margin: 10px 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.summary-details strong {
+  color: var(--lion-gold);
+  min-width: 100px;
+  display: inline-block;
+}

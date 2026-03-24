@@ -175,18 +175,18 @@ export default function PageConnexion() {
                 </div>
               </div>
 
-                <div className="brand-stats">
-                  <div className="stat-item">
-                    <span className="stat-value">500+</span>
-                    <span className="stat-label">Biens gérés</span>
+                <div className="brand-stats-connexion">
+                  <div className="stat-item-connexion">
+                    <span className="stat-value-connexion">500+</span>
+                    <span className="stat-label-connexion">Biens gérés</span>
                   </div>
-                  <div className="stat-item">
-                    <span className="stat-value">98%</span>
-                    <span className="stat-label">Satisfaction</span>
+                  <div className="stat-item-connexion">
+                    <span className="stat-value-connexion">98%</span>
+                    <span className="stat-label-connexion">Satisfaction</span>
                   </div>
-                  <div className="stat-item">
-                    <span className="stat-value">24/7</span>
-                    <span className="stat-label">Support</span>
+                  <div className="stat-item-connexion">
+                    <span className="stat-value-connexion">24/7</span>
+                    <span className="stat-label-connexion">Support</span>
                   </div>
                 </div>
               </>

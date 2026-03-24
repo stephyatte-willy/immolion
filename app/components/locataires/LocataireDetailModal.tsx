@@ -45,6 +45,7 @@ export default function LocataireDetailModal({
   const [selectedPaiementForQuittance, setSelectedPaiementForQuittance] = useState<any>(null);
   const [showDocumentForm, setShowDocumentForm] = useState(false);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [isGeneratingQuittance, setIsGeneratingQuittance] = useState(false);
   
   
   const { formatMoney, formatDate } = useTheme();
@@ -107,7 +108,11 @@ useEffect(() => {
   });
 }, [locataireData]);
 
+// Dans LocataireDetailModal.tsx, remplacez la fonction handleImprimerQuittance par :
+
 const handleImprimerQuittance = async (paiement: any) => {
+  setIsGeneratingQuittance(true);
+  
   try {
     const contrat = locataireData.contrats?.find((c: any) => c.id === paiement.contrat_id);
     const bien = contrat?.bien || locataireData.bien_actuel;
@@ -120,8 +125,8 @@ const handleImprimerQuittance = async (paiement: any) => {
     const isVente = contrat.type_contrat === 'VENTE';
 
     // Récupérer les informations de l'entreprise
-    const response = await fetch('/api/entreprise');
-    const entrepriseData = await response.json();
+    const entrepriseRes = await fetch('/api/entreprise');
+    const entrepriseData = await entrepriseRes.json();
     const entreprise = entrepriseData.entreprise || {
       nom: 'ImmoLion Gestion',
       ville: 'Abidjan',
@@ -129,33 +134,27 @@ const handleImprimerQuittance = async (paiement: any) => {
       email: 'contact@immolion.ci'
     };
 
-    // Calculer l'échéancier pour les ventes
-    let echeancier;
+    // Calculer le total déjà versé pour les ventes
+    let totalDejaVerse = 0;
     if (isVente) {
-      const versements = await fetch(`/api/paiements?contrat_id=${contrat.id}`);
-      const data = await versements.json();
-      const totalVerse = data.paiements?.reduce((sum: number, p: any) => sum + p.montant, 0) || 0;
-      const prixTotal = contrat.prix_vente || 0;
-      
-      echeancier = {
-        total_vente: prixTotal,
-        deja_verse: totalVerse,
-        reste: prixTotal - totalVerse,
-        versement_numero: paiement.versement_numero || 1
-      };
+      const versementsRes = await fetch(`/api/paiements?contrat_id=${contrat.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
+      const versementsData = await versementsRes.json();
+      if (versementsData.success && versementsData.paiements) {
+        totalDejaVerse = versementsData.paiements.reduce((sum: number, p: any) => sum + (parseFloat(p.montant) || 0), 0);
+      }
     }
 
-    // ✅ Construction de l'objet documentData (sans typage)
-    const documentData = {
-      numero_document: paiement.numero_quittance || `DOC-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-000001`,
+    // ✅ Construction correcte de l'objet quittanceData
+    const quittanceData = {
+      type: isVente ? 'VENTE' as const : 'LOCATION' as const,
+      numero_document: paiement.numero_quittance || `QUIT-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(paiement.id).padStart(6, '0')}`,
       date_emission: new Date().toISOString(),
-      type: isVente ? 'VENTE' : 'LOCATION',
       paiement: {
         reference: paiement.reference || `PAIEMENT-${paiement.id}`,
-        montant: paiement.montant,
+        montant: parseFloat(paiement.montant),
         date_paiement: paiement.date_paiement,
         mode_paiement: paiement.mode_paiement,
-        penalite: paiement.penalite,
+        penalite: paiement.penalite ? parseFloat(paiement.penalite) : 0,
         type_versement: paiement.type_vente,
         versement_numero: paiement.versement_numero
       },
@@ -163,40 +162,49 @@ const handleImprimerQuittance = async (paiement: any) => {
         numero: contrat.numero_contrat,
         date_debut: contrat.date_debut,
         date_fin: contrat.date_fin,
-        type: contrat.type_contrat
+        type: contrat.type_contrat,
+        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0,
+        prix_vente: contrat.prix_vente ? parseFloat(contrat.prix_vente) : 0
       },
       client: {
         nom: locataireData.nom,
         prenom: locataireData.prenom,
-        telephone: locataireData.telephone,
-        type: isVente ? 'acheteur' : 'locataire'
+        telephone: locataireData.telephone || '',
+        type: isVente ? 'acheteur' as const : 'locataire' as const
       },
       bien: {
         nom: bien.nom,
-        adresse: bien.adresse,
-        commune: bien.commune,
-        ville: bien.ville,
-        quartier: bien.quartier,
-        loyer_mensuel: bien.loyer_mensuel,
-        prix_vente: bien.prix_vente
+        adresse: bien.adresse || '',
+        commune: bien.commune || '',
+        ville: bien.ville || '',
+        quartier: bien.quartier || '',
+        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0,
+        prix_vente: contrat.prix_vente ? parseFloat(contrat.prix_vente) : 0
       },
       entreprise: {
         nom: entreprise.nom,
-        adresse: `${entreprise.ville}, Côte d'Ivoire`,
+        adresse: entreprise.ville ? `${entreprise.ville}, Côte d'Ivoire` : 'Abidjan, Côte d\'Ivoire',
         telephone: entreprise.telephone,
         email: entreprise.email,
         site_web: entreprise.site_web
       },
-      echeancier
+      echeancier: isVente ? {
+        total_vente: parseFloat(contrat.prix_vente || 0),
+        deja_verse: totalDejaVerse,
+        reste: parseFloat(contrat.prix_vente || 0) - totalDejaVerse,
+        versement_numero: paiement.versement_numero || 1
+      } : undefined
     };
 
-    // ✅ Solution radicale : utiliser "as any" pour éviter les erreurs TypeScript
-    await (documentPaiementService as any).genererDocument(documentData);
-    
+    // ✅ Appel du service avec l'objet correctement typé
+    await documentPaiementService.genererDocument(quittanceData);
     toast.success(isVente ? 'Reçu généré avec succès' : 'Quittance générée avec succès');
+    
   } catch (error) {
-    console.error('❌ Erreur génération document:', error);
+    console.error('❌ Erreur génération:', error);
     toast.error('Erreur lors de la génération');
+  } finally {
+    setIsGeneratingQuittance(false);
   }
 };
 
@@ -930,13 +938,15 @@ const handleEditContrat = (contrat: any) => {
                             )}
                           </div>
                                                   
+                        {/* Dans la section paiements, remplacer le bouton existant par : */}
                         <div className="paiement-footer">
                           <button
                             className="action-btn print"
                             onClick={() => handleImprimerQuittance(paiement)}
-                            title="Imprimer la quittance"
+                            title="Télécharger la quittance"
+                            disabled={isGeneratingQuittance}
                           >
-                            🖨️
+                            {isGeneratingQuittance ? '⏳' : '📥'}
                           </button>
                           <button
                             className="action-btn edit"

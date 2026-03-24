@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { authService } from './../../services/authService';
+import '@/app/globals.css';
 import './Header.css';
 
 interface HeaderProps {
@@ -34,10 +35,10 @@ export default function Header({
 
   return (
     <header className="immolion-header">
+      
       <div className="header-left">
         <div className="header-title-wrapper">
           <h1 className="header-titre">{titre}</h1>
-          
         </div>
         <div className="header-entreprise">
             {entrepriseLogo ? (

@@ -202,17 +202,29 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Générer une référence unique si non fournie
-    let referenceFinale = reference;
-    if (!referenceFinale) {
-      const now = new Date();
-      const annee = now.getFullYear();
-      const mois = String(now.getMonth() + 1).padStart(2, '0');
-      const count = await queryRows(
-        'SELECT COUNT(*) as total FROM paiements WHERE YEAR(created_at) = ? AND MONTH(created_at) = ?',
-        [annee, parseInt(mois)]
-      ) as any[];
-      referenceFinale = `PAY-${annee}${mois}-${(count[0]?.total + 1).toString().padStart(4, '0')}`;
-    }
+let referenceFinale = reference;
+if (!referenceFinale) {
+  const now = new Date();
+  const annee = now.getFullYear();
+  const mois = String(now.getMonth() + 1).padStart(2, '0');
+  
+  // Incrémenter le compteur global
+  const compteurResult = await queryRows(
+    `INSERT INTO compteurs (type, valeur, annee, mois) 
+     VALUES ('REFERENCE', 1, ?, ?) 
+     ON DUPLICATE KEY UPDATE valeur = valeur + 1`,
+    [annee, parseInt(mois)]
+  ) as any[];
+  
+  // Récupérer la nouvelle valeur
+  const compteur = await queryRows(
+    'SELECT valeur FROM compteurs WHERE type = ? AND annee = ? AND mois = ?',
+    ['REFERENCE', annee, parseInt(mois)]
+  ) as any[];
+  
+  const compteurValeur = compteur[0]?.valeur || 1;
+  referenceFinale = `PAY-${annee}${mois}-${String(compteurValeur).padStart(4, '0')}`;
+}
 
     // ✅ Générer le numéro de quittance
     const datePaiementObj = new Date(date_paiement);

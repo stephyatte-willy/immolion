@@ -16,10 +16,11 @@ interface DocumentCardProps {
 export default function DocumentCard({ document, onDelete, onUpdate }: DocumentCardProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [typeDocument, setTypeDocument] = useState(document.type_document);
   const [dateExpiration, setDateExpiration] = useState(document.date_expiration || '');
   const [isHovered, setIsHovered] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
 
   const getDocumentTypeInfo = (type: string) => {
     const typeInfo = TYPES_DOCUMENTS.find(t => t.value === type) || TYPES_DOCUMENTS[0];
@@ -45,20 +46,17 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
     });
   };
 
-  // ✅ Fonction de téléchargement améliorée
   const handleDownload = () => {
     try {
       if (document.url.startsWith('data:')) {
-        // C'est une donnée base64
         const link = document.createElement('a');
         link.href = document.url;
-        link.download = document.nom; // Nom du fichier pour le téléchargement
+        link.download = document.nom;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         toast.success('Téléchargement lancé');
       } else {
-        // C'est une URL normale
         window.open(document.url, '_blank');
       }
     } catch (error) {
@@ -67,14 +65,11 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
     }
   };
 
-  // ✅ Fonction pour voir le document
   const handleView = () => {
     try {
       if (document.url.startsWith('data:')) {
-        // Pour les données base64, ouvrir dans un nouvel onglet
         const newWindow = window.open();
         if (newWindow) {
-          // Si c'est une image, on peut l'afficher directement
           if (document.url.startsWith('data:image')) {
             newWindow.document.write(`
               <html>
@@ -85,7 +80,6 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
               </html>
             `);
           } else {
-            // Pour les PDF et autres, utiliser un embed
             newWindow.document.write(`
               <html>
                 <head><title>${document.nom}</title></head>
@@ -98,7 +92,6 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
           newWindow.document.close();
         }
       } else {
-        // C'est une URL normale
         window.open(document.url, '_blank');
       }
     } catch (error) {
@@ -107,18 +100,35 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
     }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (onUpdate) {
-      onUpdate(document.id, typeDocument, dateExpiration);
-      setIsEditing(false);
+      setIsUpdating(true);
+      try {
+        await onUpdate(document.id, typeDocument, dateExpiration);
+        setIsEditing(false);
+      } finally {
+        setIsUpdating(false);
+      }
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete(document.id);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const isExpired = document.date_expiration && new Date(document.date_expiration) < new Date();
-
-  // Déterminer si c'est une image
   const isImage = document.url.startsWith('data:image') || 
                   document.nom.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+
+  // ✅ Nom complet du propriétaire
+  const proprietaireNom = document.locataire_prenom && document.locataire_nom 
+    ? `${document.locataire_prenom} ${document.locataire_nom}`
+    : 'Client inconnu';
 
   return (
     <>
@@ -138,6 +148,12 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
           <div className="document-header">
             <h4 className="document-name">{document.nom}</h4>
             <span className="document-type">{typeInfo.label}</span>
+          </div>
+
+          {/* ✅ Ajout du propriétaire */}
+          <div className="document-proprietaire">
+            <span className="proprietaire-icon">👤</span>
+            <span className="proprietaire-nom">{proprietaireNom}</span>
           </div>
 
           <div className="document-meta">
@@ -172,6 +188,7 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
                 value={typeDocument}
                 onChange={(e) => setTypeDocument(e.target.value)}
                 className="edit-select"
+                disabled={isUpdating}
               >
                 {TYPES_DOCUMENTS.map(type => (
                   <option key={type.value} value={type.value}>
@@ -185,10 +202,23 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
                 onChange={(e) => setDateExpiration(e.target.value)}
                 className="edit-date"
                 placeholder="Date d'expiration"
+                disabled={isUpdating}
               />
               <div className="edit-actions">
-                <button onClick={handleUpdate} className="edit-save">✓</button>
-                <button onClick={() => setIsEditing(false)} className="edit-cancel">✕</button>
+                <button 
+                  onClick={handleUpdate} 
+                  className="edit-save"
+                  disabled={isUpdating}
+                >
+                  {isUpdating ? <span className="spinner-mini"></span> : '✓'}
+                </button>
+                <button 
+                  onClick={() => setIsEditing(false)} 
+                  className="edit-cancel"
+                  disabled={isUpdating}
+                >
+                  ✕
+                </button>
               </div>
             </div>
           )}
@@ -207,6 +237,7 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
               className="action-btn edit"
               onClick={() => setIsEditing(true)}
               title="Modifier"
+              disabled={isDeleting}
             >
               ✏️
             </button>
@@ -215,8 +246,9 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
             className="action-btn delete"
             onClick={() => setShowDeleteConfirm(true)}
             title="Supprimer"
+            disabled={isDeleting || isUpdating}
           >
-            🗑️
+            {isDeleting ? <span className="spinner-mini"></span> : '🗑️'}
           </button>
         </div>
       </motion.div>
@@ -228,11 +260,9 @@ export default function DocumentCard({ document, onDelete, onUpdate }: DocumentC
         type="danger"
         confirmText="Supprimer"
         cancelText="Annuler"
-        onConfirm={() => {
-          onDelete(document.id);
-          setShowDeleteConfirm(false);
-        }}
+        onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
+        isLoading={isDeleting}
       />
     </>
   );
