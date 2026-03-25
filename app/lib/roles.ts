@@ -1,5 +1,5 @@
 // app/lib/roles.ts
-import { Role, RoleDefinition, RolePermissions, Permission } from '@/app/types/roles';
+import { Role, RoleDefinition, Permission } from '@/app/types/roles';
 
 export const ROLES: Record<Role, RoleDefinition> = {
   SUPER_ADMIN: {
@@ -54,63 +54,77 @@ export const ROLES: Record<Role, RoleDefinition> = {
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SUPER_ADMIN: [
-    'dashboard:voir',
-    'biens:voir', 'biens:créer', 'biens:modifier', 'biens:supprimer',
-    'locataires:voir', 'locataires:créer', 'locataires:modifier', 'locataires:supprimer',
-    'contrats:voir', 'contrats:créer', 'contrats:modifier', 'contrats:supprimer',
-    'paiements:voir', 'paiements:créer', 'paiements:modifier', 'paiements:supprimer',
-    'documents:voir', 'documents:upload', 'documents:supprimer',
-    'utilisateurs:voir', 'utilisateurs:créer', 'utilisateurs:modifier', 'utilisateurs:supprimer',
-    'roles:paramétrer',
-    'parametres:voir', 'parametres:modifier',
-    'statistiques:voir',
-    'logs:voir',
-    'api:paramétrer',
+    'dashboard:view',
+    'dashboard:view_finances',
+    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
+    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
+    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
+    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
+    'documents:view', 'documents:upload', 'documents:delete',
+    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit', 'utilisateurs:delete',
+    'roles:manage',
+    'parametres:view', 'parametres:edit',
+    'statistiques:view',
+    'logs:view',
+    'api:manage',
     'notifications:send'
   ],
   
   ADMIN: [
-    'dashboard:voir',
-    'biens:voir', 'biens:créer', 'biens:modifier', 'biens:supprimer',
-    'locataires:voir', 'locataires:créer', 'locataires:modifier', 'locataires:supprimer',
-    'contrats:voir', 'contrats:créer', 'contrats:modifier', 'contrats:supprimer',
-    'paiements:voir', 'paiements:créer', 'paiements:modifier', 'paiements:supprimer',
-    'documents:voir', 'documents:upload', 'documents:supprimer',
-    'utilisateurs:voir', 'utilisateurs:créer', 'utilisateurs:modifier',
-    'parametres:voir', 'parametres:modifier',
-    'statistiques:voir',
-    'logs:voir',
-    'notifications:send'
-  ],
-  
-  PROPRIETAIRE: [
-    'dashboard:voir',
-    'biens:voir', 'biens:créer', 'biens:modifier',
-    'locataires:voir', 'locataires:créer', 'locataires:modifier',
-    'contrats:voir', 'contrats:créer', 'contrats:modifier',
-    'paiements:voir', 'paiements:créer',
-    'documents:voir', 'documents:upload',
-    'statistiques:voir',
+    'dashboard:view',
+    'dashboard:view_finances',
+    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
+    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
+    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
+    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
+    'documents:view', 'documents:upload', 'documents:delete',
+    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit',
+    'parametres:view', 'parametres:edit',
+    'statistiques:view',
+    'logs:view',
     'notifications:send'
   ],
   
   GESTIONNAIRE: [
-    'dashboard:voir',
-    'biens:voir', 'biens:modifier',
-    'locataires:voir', 'locataires:créer', 'locataires:modifier',
-    'contrats:voir', 'contrats:créer', 'contrats:modifier',
-    'paiements:voir', 'paiements:créer',
-    'documents:voir', 'documents:upload'
+    'dashboard:view',
+    'dashboard:view_finances',
+    'biens:view', 'biens:edit',
+    'locataires:view', 'locataires:create', 'locataires:edit',
+    'contrats:view', 'contrats:create', 'contrats:edit',
+    'paiements:view', 'paiements:create',
+    'documents:view', 'documents:upload',
+    'statistiques:view',
+    'notifications:send'
+  ],
+  
+  PROPRIETAIRE: [
+    'dashboard:view',
+    'biens:view', 'biens:create', 'biens:edit',
+    'locataires:view', 'locataires:create', 'locataires:edit',
+    'contrats:view', 'contrats:create', 'contrats:edit',
+    'paiements:view', 'paiements:create',
+    'documents:view', 'documents:upload',
+    'statistiques:view',
+    'notifications:send'
   ],
   
   LOCATAIRE: [
-    'biens:voir',
-    'documents:voir',
-    'paiements:voir'
+    'dashboard:view',
+    'biens:view',
+    'documents:view',
+    'paiements:view'
   ],
   
   PRESTATAIRE: [
-    'biens:voir',
-    'documents:voir'
+    'dashboard:view',
+    'biens:view',
+    'documents:view'
   ]
 };
+
+// ✅ Fonction utilitaire pour vérifier les permissions
+export function hasPermission(role: Role | undefined, permission: Permission): boolean {
+  if (!role) return false;
+  const permissions = ROLE_PERMISSIONS[role];
+  return permissions?.includes(permission) || false;
+}
