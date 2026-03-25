@@ -17,6 +17,8 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import toast from 'react-hot-toast';
 import './biens.css';
 
+// Dans app/biens/page.tsx, ajoutez la propriété pays dans l'interface Bien
+
 export interface Bien {
   id: number;
   proprietaire_id: number;
@@ -26,6 +28,7 @@ export interface Bien {
   commune?: string;
   ville: string;
   district: string;
+  pays: string;  // ✅ Ajout de la propriété pays
   type_bien: string;
   statut: string;
   surface: number;
