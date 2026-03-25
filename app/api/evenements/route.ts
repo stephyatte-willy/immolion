@@ -16,17 +16,18 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
 
     if (debut && fin) {
-      whereClause += ' AND date_debut BETWEEN ? AND ?';
+      whereClause += ' AND e.date_debut BETWEEN ? AND ?';
       params.push(debut, fin);
     }
 
     if (type && type !== 'TOUS') {
-      whereClause += ' AND type_evenement = ?';
+      whereClause += ' AND e.type_evenement = ?';
       params.push(type);
     }
 
+    // ✅ CORRECTION: Préciser la table pour la colonne statut
     if (statut && statut !== 'TOUS') {
-      whereClause += ' AND statut = ?';
+      whereClause += ' AND e.statut = ?';
       params.push(statut);
     }
 

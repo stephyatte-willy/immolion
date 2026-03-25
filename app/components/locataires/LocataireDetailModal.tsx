@@ -781,12 +781,12 @@ const handleEditContrat = (contrat: any) => {
                 <div className="contrats-tab">
                   <div className="tab-actions">
                     <button 
-                      className="btn-add-bien"
+                      className="btn-add"
                       onClick={handleAddContrat}
                       disabled={isLoading}
                     >
                       <span className="btn-icon">➕</span>
-                      Nouveau contrat
+                      Nouveau
                     </button>
                     <button 
                       className="btn-refresh"
@@ -846,7 +846,7 @@ const handleEditContrat = (contrat: any) => {
                       <span className="empty-icon">📄</span>
                       <p>Aucun contrat pour ce locataire</p>
                       <button 
-                        className="btn-add-contrat empty-btn"
+                        className="btn-add empty-btn"
                         onClick={handleAddContrat}
                       >
                         Créer un contrat
@@ -861,12 +861,12 @@ const handleEditContrat = (contrat: any) => {
                 <div className="paiements-tab">
                   <div className="tab-actions">
                     <button 
-                      className="btn-add-bien"
+                      className="btn-add"
                       onClick={handleAddPaiement}
                       disabled={isLoading}
                     >
                       <span className="btn-icon">➕</span>
-                      Nouveau paiement
+                      Nouveau
                     </button>
                     <button 
                       className="btn-refresh"
@@ -971,7 +971,7 @@ const handleEditContrat = (contrat: any) => {
                       <span className="empty-icon">💰</span>
                       <p>Aucun paiement pour ce locataire</p>
                       <button 
-                        className="btn-add-bien empty-btn"
+                        className="btn-add empty-btn"
                         onClick={handleAddPaiement}
                       >
                         Enregistrer un paiement
@@ -986,12 +986,12 @@ const handleEditContrat = (contrat: any) => {
   <div className="documents-tab">
     <div className="tab-actions">
       <button 
-        className="btn-add-bien"
+        className="btn-add"
         onClick={handleAddDocument}
         disabled={isLoading}
       >
         <span className="btn-icon">➕</span>
-        Ajouter des documents
+        Ajouter
       </button>
       <button 
         className="btn-refresh"
@@ -1027,7 +1027,7 @@ const handleEditContrat = (contrat: any) => {
         <span className="empty-icon">📎</span>
         <p>Aucun document pour ce locataire</p>
         <button 
-          className="btn-add-bien empty-btn"
+          className="btn-add empty-btn"
           onClick={handleAddDocument}
         >
           Ajouter des documents

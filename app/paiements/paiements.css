@@ -31,27 +31,6 @@
   gap: 20px;
 }
 
-.btn-add-paiement {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #bcb901, #776d01);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  transition: all 0.3s ease;
-}
-
-.btn-add-paiement:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
-}
-
 /* Grille des paiements */
 .paiements-grid {
   display: grid;
@@ -412,61 +391,6 @@
   animation: slideIn 0.3s ease;
 }
 
-/* Vue Selector */
-.vue-selector {
-  display: flex;
-  gap: 4px;
-  margin-left: 20px;
-  padding: 4px 4px;
-  background: linear-gradient(135deg, #f0e8f9, #ecdaff);
-  border: 1px solid var(--border-color);
-  border-radius: 30px;
-}
-
-.vue-btn {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #f0e8f9, #ecdaff);
-  border: none;
-  border-radius: 30px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.vue-btn:hover {
-  background: #ffffff;
-  border-color: #a878fc;
-  color: #1c1b1b;
-}
-
-.vue-btn.active {
-  background: linear-gradient(135deg, #a878fc, #7236e9);
-  border-color: transparent;
-  color: white;
-}
-
-.vue-icon {
-  font-size: 16px;
-}
-
-.vue-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #10b981;
-  color: white;
-  font-size: 9px;
-  padding: 2px 6px;
-  border-radius: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
 /* Accordéon */
 .contrat-accordeon {
   margin-bottom: 6px;
@@ -545,11 +469,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 12px;
-  background: var(--bg-primary);
-  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 14px;
+  background: #e3faffb3;
+  border-radius: 8px;
   min-width: 80px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #90d6e28a;
 }
 
 .stat-chip.date-chip {
@@ -649,20 +574,6 @@
   justify-content: flex-end;
   padding-top: 10px;
   border-top: 1px dashed var(--border-color);
-}
-
-.btn-add-paiement.small {
-  padding: 8px 16px;
-  font-size: 12px;
-  border-radius: 30px;
-  background: rgba(212, 175, 55, 0.1);
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  color: var(--lion-gold);
-}
-
-.btn-add-paiement.small:hover {
-  background: rgba(212, 175, 55, 0.2);
-  transform: translateY(-2px);
 }
 
 /* Version compacte de PaiementCard */
@@ -858,4 +769,110 @@
     flex: 1;
     justify-content: center;
   }
+}
+
+/* Styles pour la sélection multiple */
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 12px 12px 0 0;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.select-all input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.btn-delete-selection {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-delete-selection:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-delete-selection:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Styles pour le tableau avec cases à cocher */
+.paiements-table th:first-child,
+.paiements-table td:first-child {
+  text-align: center;
+  width: 40px;
+}
+
+.paiements-table th:first-child input,
+.paiements-table td:first-child input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-cell {
+  text-align: center;
+}
+
+.row-number {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.selected-row {
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.paiements-table th:nth-child(2) {
+  text-align: center;
+}
+
+.paiements-table td:nth-child(2) {
+  text-align: center;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }

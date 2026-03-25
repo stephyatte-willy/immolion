@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import PaiementCard from './PaiementCard';
@@ -12,18 +11,23 @@ interface ContratPaiementsAccordeonProps {
     numero_contrat: string;
     type_contrat?: string;
     locataire: {
+      id?: number;
       nom?: string;
       prenom?: string;
     };
     bien: {
+      id?: number;
       nom?: string;
+      loyer_mensuel?: number;
     };
   };
   paiements: any[];
   onEditPaiement: (paiement: any) => void;
   onDeletePaiement: (paiement: any) => void;
-  onAddPaiement: (contratId: number) => void;
+  onAddPaiement: (contratId: number, locataireId?: number, bienId?: number, loyerMensuel?: number) => void;
   formatMoney: (amount: number) => string;
+  isExpanded: boolean;
+  onToggle: () => void;
 }
 
 export default function ContratPaiementsAccordeon({
@@ -32,24 +36,20 @@ export default function ContratPaiementsAccordeon({
   onEditPaiement,
   onDeletePaiement,
   onAddPaiement,
-  formatMoney
+  formatMoney,
+  isExpanded,
+  onToggle
 }: ContratPaiementsAccordeonProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   
   // Trier les paiements du plus récent au plus ancien
   const paiementsTries = [...paiements].sort((a, b) => 
     new Date(b.date_paiement).getTime() - new Date(a.date_paiement).getTime()
   );
   
-  // ✅ CORRECTION: Calculer les totaux avec vérification des valeurs
+  // Calculer les totaux
   const totalPaye = paiements.reduce((sum, p) => {
     const montant = Number(p.montant) || 0;
     return sum + montant;
-  }, 0);
-  
-  const totalPenalites = paiements.reduce((sum, p) => {
-    const penalite = Number(p.penalite) || 0;
-    return sum + penalite;
   }, 0);
   
   const dernierPaiement = paiementsTries[0]?.date_paiement;
@@ -78,7 +78,7 @@ export default function ContratPaiementsAccordeon({
     }
   };
 
-  // ✅ Fonction de formatage sécurisée
+  // Fonction de formatage sécurisée
   const safeFormatMoney = (amount: number) => {
     try {
       if (isNaN(amount) || amount === null || amount === undefined) {
@@ -95,7 +95,7 @@ export default function ContratPaiementsAccordeon({
       {/* En-tête du contrat - toujours visible */}
       <motion.div 
         className="contrat-accordeon-header"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={onToggle}
         style={{ borderLeftColor: getStatutCouleur() }}
         whileHover={{ backgroundColor: 'var(--hover-bg)' }}
       >
@@ -182,10 +182,15 @@ export default function ContratPaiementsAccordeon({
             
             <div className="contrat-footer">
               <button 
-                className="btn-add-paiement small"
+                className="btn-add"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddPaiement(contrat.id);
+                  onAddPaiement(
+                    contrat.id,
+                    contrat.locataire?.id,
+                    contrat.bien?.id,
+                    contrat.bien?.loyer_mensuel
+                  );
                 }}
               >
                 <span className="btn-icon">➕</span>

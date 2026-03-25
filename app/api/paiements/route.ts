@@ -58,21 +58,23 @@ export async function GET(request: NextRequest) {
     }
 
     const paiements = await queryRows(
-      `SELECT p.*,
-        c.numero_contrat as contrat_numero,
-        c.type_contrat,
-        c.prix_vente,
-        c.loyer_mensuel,
-        b.nom as bien_nom,
-        CONCAT(l.prenom, ' ', l.nom) as locataire_nom_complet
-       FROM paiements p
-       LEFT JOIN contrats c ON p.contrat_id = c.id
-       LEFT JOIN biens b ON p.bien_id = b.id
-       LEFT JOIN locataires l ON p.locataire_id = l.id
-       ${whereClause}
-       ORDER BY p.date_paiement DESC`,
-      params
-    ) as any[];
+  `SELECT p.*,
+    c.numero_contrat as contrat_numero,
+    c.type_contrat,
+    c.prix_vente,
+    c.loyer_mensuel,
+    b.nom as bien_nom,
+    l.nom as locataire_nom,
+    l.prenom as locataire_prenom,
+    CONCAT(l.prenom, ' ', l.nom) as locataire_nom_complet
+   FROM paiements p
+   LEFT JOIN contrats c ON p.contrat_id = c.id
+   LEFT JOIN biens b ON p.bien_id = b.id
+   LEFT JOIN locataires l ON p.locataire_id = l.id
+   ${whereClause}
+   ORDER BY p.date_paiement DESC`,
+  params
+) as any[];
 
     return NextResponse.json({
       success: true,

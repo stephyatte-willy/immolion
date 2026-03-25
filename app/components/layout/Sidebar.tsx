@@ -68,13 +68,6 @@ const menuItems: MenuItem[] = [
   },
 ];
 
-const getBadgeCount = (itemId: string): number | undefined => {
-  const badges: Record<string, number> = {
-    
-  };
-  return badges[itemId];
-};
-
 export default function Sidebar() {
   const [estReduit, setEstReduit] = useState(false);
   const [mobileOuvert, setMobileOuvert] = useState(false);
@@ -82,6 +75,15 @@ export default function Sidebar() {
   const [entreprise, setEntreprise] = useState<any>(null);
   const pathname = usePathname();
 
+  // Sauvegarder l'état réduit dans localStorage
+  useEffect(() => {
+    const savedState = localStorage.getItem('sidebar-reduit');
+    if (savedState !== null) {
+      setEstReduit(savedState === 'true');
+    }
+  }, []);
+
+  // Charger les infos utilisateur
   useEffect(() => {
     const userStr = localStorage.getItem('utilisateur');
     if (userStr) {
@@ -92,7 +94,6 @@ export default function Sidebar() {
       }
     }
 
-    // Charger les infos de l'entreprise
     fetch('/api/entreprise')
       .then(res => res.json())
       .then(data => {
@@ -100,13 +101,18 @@ export default function Sidebar() {
       });
   }, []);
 
+  // Fermer le menu mobile lors du changement de page
   useEffect(() => {
     setMobileOuvert(false);
   }, [pathname]);
 
+  // Gérer le redimensionnement
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth <= 768) {
+      if (window.innerWidth > 768) {
+        setMobileOuvert(false);
+      } else {
+        // Sur mobile, forcer l'état réduit à false
         setEstReduit(false);
       }
     };
@@ -115,6 +121,12 @@ export default function Sidebar() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const toggleSidebar = () => {
+    const newState = !estReduit;
+    setEstReduit(newState);
+    localStorage.setItem('sidebar-reduit', String(newState));
+  };
 
   const filteredMenuItems = menuItems.filter(item => {
     if (!utilisateur) return true;
@@ -160,49 +172,49 @@ export default function Sidebar() {
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className="sidebar-header">
+          <div className="logo-area">
             <div className="logo-wrapper">
               <div className="logo-glow"></div>
               <div className="logo-icon">
                 <img src="/logo_immolion.png" alt="ImmoLion" />
-                </div>
+              </div>
             </div>
             {!estReduit && (
               <div className="brand-text">
                 <span className="brand-name">ImmoLion</span>
-                <div className="sidebar-company">
-              <span className="company-badge-name">Gestion Immobilière</span>
-            </div>
-          </div>
-              
+              </div>
             )}
+          </div>
           
           <button 
             className="toggle-sidebar"
-            onClick={() => setEstReduit(!estReduit)}
+            onClick={toggleSidebar}
+            title={estReduit ? "Développer" : "Réduire"}
           >
             {estReduit ? '→' : '←'}
           </button>
         </div>
-        
+
         <nav className="sidebar-nav">
           {filteredMenuItems.map((item) => {
-            const badge = getBadgeCount(item.id);
+            const badge = 0; // À remplacer par des données réelles
             return (
               <Link 
                 key={item.id}
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? 'actif' : ''} ${pathname?.startsWith(item.path + '/') ? 'actif' : ''}`}
+                title={estReduit ? item.label : ''}
               >
                 <span className="nav-icon">{item.icon}</span>
                 {!estReduit && (
                   <>
                     <span className="nav-label">{item.label}</span>
-                    {badge && badge > 0 && (
+                    {badge > 0 && (
                       <span className="nav-badge">{badge}</span>
                     )}
                   </>
                 )}
-                {estReduit && badge && badge > 0 && (
+                {estReduit && badge > 0 && (
                   <span className="nav-badge-mini">{badge}</span>
                 )}
               </Link>
@@ -216,7 +228,7 @@ export default function Sidebar() {
               {utilisateur?.avatar ? (
                 <img src={utilisateur.avatar} alt="Avatar" />
               ) : (
-                getUserInitials()
+                <span className="avatar-initials">{getUserInitials()}</span>
               )}
             </div>
             {!estReduit && (

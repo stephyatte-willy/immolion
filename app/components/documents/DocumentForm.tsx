@@ -158,8 +158,7 @@ export default function DocumentForm({
       >
         <div className="modal-header">
           <div className="modal-title">
-            <span className="title-icon">📎</span>
-            <h2>{document ? 'Modifier le document' : 'Ajouter un document'}</h2>
+            <h2>{document ? '📎Modifier le document' : '📎Ajouter un document'}</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

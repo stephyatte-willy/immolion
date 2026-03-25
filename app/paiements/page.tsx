@@ -11,7 +11,9 @@ import PaiementFilters from '@/app/components/paiements/PaiementFilters';
 import PaiementStats from '@/app/components/paiements/PaiementStats';
 import ContratPaiementsAccordeon from '@/app/components/paiements/ContratPaiementsAccordeon';
 import VueSelector from '@/app/components/paiements/VueSelector';
+import ActionButtons from '@/app/components/common/ActionButtons';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
+import { ExportColumn } from '@/app/services/exportService';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import { documentPaiementService } from '@/app/services/quittanceService';
 import toast from 'react-hot-toast';
@@ -63,9 +65,41 @@ export default function PaiementsPage() {
     penalites: 0
   });
   const [isGeneratingQuittance, setIsGeneratingQuittance] = useState(false);
+  const [currentFilters, setCurrentFilters] = useState<any>({});
+  
+  // États pour la sélection multiple
+  const [selectedPaiements, setSelectedPaiements] = useState<number[]>([]);
+  const [showMultipleDeleteConfirm, setShowMultipleDeleteConfirm] = useState(false);
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+
+  // ✅ État pour le tri
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
+  const [openAccordeonId, setOpenAccordeonId] = useState<number | null>(null);
   
   const router = useRouter();
   const { formatMoney } = useTheme();
+
+  // Colonnes pour l'export Excel
+  const exportColumns: ExportColumn[] = [
+    { header: 'ID', key: 'id' },
+    { header: 'Date de paiement', key: 'date_paiement' },
+    { header: 'Contrat', key: 'contrat_numero' },
+    { header: 'Locataire', key: 'locataire_nom' },
+    { header: 'Prénom locataire', key: 'locataire_prenom' },
+    { header: 'Montant', key: 'montant' },
+    { header: 'Mode de paiement', key: 'mode_paiement' },
+    { header: 'Statut', key: 'statut' },
+    { header: 'Type', key: 'type_paiement' },
+    { header: 'Mois concerné', key: 'mois_concerne' },
+    { header: 'Pénalité', key: 'penalite' },
+    { header: 'Référence', key: 'reference' },
+    { header: 'N° Quittance', key: 'numero_quittance' },
+    { header: 'Bien', key: 'bien_nom' }
+  ];
 
   useEffect(() => {
     const userStr = localStorage.getItem('utilisateur');
@@ -89,25 +123,30 @@ export default function PaiementsPage() {
   };
 
   const chargerPaiements = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/paiements');
-      const data = await response.json();
+  setIsLoading(true);
+  try {
+    const response = await fetch('/api/paiements');
+    const data = await response.json();
+    
+    if (data.success) {
+      // ✅ Log pour vérifier les données
+      console.log('📦 Paiements reçus:', data.paiements);
+      console.log('🔍 Premier paiement:', data.paiements[0]);
       
-      if (data.success) {
-        setPaiements(data.paiements);
-        setFilteredPaiements(data.paiements);
-        calculerStats(data.paiements);
-      } else {
-        toast.error('Erreur lors du chargement des paiements');
-      }
-    } catch (error) {
-      console.error('❌ Erreur:', error);
-      toast.error('Erreur de chargement');
-    } finally {
-      setIsLoading(false);
+      setPaiements(data.paiements);
+      setFilteredPaiements(data.paiements);
+      calculerStats(data.paiements);
+      setSelectedPaiements([]);
+    } else {
+      toast.error('Erreur lors du chargement des paiements');
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur:', error);
+    toast.error('Erreur de chargement');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const calculerStats = (data: Paiement[]) => {
     const total = data.length;
@@ -137,6 +176,7 @@ export default function PaiementsPage() {
   };
 
   const handleFilter = (filters: any) => {
+    setCurrentFilters(filters);
     let filtered = [...paiements];
 
     if (filters.search) {
@@ -174,6 +214,109 @@ export default function PaiementsPage() {
     }
 
     setFilteredPaiements(filtered);
+    setSelectedPaiements([]);
+  };
+
+  // ✅ Fonction de tri
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    
+    setSortConfig({ key, direction });
+    
+    const sorted = [...filteredPaiements];
+    
+    sorted.sort((a, b) => {
+      let aValue: any = a[key as keyof Paiement];
+      let bValue: any = b[key as keyof Paiement];
+      
+      // Gestion spéciale pour certaines colonnes
+      if (key === 'montant') {
+        aValue = a.montant || 0;
+        bValue = b.montant || 0;
+      }
+      
+      if (key === 'date_paiement') {
+        aValue = new Date(a.date_paiement).getTime();
+        bValue = new Date(b.date_paiement).getTime();
+      }
+      
+      if (key === 'statut') {
+        const statutMap: Record<string, number> = {
+          'EFFECTUE': 1,
+          'EN_ATTENTE': 2,
+          'EN_RETARD': 3
+        };
+        aValue = statutMap[a.statut] || 99;
+        bValue = statutMap[b.statut] || 99;
+      }
+      
+      if (key === 'locataire_nom') {
+        aValue = `${a.locataire_nom || ''} ${a.locataire_prenom || ''}`.trim();
+        bValue = `${b.locataire_nom || ''} ${b.locataire_prenom || ''}`.trim();
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return direction === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      return direction === 'asc'
+        ? (aValue > bValue ? 1 : -1)
+        : (bValue > aValue ? 1 : -1);
+    });
+    
+    setFilteredPaiements(sorted);
+  };
+
+  // Gestion de la sélection multiple
+  const toggleSelectPaiement = (id: number) => {
+    setSelectedPaiements(prev => 
+      prev.includes(id) 
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPaiements.length === filteredPaiements.length) {
+      setSelectedPaiements([]);
+    } else {
+      setSelectedPaiements(filteredPaiements.map(p => p.id));
+    }
+  };
+
+  // Suppression multiple
+  const handleMultipleDelete = async () => {
+    if (selectedPaiements.length === 0) return;
+    
+    setShowMultipleDeleteConfirm(false);
+    setIsDeletingMultiple(true);
+    
+    try {
+      const promises = selectedPaiements.map(id => 
+        fetch(`/api/paiements/${id}`, { method: 'DELETE' })
+      );
+      
+      const results = await Promise.all(promises);
+      const allSuccess = results.every(res => res.ok);
+      
+      if (allSuccess) {
+        toast.success(`${selectedPaiements.length} paiement(s) supprimé(s) avec succès`);
+        chargerPaiements();
+      } else {
+        toast.error('Erreur lors de la suppression de certains paiements');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression multiple:', error);
+      toast.error('Erreur lors de la suppression multiple');
+    } finally {
+      setIsDeletingMultiple(false);
+    }
   };
 
   const handleAddPaiement = () => {
@@ -181,8 +324,21 @@ export default function PaiementsPage() {
     setShowForm(true);
   };
 
-  const handleAddPaiementPourContrat = (contratId: number) => {
-    setSelectedPaiement(null);
+  const handleAddPaiementPourContrat = (
+    contratId: number, 
+    locataireId?: number, 
+    bienId?: number, 
+    loyerMensuel?: number
+  ) => {
+    const paiementPreRempli = {
+      contrat_id: contratId,
+      locataire_id: locataireId,
+      bien_id: bienId,
+      montant: loyerMensuel,
+      type_paiement: 'LOYER'
+    };
+    
+    setSelectedPaiement(paiementPreRempli as any);
     setShowForm(true);
   };
 
@@ -225,7 +381,7 @@ export default function PaiementsPage() {
     chargerPaiements();
   };
 
-  // ✅ Fonction de génération directe de quittance
+  // Fonction de génération directe de quittance
   const handleGenerateQuittance = async (paiement: Paiement) => {
     setIsGeneratingQuittance(true);
     
@@ -256,7 +412,6 @@ export default function PaiementsPage() {
         }
       }
 
-      // ✅ Utilisation de "as any" pour éviter les erreurs TypeScript
       const quittanceData: any = {
         type: isVente ? 'VENTE' : 'LOCATION',
         numero_document: paiement.numero_quittance || `QUIT-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(paiement.id).padStart(6, '0')}`,
@@ -369,14 +524,23 @@ export default function PaiementsPage() {
 
           <div className="paiements-actions-bar">
             <PaiementFilters onFilter={handleFilter} />
-            <button 
-                className="btn-add-paiement"
+            
+            <div className="actions-right">
+              <ActionButtons
+                data={filteredPaiements}
+                columns={exportColumns}
+                titre="Liste des paiements"
+              />
+
+              <button 
+                className="btn-add"
                 onClick={handleAddPaiement}
+                title='Nouveau Paiement'
               >
                 <span className="btn-icon">➕</span>
-                Nouveau paiement
+                Nouveau
               </button>
-            <div className="actions-right">
+              
               <VueSelector vueActive={vueActive} onVueChange={setVueActive} />
             </div>
           </div>
@@ -392,7 +556,7 @@ export default function PaiementsPage() {
               <h3>Aucun paiement trouvé</h3>
               <p>Commencez par enregistrer un premier paiement</p>
               <button 
-                className="btn-add-paiement empty-btn"
+                className="btn-add empty-btn"
                 onClick={handleAddPaiement}
               >
                 Nouveau paiement
@@ -412,6 +576,8 @@ export default function PaiementsPage() {
                         onDeletePaiement={handleDeleteClick}
                         onAddPaiement={handleAddPaiementPourContrat}
                         formatMoney={formatMoney}
+                        isExpanded={openAccordeonId === groupe.contrat.id}
+                        onToggle={() => setOpenAccordeonId(openAccordeonId === groupe.contrat.id ? null : groupe.contrat.id)}
                       />
                     ))}
                   </AnimatePresence>
@@ -427,6 +593,7 @@ export default function PaiementsPage() {
                         paiement={paiement}
                         onEdit={handleEditPaiement}
                         onDelete={handleDeleteClick}
+                        onGenerateQuittance={handleGenerateQuittance}
                         formatMoney={formatMoney}
                         compact={false}
                       />
@@ -435,60 +602,170 @@ export default function PaiementsPage() {
                 </div>
               )}
 
-              {vueActive === 'tableau' && (
-                <div className="paiements-table-container">
-                  <table className="paiements-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Contrat</th>
-                        <th>Locataire</th>
-                        <th>Montant</th>
-                        <th>Mode</th>
-                        <th>Statut</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPaiements.map((p) => (
-                        <tr key={p.id}>
-                          <td>{new Date(p.date_paiement).toLocaleDateString('fr-FR')}</td>
-                          <td>{p.contrat_numero}</td>
-                          <td>{p.locataire_nom} {p.locataire_prenom}</td>
-                          <td className="montant">{p.montant.toLocaleString()} FCFA</td>
-                          <td>{p.mode_paiement}</td>
-                          <td>
-                            <span className={`table-statut ${p.statut.toLowerCase()}`}>
-                              {p.statut}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="table-actions">
-                              <button 
-                                onClick={() => handleGenerateQuittance(p)} 
-                                title="Télécharger la quittance"
-                                disabled={isGeneratingQuittance}
-                                className="compact-btn"
-                                style={{ background: '#c6fbe3' }}
-                              >
-                                {isGeneratingQuittance ? '⏳' : '📥'}
-                              </button>
-                              <button onClick={() => handleEditPaiement(p)} 
-                              title="Modifier" 
-                              className="compact-btn"
-                                >✏️</button>
-                              <button onClick={() => handleDeleteClick(p)} 
-                              title="Supprimer" 
-                              className="compact-btn"
-                              style={{ background: '#ffdede' }}>🗑️</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+{vueActive === 'tableau' && (
+  <div className="paiements-table-container">
+    {/* Barre de sélection */}
+    <div className="selection-bar">
+      <label className="select-all">
+        <input
+          type="checkbox"
+          checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
+          onChange={toggleSelectAll}
+          disabled={filteredPaiements.length === 0}
+        />
+        <span>Tout sélectionner ({filteredPaiements.length})</span>
+      </label>
+      {selectedPaiements.length > 0 && (
+        <>
+          <span className="selected-count">
+            {selectedPaiements.length} sélectionné(s)
+          </span>
+          <button 
+            className="btn-delete-selection"
+            onClick={() => setShowMultipleDeleteConfirm(true)}
+            title="Supprimer la sélection"
+            disabled={isDeletingMultiple}
+          >
+            <span className="btn-icon">🗑️</span>
+            Supprimer la sélection
+          </button>
+        </>
+      )}
+    </div>
+
+    {/* Tableau avec cases à cocher, numérotation et tri */}
+    <table className="paiements-table">
+      <thead>
+        <tr>
+          <th style={{ width: '40px' }}>
+            <input
+              type="checkbox"
+              checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
+              onChange={toggleSelectAll}
+              disabled={filteredPaiements.length === 0}
+            />
+          </th>
+          <th style={{ width: '60px' }}>N°</th>
+          <th className={`sortable ${sortConfig?.key === 'date_paiement' ? 'active' : ''}`} onClick={() => handleSort('date_paiement')}>
+            Date
+            <span className="sort-icon">
+              {sortConfig?.key === 'date_paiement' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
               )}
+            </span>
+          </th>
+          <th className={`sortable ${sortConfig?.key === 'contrat_numero' ? 'active' : ''}`} onClick={() => handleSort('contrat_numero')}>
+            Contrat
+            <span className="sort-icon">
+              {sortConfig?.key === 'contrat_numero' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th className={`sortable ${sortConfig?.key === 'locataire_nom' ? 'active' : ''}`} onClick={() => handleSort('locataire_nom')}>
+            Locataire
+            <span className="sort-icon">
+              {sortConfig?.key === 'locataire_nom' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th className={`sortable ${sortConfig?.key === 'montant' ? 'active' : ''}`} onClick={() => handleSort('montant')}>
+            Montant
+            <span className="sort-icon">
+              {sortConfig?.key === 'montant' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th className={`sortable ${sortConfig?.key === 'mode_paiement' ? 'active' : ''}`} onClick={() => handleSort('mode_paiement')}>
+            Mode
+            <span className="sort-icon">
+              {sortConfig?.key === 'mode_paiement' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th className={`sortable ${sortConfig?.key === 'statut' ? 'active' : ''}`} onClick={() => handleSort('statut')}>
+            Statut
+            <span className="sort-icon">
+              {sortConfig?.key === 'statut' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th style={{ width: '120px' }}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredPaiements.map((p, index) => (
+          <tr key={p.id} className={selectedPaiements.includes(p.id) ? 'selected-row' : ''}>
+            <td className="checkbox-cell">
+              <input
+                type="checkbox"
+                checked={selectedPaiements.includes(p.id)}
+                onChange={() => toggleSelectPaiement(p.id)}
+              />
+            </td>
+            <td className="row-number">{index + 1}</td>
+            <td>{new Date(p.date_paiement).toLocaleDateString('fr-FR')}</td>
+            <td>{p.contrat_numero || '-'}</td>
+            <td>
+              {/* ✅ CORRECTION: Affichage correct du locataire */}
+              {p.locataire_prenom && p.locataire_nom ? 
+                `${p.locataire_prenom} ${p.locataire_nom}` : 
+                p.locataire_nom || '-'}
+            </td>
+            <td className="montant">{formatMoney(p.montant)}</td>
+            <td>{p.mode_paiement}</td>
+            <td>
+              <span className={`table-statut ${p.statut.toLowerCase()}`}>
+                {p.statut === 'EFFECTUE' ? 'Effectué' : 
+                 p.statut === 'EN_ATTENTE' ? 'En attente' : 
+                 p.statut === 'EN_RETARD' ? 'En retard' : p.statut}
+              </span>
+            </td>
+            <td>
+              <div className="table-actions">
+                <button 
+                  onClick={() => handleGenerateQuittance(p)} 
+                  title="Télécharger la quittance"
+                  disabled={isGeneratingQuittance}
+                >
+                  📥
+                </button>
+                <button 
+                  onClick={() => handleEditPaiement(p)} 
+                  title="Modifier"
+                >
+                  ✏️
+                </button>
+                <button 
+                  onClick={() => handleDeleteClick(p)} 
+                  title="Supprimer"
+                >
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
             </>
           )}
         </div>
@@ -516,6 +793,19 @@ export default function PaiementsPage() {
           setShowDeleteConfirm(false);
           setPaiementToDelete(null);
         }}
+      />
+
+      {/* Modale de confirmation suppression multiple */}
+      <ConfirmModal
+        isOpen={showMultipleDeleteConfirm}
+        title="Supprimer plusieurs paiements"
+        message={`Êtes-vous sûr de vouloir supprimer ${selectedPaiements.length} paiement(s) ? Cette action est irréversible.`}
+        type="danger"
+        confirmText="Supprimer tous"
+        cancelText="Annuler"
+        onConfirm={handleMultipleDelete}
+        onCancel={() => setShowMultipleDeleteConfirm(false)}
+        isLoading={isDeletingMultiple}
       />
     </div>
   );

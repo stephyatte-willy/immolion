@@ -58,7 +58,7 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete, for
       transition={{ duration: 0.3 }}
     >
       <div className="locataire-card-header">
-        <div className="locataire-avatar">
+        <div className="locataire-avat">
           <span>{getInitials()}</span>
         </div>
         <div className={`locataire-statut ${getStatutClass(locataire.statut)}`}>
@@ -67,25 +67,25 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete, for
       </div>
 
       <div className="locataire-card-body">
-        <h3 className="locataire-nom">
+        <h3 className="locataire-name">
           {locataire.prenom} {locataire.nom}
         </h3>
 
         <div className="locataire-info">
-          <div className="info-item">
-            <span className="info-icon">✉️</span>
-            <span className="info-text">{locataire.email}</span>
+          <div className="info-item-locataire">
+            <span className="info-icon-locataire">✉️</span>
+            <span className="info-text-locataire">{locataire.email}</span>
           </div>
-          <div className="info-item">
-        <span className="info-icon">📞</span>
-        <span className="info-text">{locataire.telephone}</span>
+          <div className="info-item-locataire">
+        <span className="info-icon-locataire">📞</span>
+        <span className="info-text-locataire">{locataire.telephone}</span>
         </div>
         </div>
 
         {locataire.bien_actuel && (
-          <div className="locataire-bien">
-            <span className="bien-icon">🏠</span>
-            <span className="bien-nom">{locataire.bien_actuel.nom}</span>
+          <div className="locataire-bien-ico">
+            <span className="locataire-icon">🏠</span>
+            <span className="locataire-bien-name">{locataire.bien_actuel.nom}</span>
           </div>
         )}
 

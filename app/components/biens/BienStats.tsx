@@ -16,6 +16,24 @@ interface BienStatsProps {
 }
 
 export default function BienStats({ stats, formatMoney }: BienStatsProps) {
+  // ✅ Fonction de formatage sécurisée
+  const safeFormatMoney = (amount: any): string => {
+    // Vérifier si la valeur est valide
+    if (amount === undefined || amount === null || amount === '') {
+      return '0 FCFA';
+    }
+    
+    // Convertir en nombre si c'est une chaîne
+    const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    
+    // Vérifier si c'est un nombre valide
+    if (isNaN(numAmount)) {
+      return '0 FCFA';
+    }
+    
+    return formatMoney(numAmount);
+  };
+
   const statCards = [
     {
       title: 'Total biens',
@@ -43,7 +61,7 @@ export default function BienStats({ stats, formatMoney }: BienStatsProps) {
     },
     {
       title: 'Revenus mensuels',
-      value: formatMoney(stats.revenusMensuels),
+      value: safeFormatMoney(stats.revenusMensuels),
       icon: '📊',
       color: 'linear-gradient(135deg, #8B5CF6, #4F46E5)'
     }

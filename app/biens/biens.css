@@ -31,28 +31,6 @@
   gap: 20px;
 }
 
-.btn-add-bien {
-  padding: 10px 12px;
-  margin: 5px;
-  background: linear-gradient(135deg, #bcb901, #776d01);
-  border: none;
-  border-radius: 12px;
-  color: white;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  transition: all 0.3s ease;
-}
-
-.btn-add-bien:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
-}
-
 .btn-icon {
   font-size: 18px;
 }
@@ -333,38 +311,6 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 15px;
-}
-
-.form-group.full-width {
-  grid-column: span 2;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 14px;
-  transition: all 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--lion-gold);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
 }
 
 /* Upload photos */
@@ -1026,4 +972,163 @@
   .location-text {
     max-width: 200px;
   }
+}
+
+/* Styles pour la vue liste */
+
+.biens-liste-container {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+/* Tableau */
+.biens-table-container {
+  overflow-x: auto;
+}
+
+.biens-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.biens-table th {
+  text-align: left;
+  padding: 12px 15px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--lion-gold);
+}
+
+.biens-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.biens-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+.biens-table th:first-child,
+.biens-table td:first-child {
+  text-align: center;
+  width: 40px;
+}
+
+.biens-table th:first-child input,
+.biens-table td:first-child input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-cell {
+  text-align: center;
+}
+
+.row-number {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.selected-row {
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.bien-nom {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.type-badge {
+  padding: 4px 8px;
+  background: rgba(212, 175, 55, 0.15);
+  color: var(--lion-gold);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.montant {
+  font-weight: 600;
+  color: var(--lion-gold);
+}
+
+.statut-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.statut-badge.loue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.statut-badge.disponible {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.statut-badge.autre {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+/* Actions tableau */
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-actions button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions button:hover {
+  transform: scale(1.1);
+}
+
+.table-actions button:nth-child(1):hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.table-actions button:nth-child(2):hover {
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--lion-gold);
+}
+
+.table-actions button:nth-child(3):hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }

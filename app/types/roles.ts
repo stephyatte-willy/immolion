@@ -5,83 +5,172 @@ export interface RoleDefinition {
   id: Role;
   nom: string;
   description: string;
-  niveau: number; // Pour hiérarchie (plus haut = plus de droits)
+  niveau: number;
   couleur: string;
   icone: string;
 }
 
 export type Permission = 
-  | 'dashboard:voir'
-  | 'biens:voir'
-  | 'biens:créer'
-  | 'biens:modifier'
-  | 'biens:supprimer'
-  | 'locataires:voir'
-  | 'locataires:créer'
-  | 'locataires:modifier'
-  | 'locataires:supprimer'
-  | 'contrats:voir'
-  | 'contrats:créer'
-  | 'contrats:modifier'
-  | 'contrats:supprimer'
-  | 'paiements:voir'
-  | 'paiements:créer'
-  | 'paiements:modifier'
-  | 'paiements:supprimer'
-  | 'documents:voir'
+  | 'dashboard:view'
+  | 'dashboard:view_finances' // ✅ Nouvelle permission pour les finances
+  | 'biens:view'
+  | 'biens:create'
+  | 'biens:edit'
+  | 'biens:delete'
+  | 'locataires:view'
+  | 'locataires:create'
+  | 'locataires:edit'
+  | 'locataires:delete'
+  | 'contrats:view'
+  | 'contrats:create'
+  | 'contrats:edit'
+  | 'contrats:delete'
+  | 'paiements:view'
+  | 'paiements:create'
+  | 'paiements:edit'
+  | 'paiements:delete'
+  | 'documents:view'
   | 'documents:upload'
-  | 'documents:supprimer'
-  | 'utilisateurs:voir'
-  | 'utilisateurs:créer'
-  | 'utilisateurs:modifier'
-  | 'utilisateurs:supprimer'
-  | 'roles:paramétrer'
-  | 'parametres:voir'
-  | 'parametres:modifier'
-  | 'statistiques:voir'
-  | 'logs:voir'
-  | 'api:paramétrer'
+  | 'documents:delete'
+  | 'utilisateurs:view'
+  | 'utilisateurs:create'
+  | 'utilisateurs:edit'
+  | 'utilisateurs:delete'
+  | 'roles:manage'
+  | 'parametres:view'
+  | 'parametres:edit'
+  | 'statistiques:view'
+  | 'logs:view'
+  | 'api:manage'
   | 'notifications:send';
 
-export interface PermissionDefinition {
-  id: Permission;
-  nom: string;
-  description: string;
-  module: string;
-  categorie: 'consultation' | 'creation' | 'modification' | 'suppression' | 'administration';
-}
+export const ROLES: Record<Role, RoleDefinition> = {
+  SUPER_ADMIN: {
+    id: 'SUPER_ADMIN',
+    nom: 'Super Administrateur',
+    description: 'Accès complet à toutes les fonctionnalités',
+    niveau: 100,
+    couleur: '#EF4444',
+    icone: '👑'
+  },
+  ADMIN: {
+    id: 'ADMIN',
+    nom: 'Administrateur',
+    description: 'Gestion complète de l\'application',
+    niveau: 80,
+    couleur: '#F59E0B',
+    icone: '⚡'
+  },
+  PROPRIETAIRE: {
+    id: 'PROPRIETAIRE',
+    nom: 'Propriétaire',
+    description: 'Gère ses biens et locataires',
+    niveau: 60,
+    couleur: '#8B5CF6',
+    icone: '🏢'
+  },
+  GESTIONNAIRE: {
+    id: 'GESTIONNAIRE',
+    nom: 'Gestionnaire',
+    description: 'Gère les biens pour le compte de propriétaires',
+    niveau: 50,
+    couleur: '#3B82F6',
+    icone: '👔'
+  },
+  LOCATAIRE: {
+    id: 'LOCATAIRE',
+    nom: 'Locataire',
+    description: 'Accès à son espace locataire',
+    niveau: 20,
+    couleur: '#10B981',
+    icone: '👤'
+  },
+  PRESTATAIRE: {
+    id: 'PRESTATAIRE',
+    nom: 'Prestataire',
+    description: 'Accès aux interventions de maintenance',
+    niveau: 30,
+    couleur: '#EC4899',
+    icone: '🔧'
+  }
+};
 
-export interface RolePermissions {
-  role: Role;
-  permissions: Permission[];
-}
+// ✅ Mise à jour des permissions par rôle
+export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  SUPER_ADMIN: [
+    'dashboard:view',
+    'dashboard:view_finances', // ✅ Accès aux finances
+    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
+    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
+    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
+    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
+    'documents:view', 'documents:upload', 'documents:delete',
+    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit', 'utilisateurs:delete',
+    'roles:manage',
+    'parametres:view', 'parametres:edit',
+    'statistiques:view',
+    'logs:view',
+    'api:manage',
+    'notifications:send'
+  ],
+  
+  ADMIN: [
+    'dashboard:view',
+    'dashboard:view_finances', // ✅ Accès aux finances
+    'biens:view', 'biens:create', 'biens:edit', 'biens:delete',
+    'locataires:view', 'locataires:create', 'locataires:edit', 'locataires:delete',
+    'contrats:view', 'contrats:create', 'contrats:edit', 'contrats:delete',
+    'paiements:view', 'paiements:create', 'paiements:edit', 'paiements:delete',
+    'documents:view', 'documents:upload', 'documents:delete',
+    'utilisateurs:view', 'utilisateurs:create', 'utilisateurs:edit',
+    'parametres:view', 'parametres:edit',
+    'statistiques:view',
+    'logs:view',
+    'notifications:send'
+  ],
+  
+  GESTIONNAIRE: [
+    'dashboard:view',
+    'dashboard:view_finances', // ✅ Accès aux finances
+    'biens:view', 'biens:edit',
+    'locataires:view', 'locataires:create', 'locataires:edit',
+    'contrats:view', 'contrats:create', 'contrats:edit',
+    'paiements:view', 'paiements:create',
+    'documents:view', 'documents:upload',
+    'statistiques:view',
+    'notifications:send'
+  ],
+  
+  PROPRIETAIRE: [
+    'dashboard:view',
+    // ❌ PAS d'accès aux finances globales
+    'biens:view', 'biens:create', 'biens:edit',
+    'locataires:view', 'locataires:create', 'locataires:edit',
+    'contrats:view', 'contrats:create', 'contrats:edit',
+    'paiements:view', 'paiements:create',
+    'documents:view', 'documents:upload',
+    'statistiques:view'
+  ],
+  
+  LOCATAIRE: [
+    'dashboard:view',
+    // ❌ PAS d'accès aux finances
+    'biens:view',
+    'documents:view',
+    'paiements:view'
+  ],
+  
+  PRESTATAIRE: [
+    'dashboard:view',
+    // ❌ PAS d'accès aux finances
+    'biens:view',
+    'documents:view'
+  ]
+};
 
-export interface UtilisateurWithRoles {
-  id: number;
-  email: string;
-  nom: string;
-  prenom: string;
-  role: Role;
-  roles_secondaires?: Role[];
-  permissions_specifiques?: Permission[];
-}
-
-export interface Entreprise {
-  id: number;
-  nom: string;
-  siret: string;
-  tva_intra: string;
-  adresse: string;
-  code_postal: string;
-  ville: string;
-  pays: string;
-  telephone: string;
-  email: string;
-  site_web: string;
-  logo_url: string;
-  date_creation: Date;
-  capital_social: string;
-  forme_juridique: string;
-  rcs: string;
-  ape: string;
+// ✅ Fonction utilitaire pour vérifier les permissions
+export function hasPermission(role: Role | undefined, permission: Permission): boolean {
+  if (!role) return false;
+  const permissions = ROLE_PERMISSIONS[role];
+  return permissions?.includes(permission) || false;
 }

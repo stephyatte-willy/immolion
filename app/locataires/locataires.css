@@ -34,8 +34,8 @@
 /* Grille des locataires */
 .locataires-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
 }
 
 /* Carte locataire */
@@ -54,24 +54,10 @@
 }
 
 .locataire-card-header {
-  padding: 20px 20px 0;
+  padding: 10px 10px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.locataire-avatar {
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, rgb(36, 0, 215), rgb(147, 123, 244));
-  border-radius: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  font-weight: 600;
-  color: white;
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
 }
 
 .locataire-statut {
@@ -106,14 +92,14 @@
 }
 
 .locataire-card-body {
-  padding: 20px;
+  padding: 10px;
 }
 
-.locataire-nom {
-  font-size: 14px;
+.locataire-name {
+  font-size: 12px;
   font-weight: 600;
   color: #776d01;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .locataire-info {
@@ -123,42 +109,39 @@
   margin-bottom: 6px;
 }
 
-.info-item {
+.info-item-locataire {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #3e3f41;
-  font-size: 12px;
 }
 
-.info-icon {
-  width: 24px;
+.info-icon-locataire {
+  width: 20px;
   font-size: 16px;
 }
 
-.info-text {
-  flex: 1;
-  word-break: break-all;
+.info-text-locataire {
+  font-size: 11px;
+  color: #3e3f41;
 }
 
-.locataire-bien {
+.locataire-bien-ico {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: rgba(212, 175, 55, 0.1);
-  border-radius: 8px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  color: var(--text-primary);
+  gap: 4px;
+  padding: 4px 6px;
+  background: rgba(212, 175, 55, 0.333);
+  border-radius: 6px;
+  margin-bottom: 5px;
 }
 
-.bien-icon {
+.locataire-icon {
   font-size: 14px;
 }
 
-.bien-nom {
+.locataire-bien-name {
   font-weight: 500;
+  font-size: 12px;
 }
 
 .locataire-alerte {
@@ -734,31 +717,6 @@
   margin-bottom: 20px;
 }
 
-.btn-add-contrat {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, var(--lion-gold), var(--lion-gold-dark));
-  border: none;
-  border-radius: 10px;
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.btn-add-contrat:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
-}
-
-.btn-add-contrat.empty-btn {
-  margin-top: 20px;
-  display: inline-flex;
-}
-
 .contrats-list-compact {
   display: flex;
   flex-direction: column;
@@ -960,4 +918,144 @@
 @keyframes pulse {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
+}
+
+/* Styles pour la vue liste */
+
+.locataires-liste-container {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+/* Tableau */
+.locataires-table-container {
+  overflow-x: auto;
+}
+
+.locataires-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.locataires-table th {
+  text-align: left;
+  padding: 12px 15px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--lion-gold);
+}
+
+.locataires-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.locataires-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+.locataires-table th:first-child,
+.locataires-table td:first-child {
+  text-align: center;
+  width: 40px;
+}
+
+.locataires-table th:first-child input,
+.locataires-table td:first-child input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.checkbox-cell {
+  text-align: center;
+}
+
+.row-number {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.selected-row {
+  background: rgba(212, 175, 55, 0.05);
+}
+
+/* Badges de statut */
+.statut-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.statut-badge.actif {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.statut-badge.prospect {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.statut-badge.inactif {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+}
+
+/* Actions tableau */
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-actions button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions button:hover {
+  transform: scale(1.1);
+}
+
+.table-actions button:nth-child(1):hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.table-actions button:nth-child(2):hover {
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--lion-gold);
+}
+
+.table-actions button:nth-child(3):hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
 }

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { TYPES_EVENEMENT, STATUTS_EVENEMENT } from '@/app/types/calendrier';
 import '@/app/calendrier/calendrier.css';
 
+// Dans CalendrierVue.tsx, ajoutez :
 interface CalendrierVueProps {
   vue: 'mois' | 'semaine' | 'jour';
   date: Date;
@@ -12,6 +13,9 @@ interface CalendrierVueProps {
   onViewEvenement: (evenement: any) => void;
   onEditEvenement: (evenement: any) => void;
   onDeleteEvenement: (evenement: any) => void;
+  selectionMode?: boolean;
+  selectedIds?: number[];
+  onSelectEvenement?: (id: number) => void;
 }
 
 export default function CalendrierVue({

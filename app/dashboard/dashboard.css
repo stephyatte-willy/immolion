@@ -76,35 +76,357 @@
   grid-column: span 2;
 }
 
+/* Ajouter à la fin du fichier dashboard.css */
+
+/* KPI verrouillé */
+.kpi-card.locked {
+  position: relative;
+  filter: blur(4px);
+  cursor: default;
+}
+
+.kpi-card.locked:hover {
+  transform: none;
+  filter: blur(4px);
+}
+
+.kpi-card.locked .kpi-header {
+  justify-content: center;
+}
+
+.kpi-value-locked {
+  font-size: 24px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 4px;
+}
+
+/* Graphique verrouillé */
+.chart-locked {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.chart-locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 20px;
+}
+
+.chart-locked-overlay .locked-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.chart-locked-overlay p {
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.chart-locked-overlay span {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.chart-blur {
+  filter: blur(8px);
+  opacity: 0.5;
+}
+
+/* Top locataires verrouillé */
+.top-locataires.locked {
+  position: relative;
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.locked-content {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.locked-icon-small {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.locked-content p {
+  color: #94a3b8;
+}
+
+/* Top locataires */
+.top-locataires {
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.top-locataires h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lion-gold);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.locataires-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.locataire-item-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.locataire-item-top:hover {
+  background: var(--hover-bg);
+  transform: translateX(5px);
+}
+
+.locataire-rank {
+  width: 40px;
+  font-size: 24px;
+  text-align: center;
+}
+
+.locataire-info {
+  flex: 1;
+}
+
+.locataire-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.locataire-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--lion-gold);
+  border-radius: 20px;
+}
+
+.locataire-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--lion-gold);
+}
+
+/* Activités récentes */
+.activites-recentes {
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.activites-recentes h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lion-gold);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+
+.activites-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.activites-list::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.activites-list::-webkit-scrollbar-thumb {
+  background: var(--lion-gold);
+  border-radius: 2px;
+}
+
+.activite-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.activite-item:hover {
+  background: var(--hover-bg);
+  transform: translateX(5px);
+}
+
+.activite-icon {
+  width: 36px;
+  height: 36px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.activite-content {
+  flex: 1;
+}
+
+.activite-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.activite-type {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lion-gold);
+}
+
+.activite-time {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.activite-details {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.activite-nom {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.activite-montant {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.activite-info {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* Répartition chart */
+.repartition-chart {
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.repartition-chart h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lion-gold);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chart-container-pie {
+  height: 250px;
+  position: relative;
+}
+
+/* Evolution chart */
+.evolution-chart {
+  background: var(--bg-tertiary);
+  border-radius: 16px;
+  padding: 20px;
+}
+
+.evolution-chart .chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.evolution-chart h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lion-gold);
+  margin: 0;
+}
+
+.chart-container {
+  height: 300px;
+  position: relative;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
-  .dashboard-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .grid-item.large {
-    grid-column: span 2;
-  }
 }
 
 @media (max-width: 768px) {
-  .dashboard-main {
-    margin-left: 0;
-  }
-  
   .kpi-grid {
     grid-template-columns: 1fr;
   }
   
-  .dashboard-grid {
-    grid-template-columns: 1fr;
+  .chart-container-pie,
+  .chart-container {
+    height: 250px;
   }
   
-  .grid-item.large {
-    grid-column: span 1;
+  .locataire-item-top {
+    flex-wrap: wrap;
+  }
+  
+  .locataire-total {
+    width: 100%;
+    text-align: right;
+    margin-top: 5px;
   }
 }

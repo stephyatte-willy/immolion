@@ -495,55 +495,6 @@
   gap: 15px;
 }
 
-/* Sélecteur de vue */
-.vue-selector-documents {
-  display: flex;
-  gap: 5px;
-  background: #f2d9ff;
-  border-radius: 30px;
-  padding: 3px;
-}
-
-.vue-selector-documents .vue-btn {
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 30px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.vue-selector-documents .vue-btn.active {
-  background: linear-gradient(135deg, #ddc8f9, #9645ff);
-  color: white;
-}
-
-.vue-selector-documents .vue-btn:hover:not(.active) {
-  background: var(--hover-bg);
-  color: var(--text-primary);
-}
-
-.btn-add-document {
-  padding: 12px 24px;
-  background: linear-gradient(135deg, var(--lion-gold), var(--lion-gold-dark));
-  border: none;
-  border-radius: 30px;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.3s ease;
-}
-
-.btn-add-document:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.4);
-}
-
 /* Grille de documents */
 .documents-grid {
   display: grid;
@@ -918,4 +869,99 @@
 .proprietaire-nom {
   color: var(--text-primary);
   font-weight: 500;
+}
+
+/* Styles pour la vue liste avec cases à cocher */
+
+.documents-liste-container {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.select-all input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.selected-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.btn-delete-selection {
+  padding: 6px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-delete-selection:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Styles pour le tableau avec cases à cocher */
+.documents-table th:first-child,
+.documents-table td:first-child {
+  text-align: center;
+  width: 40px;
+}
+
+.documents-table th:first-child input,
+.documents-table td:first-child input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.row-number {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.selected-row {
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.documents-table th:nth-child(2) {
+  text-align: center;
+}
+
+.documents-table td:nth-child(2) {
+  text-align: center;
 }

@@ -9,7 +9,9 @@ import DocumentCard from '@/app/components/documents/DocumentCard';
 import DocumentForm from '@/app/components/documents/DocumentForm';
 import DocumentFilters from '@/app/components/documents/DocumentFilters';
 import DocumentStats from '@/app/components/documents/DocumentStats';
+import ActionButtons from '@/app/components/common/ActionButtons';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
+import { ExportColumn } from '@/app/services/exportService';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import { TYPES_DOCUMENTS } from '@/app/types/documents';
 import toast from 'react-hot-toast';
@@ -53,9 +55,32 @@ export default function DocumentsPage() {
     tailleTotale: 0
   });
   const [vueActive, setVueActive] = useState<'grid' | 'list'>('grid');
+  const [currentFilters, setCurrentFilters] = useState<any>({});
+  
+  // États pour la sélection multiple
+  const [selectedDocuments, setSelectedDocuments] = useState<number[]>([]);
+  const [showMultipleDeleteConfirm, setShowMultipleDeleteConfirm] = useState(false);
+  
+  // ✅ État pour le tri
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
   
   const router = useRouter();
   const { formatDate } = useTheme();
+
+  // Colonnes pour l'export Excel
+  const exportColumns: ExportColumn[] = [
+    { header: 'ID', key: 'id' },
+    { header: 'Client', key: 'locataire_nom' },
+    { header: 'Prénom client', key: 'locataire_prenom' },
+    { header: 'Nom du document', key: 'nom' },
+    { header: 'Type', key: 'type_document' },
+    { header: 'Date d\'upload', key: 'date_upload' },
+    { header: 'Date d\'expiration', key: 'date_expiration' },
+    { header: 'Taille (octets)', key: 'taille' }
+  ];
 
   useEffect(() => {
     const userStr = localStorage.getItem('utilisateur');
@@ -88,6 +113,7 @@ export default function DocumentsPage() {
         setDocuments(data.documents);
         setFilteredDocuments(data.documents);
         calculerStats(data.documents);
+        setSelectedDocuments([]);
       } else {
         toast.error('Erreur lors du chargement des documents');
       }
@@ -102,14 +128,12 @@ export default function DocumentsPage() {
   const calculerStats = (data: Document[]) => {
     const total = data.length;
     
-    // Compter par type
     const parType: Record<string, number> = {};
     data.forEach(doc => {
       const type = doc.type_document;
       parType[type] = (parType[type] || 0) + 1;
     });
     
-    // Compter par locataire
     const parLocataire: Record<string, number> = {};
     data.forEach(doc => {
       if (doc.locataire_id) {
@@ -146,6 +170,7 @@ export default function DocumentsPage() {
   };
 
   const handleFilter = (filters: any) => {
+    setCurrentFilters(filters);
     let filtered = [...documents];
 
     if (filters.search) {
@@ -194,6 +219,101 @@ export default function DocumentsPage() {
     }
 
     setFilteredDocuments(filtered);
+    setSelectedDocuments([]);
+    // ✅ Réinitialiser le tri quand les filtres changent
+    setSortConfig(null);
+  };
+
+  // ✅ Fonction de tri
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    
+    setSortConfig({ key, direction });
+    
+    const sorted = [...filteredDocuments];
+    
+    sorted.sort((a, b) => {
+      let aValue: any = a[key as keyof Document];
+      let bValue: any = b[key as keyof Document];
+      
+      // Gestion spéciale pour certaines colonnes
+      if (key === 'date_upload' || key === 'date_expiration') {
+        aValue = aValue ? new Date(aValue).getTime() : 0;
+        bValue = bValue ? new Date(bValue).getTime() : 0;
+      }
+      
+      if (key === 'taille') {
+        aValue = a.taille || 0;
+        bValue = b.taille || 0;
+      }
+      
+      if (key === 'locataire_nom') {
+        aValue = `${a.locataire_nom || ''} ${a.locataire_prenom || ''}`.trim();
+        bValue = `${b.locataire_nom || ''} ${b.locataire_prenom || ''}`.trim();
+      }
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return direction === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      return direction === 'asc'
+        ? (aValue > bValue ? 1 : -1)
+        : (bValue > aValue ? 1 : -1);
+    });
+    
+    setFilteredDocuments(sorted);
+  };
+
+  // Gestion de la sélection multiple
+  const toggleSelectDocument = (id: number) => {
+    setSelectedDocuments(prev => 
+      prev.includes(id) 
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedDocuments.length === filteredDocuments.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(filteredDocuments.map(d => d.id));
+    }
+  };
+
+  // Suppression multiple
+  const handleMultipleDelete = async () => {
+    if (selectedDocuments.length === 0) return;
+    
+    setShowMultipleDeleteConfirm(false);
+    setIsDeleting(true);
+    
+    try {
+      const promises = selectedDocuments.map(id => 
+        fetch(`/api/documents/${id}`, { method: 'DELETE' })
+      );
+      
+      const results = await Promise.all(promises);
+      const allSuccess = results.every(res => res.ok);
+      
+      if (allSuccess) {
+        toast.success(`${selectedDocuments.length} document(s) supprimé(s) avec succès`);
+        chargerDocuments();
+      } else {
+        toast.error('Erreur lors de la suppression de certains documents');
+      }
+    } catch (error) {
+      console.error('❌ Erreur suppression multiple:', error);
+      toast.error('Erreur lors de la suppression multiple');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleAddDocument = () => {
@@ -303,7 +423,13 @@ export default function DocumentsPage() {
             <DocumentFilters onFilter={handleFilter} />
             
             <div className="actions-right">
-              <div className="vue-selector-documents">
+              <ActionButtons
+                data={filteredDocuments}
+                columns={exportColumns}
+                titre="Liste des documents"
+              />
+              
+              <div className="vue-selector">
                 <button 
                   className={`vue-btn ${vueActive === 'grid' ? 'active' : ''}`}
                   onClick={() => setVueActive('grid')}
@@ -323,9 +449,10 @@ export default function DocumentsPage() {
               <button 
                 className="btn-add"
                 onClick={handleAddDocument}
+                title='Ajouter un document'
               >
                 <span className="btn-icon">➕</span>
-                Ajouter un document
+                Ajouter
               </button>
             </div>
           </div>
@@ -361,68 +488,162 @@ export default function DocumentsPage() {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="documents-table-container">
-              <table className="documents-table">
-                <thead>
-                  <tr>
-                    <th>Client</th>
-                    <th>Document</th>
-                    <th>Type</th>
-                    <th>Date d'upload</th>
-                    <th>Expiration</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredDocuments.map((doc) => (
-                    <tr key={doc.id}>
-                      <td>
-                        {doc.locataire_prenom && doc.locataire_nom ? 
-                          `${doc.locataire_prenom} ${doc.locataire_nom}` : 
-                          'Client inconnu'}
-                      </td>
-                      <td className="doc-name">
-                        <span className="doc-icon">
-                          {TYPES_DOCUMENTS.find(t => t.value === doc.type_document)?.icone || '📄'}
+            // Vue Liste avec cases à cocher, numérotation et tri
+            <div className="documents-liste-container">
+              {/* Barre de sélection */}
+              <div className="selection-bar">
+                <label className="select-all">
+                  <input
+                    type="checkbox"
+                    checked={selectedDocuments.length === filteredDocuments.length && filteredDocuments.length > 0}
+                    onChange={toggleSelectAll}
+                    disabled={filteredDocuments.length === 0}
+                  />
+                  <span>Tout sélectionner ({filteredDocuments.length})</span>
+                </label>
+                {selectedDocuments.length > 0 && (
+                  <>
+                    <span className="selected-count">
+                      {selectedDocuments.length} sélectionné(s)
+                    </span>
+                    <button 
+                      className="btn-delete-selection"
+                      onClick={() => setShowMultipleDeleteConfirm(true)}
+                      title="Supprimer la sélection"
+                    >
+                      <span className="btn-icon">🗑️</span>
+                      Supprimer la sélection
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* Tableau des documents avec numérotation et tri */}
+              <div className="documents-table-container">
+                <table className="documents-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: '40px' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.length === filteredDocuments.length && filteredDocuments.length > 0}
+                          onChange={toggleSelectAll}
+                          disabled={filteredDocuments.length === 0}
+                        />
+                      </th>
+                      <th style={{ width: '60px' }}>N°</th>
+                      <th className={`sortable ${sortConfig?.key === 'locataire_nom' ? 'active' : ''}`} onClick={() => handleSort('locataire_nom')}>
+                        Client
+                        <span className="sort-icon">
+                          {sortConfig?.key === 'locataire_nom' ? (
+                            sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+                          ) : (
+                            ' ↕️'
+                          )}
                         </span>
-                        <span>{doc.nom}</span>
-                      </td>
-                      <td>
-                        <span className="doc-type-badge">
-                          {TYPES_DOCUMENTS.find(t => t.value === doc.type_document)?.label || doc.type_document}
+                      </th>
+                      <th className={`sortable ${sortConfig?.key === 'nom' ? 'active' : ''}`} onClick={() => handleSort('nom')}>
+                        Document
+                        <span className="sort-icon">
+                          {sortConfig?.key === 'nom' ? (
+                            sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+                          ) : (
+                            ' ↕️'
+                          )}
                         </span>
-                      </td>
-                      <td>{new Date(doc.date_upload).toLocaleDateString('fr-FR')}</td>
-                      <td>
-                        {doc.date_expiration ? (
-                          <span className={new Date(doc.date_expiration) < new Date() ? 'expired-text' : 'valid-text'}>
-                            {new Date(doc.date_expiration).toLocaleDateString('fr-FR')}
+                      </th>
+                      <th className={`sortable ${sortConfig?.key === 'type_document' ? 'active' : ''}`} onClick={() => handleSort('type_document')}>
+                        Type
+                        <span className="sort-icon">
+                          {sortConfig?.key === 'type_document' ? (
+                            sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+                          ) : (
+                            ' ↕️'
+                          )}
+                        </span>
+                      </th>
+                      <th className={`sortable ${sortConfig?.key === 'date_upload' ? 'active' : ''}`} onClick={() => handleSort('date_upload')}>
+                        Date d'upload
+                        <span className="sort-icon">
+                          {sortConfig?.key === 'date_upload' ? (
+                            sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+                          ) : (
+                            ' ↕️'
+                          )}
+                        </span>
+                      </th>
+                      <th className={`sortable ${sortConfig?.key === 'date_expiration' ? 'active' : ''}`} onClick={() => handleSort('date_expiration')}>
+                        Expiration
+                        <span className="sort-icon">
+                          {sortConfig?.key === 'date_expiration' ? (
+                            sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+                          ) : (
+                            ' ↕️'
+                          )}
+                        </span>
+                      </th>
+                      <th style={{ width: '120px' }}>Actions</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                    {filteredDocuments.map((doc, index) => (
+                      <tr key={doc.id} className={selectedDocuments.includes(doc.id) ? 'selected-row' : ''}>
+                        <td className="checkbox-cell">
+                          <input
+                            type="checkbox"
+                            checked={selectedDocuments.includes(doc.id)}
+                            onChange={() => toggleSelectDocument(doc.id)}
+                          />
+                        </td>
+                        <td className="row-number">{index + 1}</td>
+                        <td>
+                          {doc.locataire_prenom && doc.locataire_nom ? 
+                            `${doc.locataire_prenom} ${doc.locataire_nom}` : 
+                            'Client inconnu'}
+                        </td>
+                        <td className="doc-name">
+                          <span className="doc-icon">
+                            {TYPES_DOCUMENTS.find(t => t.value === doc.type_document)?.icone || '📄'}
                           </span>
-                        ) : '-'}
-                      </td>
-                      <td>
-                        <div className="table-actions">
-                          <button onClick={() => {
-                            const win = window.open();
-                            if (win) {
-                              win.document.write(`<iframe src="${doc.url}" style="width:100%;height:100%;border:none;"></iframe>`);
-                              win.document.close();
-                            }
-                          }} title="Voir">👁️</button>
-                          <button onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = doc.url;
-                            link.download = doc.nom;
-                            link.click();
-                          }} title="Télécharger">📥</button>
-                          <button onClick={() => handleEditDocument(doc)} title="Modifier">✏️</button>
-                          <button onClick={() => handleDeleteClick(doc.id)} title="Supprimer">🗑️</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <span>{doc.nom}</span>
+                        </td>
+                        <td>
+                          <span className="doc-type-badge">
+                            {TYPES_DOCUMENTS.find(t => t.value === doc.type_document)?.label || doc.type_document}
+                          </span>
+                        </td>
+                        <td>{new Date(doc.date_upload).toLocaleDateString('fr-FR')}</td>
+                        <td>
+                          {doc.date_expiration ? (
+                            <span className={new Date(doc.date_expiration) < new Date() ? 'expired-text' : 'valid-text'}>
+                              {new Date(doc.date_expiration).toLocaleDateString('fr-FR')}
+                            </span>
+                          ) : '-'}
+                        </td>
+                        <td>
+                          <div className="table-actions">
+                            <button onClick={() => {
+                              const win = window.open();
+                              if (win) {
+                                win.document.write(`<iframe src="${doc.url}" style="width:100%;height:100%;border:none;"></iframe>`);
+                                win.document.close();
+                              }
+                            }} title="Voir">👁️</button>
+                            <button onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = doc.url;
+                              link.download = doc.nom;
+                              link.click();
+                            }} title="Télécharger">📥</button>
+                            <button onClick={() => handleEditDocument(doc)} title="Modifier">✏️</button>
+                            <button onClick={() => handleDeleteClick(doc.id)} title="Supprimer">🗑️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -454,6 +675,7 @@ export default function DocumentsPage() {
         )}
       </AnimatePresence>
 
+      {/* Modale de confirmation suppression simple */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         title="Supprimer le document"
@@ -468,11 +690,24 @@ export default function DocumentsPage() {
         }}
         isLoading={isDeleting}
       />
+
+      {/* Modale de confirmation suppression multiple */}
+      <ConfirmModal
+        isOpen={showMultipleDeleteConfirm}
+        title="Supprimer plusieurs documents"
+        message={`Êtes-vous sûr de vouloir supprimer ${selectedDocuments.length} document(s) ? Cette action est irréversible.`}
+        type="danger"
+        confirmText="Supprimer tous"
+        cancelText="Annuler"
+        onConfirm={handleMultipleDelete}
+        onCancel={() => setShowMultipleDeleteConfirm(false)}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
 
-// ✅ Composant de sélection du locataire
+// Composant de sélection du locataire (inchangé)
 function LocataireSelectionModal({ onSelect, onClose }: { onSelect: (locataire: any) => void; onClose: () => void }) {
   const [locataires, setLocataires] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -519,8 +754,7 @@ function LocataireSelectionModal({ onSelect, onClose }: { onSelect: (locataire: 
       >
         <div className="modal-header">
           <div className="modal-title">
-            <span className="title-icon">👥</span>
-            <h2>Sélectionner un client</h2>
+            <h2>👥 Sélectionner un client</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

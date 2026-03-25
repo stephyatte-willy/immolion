@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { MODES_PAIEMENT, STATUTS_PAIEMENT, TYPES_PAIEMENT, MOIS } from '@/app/types/paiements';
 import toast from 'react-hot-toast';
@@ -93,38 +93,44 @@ export default function PaiementForm({
     }
   }, [contratSelectionne]);
 
-  // ✅ Mode édition
-  useEffect(() => {
-    if (paiement) {
-      setFormData({
-        contrat_id: paiement.contrat_id?.toString() || '',
-        locataire_id: paiement.locataire_id?.toString() || '',
-        bien_id: paiement.bien_id?.toString() || '',
-        type_paiement: paiement.type_paiement || 'LOYER',
-        type_vente: paiement.type_vente || '',
-        montant: paiement.montant?.toString() || '',
-        montant_total_vente: paiement.montant_total_vente?.toString() || '',
-        versement_numero: paiement.versement_numero?.toString() || '',
-        echeancier_id: paiement.echeancier_id || '',
-        date_paiement: paiement.date_paiement?.split('T')[0] || new Date().toISOString().split('T')[0],
-        date_echeance: paiement.date_echeance?.split('T')[0] || '',
-        mode_paiement: paiement.mode_paiement || 'ESPECES',
-        reference: paiement.reference || '',
-        statut: paiement.statut || 'EFFECTUE',
-        mois_concerne: paiement.mois_concerne || '',
-        penalite: paiement.penalite?.toString() || '0',
-        commentaire: paiement.commentaire || ''
-      });
-      
-      // Sélectionner le contrat correspondant
-      if (paiement.contrat_id && contrats.length > 0) {
-        const contrat = contrats.find(c => c.id === paiement.contrat_id);
-        if (contrat) {
-          setContratSelectionne(contrat);
-        }
+useEffect(() => {
+  if (paiement) {
+    // ✅ Mode édition ou pré-remplissage
+    setFormData({
+      contrat_id: paiement.contrat_id?.toString() || '',
+      locataire_id: paiement.locataire_id?.toString() || '',
+      bien_id: paiement.bien_id?.toString() || '',
+      type_paiement: paiement.type_paiement || 'LOYER',
+      type_vente: paiement.type_vente || '',
+      montant: paiement.montant?.toString() || '',
+      montant_total_vente: paiement.montant_total_vente?.toString() || '',
+      versement_numero: paiement.versement_numero?.toString() || '',
+      echeancier_id: paiement.echeancier_id || '',
+      date_paiement: paiement.date_paiement?.split('T')[0] || new Date().toISOString().split('T')[0],
+      date_echeance: paiement.date_echeance?.split('T')[0] || '',
+      mode_paiement: paiement.mode_paiement || 'ESPECES',
+      reference: paiement.reference || '',
+      statut: paiement.statut || 'EFFECTUE',
+      mois_concerne: paiement.mois_concerne || '',
+      penalite: paiement.penalite?.toString() || '0',
+      commentaire: paiement.commentaire || ''
+    });
+    
+    // Si c'est un pré-remplissage (pas d'id), on ne charge pas le contrat
+    if (paiement.id && contrats.length > 0) {
+      const contrat = contrats.find(c => c.id === paiement.contrat_id);
+      if (contrat) {
+        setContratSelectionne(contrat);
+      }
+    } else if (paiement.contrat_id && contrats.length > 0) {
+      // ✅ Cas du pré-remplissage : charger le contrat correspondant
+      const contrat = contrats.find(c => c.id === paiement.contrat_id);
+      if (contrat) {
+        setContratSelectionne(contrat);
       }
     }
-  }, [paiement, contrats]);
+  }
+}, [paiement, contrats]);
 
   // ✅ NOUVELLE FONCTION: Charger tous les contrats (pour la page générale)
   const chargerTousContrats = async () => {
@@ -170,29 +176,78 @@ export default function PaiementForm({
     }
   };
 
-  const chargerVersementsPrecedents = async () => {
-    if (!contratSelectionne) return;
-    
-    try {
-      const response = await fetch(`/api/paiements?contrat_id=${contratSelectionne.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
-      const data = await response.json();
-      if (data.success) {
-        setVersementsPrecedents(data.paiements);
-        const total = data.paiements.reduce((sum: number, p: any) => sum + p.montant, 0);
-        setTotalVersements(total);
-        
-        // Déterminer le prochain numéro de versement
-        const maxNumero = Math.max(...data.paiements.map((p: any) => p.versement_numero || 0), 0);
-        setFormData(prev => ({
-          ...prev,
-          versement_numero: (maxNumero + 1).toString(),
-          echeancier_id: `VENTE-${contratSelectionne.id}-${new Date().getFullYear()}`
-        }));
-      }
-    } catch (error) {
-      console.error('Erreur chargement versements:', error);
+
+const chargerVersementsPrecedents = async () => {
+  if (!contratSelectionne) return;
+  
+  try {
+    const response = await fetch(`/api/paiements?contrat_id=${contratSelectionne.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
+    const data = await response.json();
+    if (data.success) {
+      setVersementsPrecedents(data.paiements);
+      
+      // ✅ CORRECTION: Calculer correctement le total
+      const total = data.paiements.reduce((sum: number, p: any) => {
+        let montant = 0;
+        if (typeof p.montant === 'string') {
+          montant = parseFloat(p.montant);
+        } else if (typeof p.montant === 'number') {
+          montant = p.montant;
+        }
+        return sum + (isNaN(montant) ? 0 : montant);
+      }, 0);
+      
+      setTotalVersements(total);
+      
+      // Déterminer le prochain numéro de versement
+      const maxNumero = Math.max(...data.paiements.map((p: any) => p.versement_numero || 0), 0);
+      setFormData(prev => ({
+        ...prev,
+        versement_numero: (maxNumero + 1).toString(),
+        echeancier_id: `VENTE-${contratSelectionne.id}-${new Date().getFullYear()}`
+      }));
     }
-  };
+  } catch (error) {
+    console.error('Erreur chargement versements:', error);
+  }
+};
+
+// Fonction utilitaire pour formater les nombres sans décimales
+const formaterNombre = (valeur: any): string => {
+  // Si la valeur est null, undefined ou une chaîne vide
+  if (valeur === null || valeur === undefined || valeur === '') {
+    return '0';
+  }
+  
+  // Convertir en nombre
+  let nombre: number;
+  if (typeof valeur === 'string') {
+    // Nettoyer la chaîne (enlever les espaces, remplacer la virgule par un point)
+    const nettoye = valeur.replace(/\s/g, '').replace(',', '.');
+    nombre = parseFloat(nettoye);
+  } else {
+    nombre = valeur;
+  }
+  
+  // Vérifier si c'est un nombre valide
+  if (isNaN(nombre)) {
+    console.warn('Valeur non numérique:', valeur);
+    return '0';
+  }
+  
+  // Arrondir à l'entier le plus proche pour éviter les .00
+  const nombreArrondi = Math.round(nombre);
+  
+  // Formater avec séparateurs de milliers
+  return nombreArrondi.toLocaleString('fr-FR');
+};
+
+// Utilisation
+const formaterNombreSansDecimales = (valeur: any): string => {
+  const nombre = formaterNombre(valeur);
+  // Retirer les .00 si présents
+  return nombre.replace(/\.00$/, '');
+};
 
   const handleContratChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
@@ -277,9 +332,21 @@ export default function PaiementForm({
     }
   };
 
-  const resteAPayer = isVente && contratSelectionne?.prix_vente 
-    ? (parseFloat(contratSelectionne.prix_vente) - totalVersements) 
-    : 0;
+  // Dans le composant, ajoutez cette fonction pour calculer le reste à payer
+
+const resteAPayer = useMemo(() => {
+  if (!isVente || !contratSelectionne?.prix_vente) return 0;
+  
+  let prixVente = 0;
+  if (typeof contratSelectionne.prix_vente === 'string') {
+    prixVente = parseFloat(contratSelectionne.prix_vente);
+  } else {
+    prixVente = contratSelectionne.prix_vente || 0;
+  }
+  
+  const reste = prixVente - totalVersements;
+  return isNaN(reste) ? 0 : reste;
+}, [isVente, contratSelectionne, totalVersements]);
 
   return (
     <motion.div 
@@ -335,41 +402,41 @@ export default function PaiementForm({
                 </div>
                 
                 {contratSelectionne && (
-                  <div className="info-panel">
-                    <h4>Détails du contrat</h4>
-                    <div className="info-grid">
-                      <div>
-                        <strong>Client:</strong> {contratSelectionne.locataire?.prenom} {contratSelectionne.locataire?.nom}
-                      </div>
-                      <div>
-                        <strong>Bien:</strong> {contratSelectionne.bien?.nom}
-                      </div>
-                      <div>
-                        <strong>Type:</strong> {isVente ? 'VENTE' : 'LOCATION'}
-                      </div>
-                      <div>
-                        <strong>N° contrat:</strong> {contratSelectionne.numero_contrat}
-                      </div>
-                      {isVente ? (
-                        <>
-                          <div>
-                            <strong>Prix de vente:</strong> {parseFloat(contratSelectionne.prix_vente || 0).toLocaleString()} FCFA
-                          </div>
-                          <div>
-                            <strong>Déjà versé:</strong> {totalVersements.toLocaleString()} FCFA
-                          </div>
-                          <div>
-                            <strong>Reste à payer:</strong> {resteAPayer.toLocaleString()} FCFA
-                          </div>
-                        </>
-                      ) : (
+                    <div className="info-panel">
+                      <h4>Détails du contrat</h4>
+                      <div className="info-grid">
                         <div>
-                          <strong>Loyer mensuel:</strong> {parseFloat(contratSelectionne.loyer_mensuel || 0).toLocaleString()} FCFA
+                          <strong>Client:</strong> {contratSelectionne.locataire?.prenom} {contratSelectionne.locataire?.nom}
                         </div>
-                      )}
+                        <div>
+                          <strong>Bien:</strong> {contratSelectionne.bien?.nom}
+                        </div>
+                        <div>
+                          <strong>Type:</strong> {isVente ? 'VENTE' : 'LOCATION'}
+                        </div>
+                        <div>
+                          <strong>N° contrat:</strong> {contratSelectionne.numero_contrat}
+                        </div>
+                        {isVente ? (
+                          <>
+                            <div>
+                              <strong>Prix de vente:</strong> {formaterNombreSansDecimales(contratSelectionne.prix_vente)} FCFA
+                            </div>
+                            <div>
+                              <strong>Déjà versé:</strong> {formaterNombreSansDecimales(totalVersements)} FCFA
+                            </div>
+                            <div>
+                              <strong>Reste à payer:</strong> {formaterNombreSansDecimales(resteAPayer)} FCFA
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <strong>Loyer mensuel:</strong> {formaterNombreSansDecimales(contratSelectionne.loyer_mensuel)} FCFA
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               {/* Type de paiement */}
@@ -434,27 +501,26 @@ export default function PaiementForm({
                 <div className="form-grid">
                   <div className="form-group">
                     <label>Montant (FCFA) *</label>
-                    <input
-                      type="number"
-                      step="100"
-                      value={formData.montant}
-                      onChange={(e) => setFormData({...formData, montant: e.target.value})}
-                      className={errors.montant ? 'error' : ''}
-                      placeholder={isVente ? "Montant du versement" : "150000"}
-                    />
-                    {errors.montant && <span className="error-message">{errors.montant}</span>}
-                    
-                    {isVente && resteAPayer > 0 && (
-                      <small className="field-hint">
-                        Reste à payer: {resteAPayer.toLocaleString()} FCFA
-                      </small>
-                    )}
-                    
-                    {!isVente && contratSelectionne && (
-                      <small className="field-hint">
-                        Loyer mensuel: {parseFloat(contratSelectionne.loyer_mensuel || 0).toLocaleString()} FCFA
-                      </small>
-                    )}
+                      <input
+                        type="number"
+                        step="1000"
+                        value={formData.montant}
+                        onChange={(e) => setFormData({...formData, montant: e.target.value})}
+                        className={errors.montant ? 'error' : ''}
+                        placeholder={isVente ? "Montant du versement" : "150000"}
+                      />
+
+                      {isVente && resteAPayer > 0 && (
+                        <small className="field-hint">
+                          Reste à payer: {formaterNombreSansDecimales(resteAPayer)} FCFA
+                        </small>
+                      )}
+
+                      {!isVente && contratSelectionne && (
+                        <small className="field-hint">
+                          Loyer mensuel: {formaterNombreSansDecimales(contratSelectionne.loyer_mensuel)} FCFA
+                        </small>
+                      )}
                   </div>
 
                   {isVente && (

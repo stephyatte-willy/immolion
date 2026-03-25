@@ -12,6 +12,7 @@ interface PaiementCardProps {
   onEdit: (paiement: any) => void;
   onDelete: (paiement: any) => void;
   formatMoney: (amount: number) => string;
+  onGenerateQuittance?: (paiement: any) => void;
   compact?: boolean;
   contrat?: any;
   locataire?: any;
