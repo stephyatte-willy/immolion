@@ -69,19 +69,11 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function Sidebar() {
-  const [estReduit, setEstReduit] = useState(false);
+  const [estReduit, setEstReduit] = useState(false); // ✅ Toujours false au départ
   const [mobileOuvert, setMobileOuvert] = useState(false);
   const [utilisateur, setUtilisateur] = useState<any>(null);
   const [entreprise, setEntreprise] = useState<any>(null);
   const pathname = usePathname();
-
-  // Sauvegarder l'état réduit dans localStorage
-  useEffect(() => {
-    const savedState = localStorage.getItem('sidebar-reduit');
-    if (savedState !== null) {
-      setEstReduit(savedState === 'true');
-    }
-  }, []);
 
   // Charger les infos utilisateur
   useEffect(() => {
@@ -101,6 +93,19 @@ export default function Sidebar() {
       });
   }, []);
 
+  // Charger l'état sauvegardé APRÈS le premier affichage
+  useEffect(() => {
+    // Utiliser setTimeout pour ne pas bloquer le premier affichage
+    const timer = setTimeout(() => {
+      const savedState = localStorage.getItem('sidebar-reduit');
+      if (savedState !== null) {
+        setEstReduit(savedState === 'true');
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   // Fermer le menu mobile lors du changement de page
   useEffect(() => {
     setMobileOuvert(false);
@@ -112,7 +117,7 @@ export default function Sidebar() {
       if (window.innerWidth > 768) {
         setMobileOuvert(false);
       } else {
-        // Sur mobile, forcer l'état réduit à false
+        // Sur mobile, on force l'état normal (non réduit)
         setEstReduit(false);
       }
     };
@@ -123,9 +128,24 @@ export default function Sidebar() {
   }, []);
 
   const toggleSidebar = () => {
-    const newState = !estReduit;
-    setEstReduit(newState);
-    localStorage.setItem('sidebar-reduit', String(newState));
+    if (window.innerWidth <= 768) {
+      // Sur mobile, on ouvre/ferme le menu overlay
+      setMobileOuvert(!mobileOuvert);
+    } else {
+      // Sur desktop, on réduit/agrandit
+      const newState = !estReduit;
+      setEstReduit(newState);
+      localStorage.setItem('sidebar-reduit', String(newState));
+    }
+  };
+
+  const closeMobileSidebar = () => {
+    setMobileOuvert(false);
+  };
+
+  const resetSidebar = () => {
+    setEstReduit(false);
+    localStorage.setItem('sidebar-reduit', 'false');
   };
 
   const filteredMenuItems = menuItems.filter(item => {
@@ -146,6 +166,7 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* Overlay pour mobile */}
       <AnimatePresence>
         {mobileOuvert && (
           <motion.div 
@@ -153,23 +174,23 @@ export default function Sidebar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setMobileOuvert(false)}
+            onClick={closeMobileSidebar}
           />
         )}
       </AnimatePresence>
 
+      {/* Bouton menu mobile */}
       <button 
         className="mobile-menu-button"
-        onClick={() => setMobileOuvert(!mobileOuvert)}
+        onClick={toggleSidebar}
+        aria-label="Menu"
       >
         <span className="menu-icon">☰</span>
       </button>
 
-      <motion.aside 
+      {/* Sidebar */}
+      <div 
         className={`immolion-sidebar ${estReduit ? 'reduit' : ''} ${mobileOuvert ? 'mobile-ouvert' : ''}`}
-        initial={{ x: -280 }}
-        animate={{ x: 0 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
       >
         <div className="sidebar-header">
           <div className="logo-area">
@@ -182,28 +203,44 @@ export default function Sidebar() {
             {!estReduit && (
               <div className="brand-text">
                 <span className="brand-name">ImmoLion</span>
+                <span className="brand-tagline">Gestion Immobilière</span>
               </div>
             )}
           </div>
           
-          <button 
-            className="toggle-sidebar"
-            onClick={toggleSidebar}
-            title={estReduit ? "Développer" : "Réduire"}
-          >
-            {estReduit ? '→' : '←'}
-          </button>
+          {/* Bouton de réduction (visible sur desktop) */}
+          {window.innerWidth > 768 && (
+            <button 
+              className="toggle-sidebar"
+              onClick={toggleSidebar}
+              title={estReduit ? "Développer" : "Réduire"}
+            >
+              {estReduit ? '→' : '←'}
+            </button>
+          )}
+          
+          {/* Bouton de fermeture pour mobile */}
+          {window.innerWidth <= 768 && mobileOuvert && (
+            <button 
+              className="close-sidebar-mobile"
+              onClick={closeMobileSidebar}
+              title="Fermer"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <nav className="sidebar-nav">
           {filteredMenuItems.map((item) => {
-            const badge = 0; // À remplacer par des données réelles
+            const badge = 0;
             return (
               <Link 
                 key={item.id}
                 href={item.path}
                 className={`nav-item ${pathname === item.path ? 'actif' : ''} ${pathname?.startsWith(item.path + '/') ? 'actif' : ''}`}
                 title={estReduit ? item.label : ''}
+                onClick={closeMobileSidebar}
               >
                 <span className="nav-icon">{item.icon}</span>
                 {!estReduit && (
@@ -249,6 +286,8 @@ export default function Sidebar() {
               onClick={() => {
                 localStorage.removeItem('utilisateur');
                 localStorage.removeItem('estConnecte');
+                // ✅ Réinitialiser l'état du menu au prochain chargement
+                localStorage.removeItem('sidebar-reduit');
                 window.location.href = '/connexion';
               }}
             >
@@ -257,7 +296,7 @@ export default function Sidebar() {
             </button>
           )}
         </div>
-      </motion.aside>
+      </div>
     </>
   );
 }

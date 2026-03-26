@@ -1065,3 +1065,57 @@ tr:hover td {
   opacity: 1;
   color: var(--lion-gold);
 }
+
+/* Assurer que le contenu principal est correctement positionné */
+.dashboard-container,
+.biens-container,
+.locataires-container,
+.paiements-container,
+.documents-container,
+.calendrier-container,
+.parametres-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  position: relative;
+}
+
+.dashboard-main,
+.biens-main,
+.locataires-main,
+.paiements-main,
+.documents-main,
+.calendrier-main,
+.parametres-main {
+  flex: 1;
+  transition: margin-left 0.3s ease;
+  width: 100%;
+}
+
+/* Desktop */
+@media (min-width: 769px) {
+  .dashboard-main,
+  .biens-main,
+  .locataires-main,
+  .paiements-main,
+  .documents-main,
+  .calendrier-main,
+  .parametres-main {
+    margin-left: 280px;
+    width: calc(100% - 280px);
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .dashboard-main,
+  .biens-main,
+  .locataires-main,
+  .paiements-main,
+  .documents-main,
+  .calendrier-main,
+  .parametres-main {
+    margin-left: 0;
+    width: 100%;
+  }
+}
