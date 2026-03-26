@@ -202,7 +202,7 @@ export default function Sidebar() {
             </div>
             {!estReduit && (
               <div className="brand-text">
-                <span className="brand-name">ImmoLion</span>
+                <span className="brand-name">DANFEKIMMO</span>
                 <span className="brand-tagline">Gestion Immobilière</span>
               </div>
             )}
