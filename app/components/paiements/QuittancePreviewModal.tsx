@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { documentPaiementService } from '@/app/services/quittanceService';
 import toast from 'react-hot-toast';
 import './paiements.css';
 

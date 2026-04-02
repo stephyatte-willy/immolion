@@ -458,12 +458,12 @@ export default function DocumentsPage() {
           </div>
 
           {isLoading ? (
-            <div className="documents-loading">
+            <div className="gestion-loading">
               <div className="loading-spinner"></div>
               <p>Chargement des documents...</p>
             </div>
           ) : filteredDocuments.length === 0 ? (
-            <div className="documents-empty">
+            <div className="gestion-empty">
               <span className="empty-icon">📎</span>
               <h3>Aucun document trouvé</h3>
               <p>Commencez par ajouter des documents pour vos clients</p>

@@ -3,14 +3,13 @@
 import { motion } from 'framer-motion';
 import { useTheme } from '@/app/providers/ThemeProvider';
 import { STATUTS_CONTRAT, TYPES_CONTRAT } from '@/app/types/contrats';
-import '@/app/locataires/locataires.css';
+import './contrats.css';
 
 interface ContratCardProps {
   contrat: any;
   onView: (id: number) => void;
   onEdit: (contrat: any) => void;
   onDelete?: (id: number) => void;
-  onAddPaiement?: (contrat: any) => void;
   isCompact?: boolean;
 }
 
@@ -19,66 +18,47 @@ export default function ContratCard({
   onView, 
   onEdit, 
   onDelete, 
-  onAddPaiement,
   isCompact = false 
 }: ContratCardProps) {
   const { formatMoney, formatDate } = useTheme();
 
-  // ✅ Sécurisation
-  const contratData = contrat || {};
-
   const getStatutInfo = (statut: string) => {
     const statutObj = STATUTS_CONTRAT.find(s => s.value === statut) || STATUTS_CONTRAT[1];
     return {
-      label: statutObj?.label || 'Inconnu',
-      couleur: statutObj?.couleur || '#94a3b8'
+      label: statutObj.label,
+      couleur: statutObj.couleur
     };
   };
 
   const getTypeInfo = (type: string) => {
     const typeObj = TYPES_CONTRAT.find(t => t.value === type) || TYPES_CONTRAT[0];
     return {
-      label: typeObj?.label || 'Contrat',
-      icone: typeObj?.icone || '📄'
+      label: typeObj.label,
+      icone: typeObj.icone
     };
   };
 
-  const statutInfo = getStatutInfo(contratData.statut);
-  const typeInfo = getTypeInfo(contratData.type_contrat);
-  
-  // ✅ Déterminer si c'est une vente (type_contrat = 'VENTE')
-  const isVente = contratData.type_contrat === 'VENTE';
-
-  // ✅ Valeurs selon le type de contrat
-  const prixVente = isVente ? (contratData.prix_vente || 0) : 0;
-  const loyerMensuel = !isVente ? (contratData.loyer_mensuel || 0) : 0;
-  const chargesMensuelles = !isVente ? (contratData.charges_mensuelles || 0) : 0;
-  const depotGarantie = !isVente ? (contratData.depot_garantie || 0) : 0;
-
-  const isActif = contratData.statut === 'ACTIF';
-
-  // Formatage des dates
-  const dateDebut = contratData.date_debut ? formatDate(contratData.date_debut) : 'Non définie';
-  const dateFin = contratData.date_fin ? formatDate(contratData.date_fin) : null;
+  const statutInfo = getStatutInfo(contrat.statut);
+  const typeInfo = getTypeInfo(contrat.type_contrat);
+  const isActif = contrat.statut === 'ACTIF';
 
   if (isCompact) {
-    // Version compacte
     return (
       <motion.div 
         className="contrat-card compact"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         whileHover={{ scale: 1.02 }}
-        onClick={() => onView(contratData.id)}
+        onClick={() => onView(contrat.id)}
       >
         <div className="contrat-card-header">
           <div className="contrat-type-icon" title={typeInfo.label}>
             {typeInfo.icone}
           </div>
           <div className="contrat-info-compact">
-            <div className="contrat-numero">{contratData.numero_contrat || 'N° inconnu'}</div>
+            <div className="contrat-numero">{contrat.numero_contrat}</div>
             <div className="contrat-periode">
-              {isVente ? 'Vente' : dateDebut}
+              {formatDate(contrat.date_debut)} - {contrat.date_fin ? formatDate(contrat.date_fin) : 'En cours'}
             </div>
           </div>
           <div 
@@ -93,15 +73,13 @@ export default function ContratCard({
         </div>
         <div className="contrat-card-body">
           <div className="contrat-loyer">
-            <span className="loyer-label">{isVente ? 'Prix' : 'Loyer'}</span>
-            <span className="loyer-valeur">
-              {formatMoney(isVente ? (contratData.prix_vente || 0) : (contratData.loyer_mensuel || 0))}
-            </span>
+            <span className="loyer-label">Loyer</span>
+            <span className="loyer-valeur">{formatMoney(contrat.loyer_mensuel)}</span>
           </div>
-          {contratData.bien_nom && (
+          {contrat.bien_nom && (
             <div className="contrat-bien-mini">
               <span className="bien-icon">🏠</span>
-              <span className="bien-nom">{contratData.bien_nom}</span>
+              <span className="bien-nom">{contrat.bien_nom}</span>
             </div>
           )}
         </div>
@@ -109,7 +87,6 @@ export default function ContratCard({
     );
   }
 
-  // Version détaillée
   return (
     <motion.div 
       className="contrat-card detailed"
@@ -138,127 +115,90 @@ export default function ContratCard({
       <div className="contrat-card-body">
         <div className="contrat-numero-section">
           <span className="numero-label">N° contrat</span>
-          <span className="numero-valeur">{contratData.numero_contrat || 'N° inconnu'}</span>
+          <span className="numero-valeur">{contrat.numero_contrat}</span>
         </div>
 
         <div className="contrat-dates">
           <div className="date-item">
             <span className="date-icon">📅</span>
-            <span className="date-label">Date:</span>
-            <span className="date-valeur">{dateDebut}</span>
+            <span className="date-label">Début:</span>
+            <span className="date-valeur">{formatDate(contrat.date_debut)}</span>
           </div>
-          {!isVente && dateFin && (
+          {contrat.date_fin && (
             <div className="date-item">
               <span className="date-icon">⏱️</span>
               <span className="date-label">Fin:</span>
-              <span className="date-valeur">{dateFin}</span>
+              <span className="date-valeur">{formatDate(contrat.date_fin)}</span>
             </div>
           )}
         </div>
 
         <div className="contrat-finances">
-          {isVente ? (
-            // ✅ Affichage pour une vente
+          <div className="finance-item">
+            <span className="finance-label">Loyer mensuel</span>
+            <span className="finance-valeur highlight">{formatMoney(contrat.loyer_mensuel)}</span>
+          </div>
+          {contrat.charges_mensuelles > 0 && (
             <div className="finance-item">
-              <span className="finance-label">Prix de vente</span>
-              <span className="finance-valeur highlight">{formatMoney(prixVente)}</span>
+              <span className="finance-label">Charges</span>
+              <span className="finance-valeur">{formatMoney(contrat.charges_mensuelles)}</span>
             </div>
-          ) : (
-            // ✅ Affichage pour une location
-            <>
-              <div className="finance-item">
-                <span className="finance-label">Loyer mensuel</span>
-                <span className="finance-valeur highlight">{formatMoney(loyerMensuel)}</span>
-              </div>
-              {chargesMensuelles > 0 && (
-                <div className="finance-item">
-                  <span className="finance-label">Charges</span>
-                  <span className="finance-valeur">{formatMoney(chargesMensuelles)}</span>
-                </div>
-              )}
-              {depotGarantie > 0 && (
-                <div className="finance-item">
-                  <span className="finance-label">Dépôt de garantie</span>
-                  <span className="finance-valeur">{formatMoney(depotGarantie)}</span>
-                </div>
-              )}
-            </>
+          )}
+          {contrat.depot_garantie > 0 && (
+            <div className="finance-item">
+              <span className="finance-label">Dépôt de garantie</span>
+              <span className="finance-valeur">{formatMoney(contrat.depot_garantie)}</span>
+            </div>
           )}
         </div>
 
-        {/* Informations du bien */}
-        {contratData.bien && (
-  <div className="contrat-bien">
-    <span className="bien-icon">🏠</span>
-    <div className="bien-info">
-      <div className="bien-nom">{contratData.bien.nom || 'Bien'}</div>
-      <div className="bien-adresse">
-        {contratData.bien.adresse ? 
-          `${contratData.bien.adresse}, ${contratData.bien.commune || ''}`.replace(/, $/, '') 
-          : 'Adresse non disponible'}
-      </div>
-      {isVente && contratData.bien.prix_vente && (
-        <div className="bien-prix-vente">
-          <small>Prix du bien: {formatMoney(contratData.bien.prix_vente)}</small>
-        </div>
-      )}
-    </div>
-  </div>
-)}
-
-        {/* Informations du locataire */}
-        {contratData.locataire && (
-          <div className="contrat-locataire">
-            <span className="locataire-icon">👤</span>
-            <div className="locataire-info">
-              <div className="locataire-nom">
-                {contratData.locataire.prenom || ''} {contratData.locataire.nom || ''}
-              </div>
-              <div className="locataire-contact">{contratData.locataire.email || ''}</div>
+        {contrat.bien && (
+          <div className="contrat-bien">
+            <span className="bien-icon">🏠</span>
+            <div className="bien-info">
+              <div className="bien-nom">{contrat.bien.nom}</div>
+              <div className="bien-adresse">{contrat.bien.adresse}</div>
             </div>
           </div>
         )}
 
-        {/* Clauses particulières */}
-        {contratData.clause_particuliere && (
+        {contrat.lot && (
+          <div className="contrat-lot">
+            <span className="lot-icon">🏘️</span>
+            <div className="lot-info">
+              <div className="lot-numero">Lot {contrat.lot.numero_lot}</div>
+              <div className="lot-type">{contrat.lot.type_lot}</div>
+            </div>
+          </div>
+        )}
+
+        {contrat.locataire && (
+          <div className="contrat-locataire">
+            <span className="locataire-icon">👤</span>
+            <div className="locataire-info">
+              <div className="locataire-nom">{contrat.locataire.prenom} {contrat.locataire.nom}</div>
+              <div className="locataire-contact">{contrat.locataire.email}</div>
+            </div>
+          </div>
+        )}
+
+        {contrat.clause_particuliere && (
           <div className="contrat-clause">
             <span className="clause-icon">📝</span>
-            <p className="clause-texte">{contratData.clause_particuliere}</p>
+            <p className="clause-texte">{contrat.clause_particuliere}</p>
           </div>
         )}
       </div>
 
-      {/* Boutons d'action */}
       <div className="contrat-card-footer">
-        <button 
-          className="action-btn view"
-          onClick={() => onView(contratData.id)}
-          title="Voir détails"
-        >
+        <button className="action-btn view" onClick={() => onView(contrat.id)} title="Voir détails">
           👁️
         </button>
-        <button 
-          className="action-btn edit"
-          onClick={() => onEdit(contratData)}
-          title="Modifier"
-        >
+        <button className="action-btn edit" onClick={() => onEdit(contrat)} title="Modifier">
           ✏️
         </button>
-        {!isVente && onAddPaiement && isActif && (
-          <button 
-            className="action-btn payment"
-            onClick={() => onAddPaiement(contratData)}
-            title="Ajouter un paiement"
-          >
-            💰
-          </button>
-        )}
         {onDelete && !isActif && (
-          <button 
-            className="action-btn delete"
-            onClick={() => onDelete(contratData.id)}
-            title="Supprimer"
-          >
+          <button className="action-btn delete" onClick={() => onDelete(contrat.id)} title="Supprimer">
             🗑️
           </button>
         )}

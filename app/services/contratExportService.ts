@@ -11,7 +11,6 @@ import {
   TableRow,
   TableCell,
   VerticalAlign,
-  PageOrientation,
   Footer,
   Header,
   ImageRun,
@@ -30,10 +29,11 @@ interface ContratData {
   date_signature: string | null;
   loyer_mensuel: number;
   charges_mensuelles: number;
-  depot_garantie: number;
+  depot_garantie: number | null;
   clause_particuliere: string | null;
   statut: string;
   bien: {
+    id: number;
     nom: string;
     adresse: string;
     quartier?: string;
@@ -43,7 +43,21 @@ interface ContratData {
     surface: number;
     pieces: number;
     etage?: number;
+    type_bien?: string;
     description?: string;
+  };
+  lot?: {
+    id: number;
+    numero_lot: string;
+    type_lot: string;
+    surface: number;
+    pieces: number | null;
+    loyer_mensuel: number;
+    charges: number;
+    immeuble?: {
+      id: number;
+      nom: string;
+    };
   };
   locataire: {
     nom: string;
@@ -67,6 +81,52 @@ interface ContratData {
 class ContratExportService {
   
   /**
+   * Formate un montant de manière sécurisée
+   */
+  private formatMontant(montant: number | null | undefined): string {
+    if (montant === null || montant === undefined) return '0';
+    return montant.toLocaleString();
+  }
+
+  /**
+   * Récupère le montant du dépôt de garantie
+   */
+  private getDepotGarantie(contrat: ContratData): number {
+    if (contrat.depot_garantie !== null && contrat.depot_garantie !== undefined) {
+      return contrat.depot_garantie;
+    }
+    // Si pas de dépôt de garantie, utiliser 2 mois de loyer par défaut
+    return contrat.loyer_mensuel * 2;
+  }
+
+  /**
+   * Récupère la description du bien (avec gestion des lots)
+   */
+  private getDescriptionBien(contrat: ContratData): string {
+    let description = '';
+    
+    if (contrat.lot && contrat.lot.immeuble) {
+      // Cas d'un lot dans un immeuble
+      description = `Immeuble "${contrat.bien.nom}" - Lot n° ${contrat.lot.numero_lot}`;
+      description += `, ${contrat.lot.type_lot} de ${contrat.lot.surface} m²`;
+      if (contrat.lot.pieces) {
+        description += `, ${contrat.lot.pieces} pièces`;
+      }
+      description += `, situé au ${contrat.bien.adresse}, ${contrat.bien.commune}, ${contrat.bien.district}`;
+    } else {
+      // Cas d'un bien simple
+      description = `Le bien immobilier situé à : ${contrat.bien.adresse}, ${contrat.bien.quartier ? `Quartier ${contrat.bien.quartier}, ` : ''}${contrat.bien.commune}, ${contrat.bien.district}`;
+      description += `\nDésigné sous le nom : ${contrat.bien.nom}`;
+      description += `\nD'une superficie de ${contrat.bien.surface} m², comprenant ${contrat.bien.pieces} pièces`;
+      if (contrat.bien.etage) {
+        description += `, situé au ${contrat.bien.etage}ème étage`;
+      }
+    }
+    
+    return description;
+  }
+
+  /**
    * Génère un document Word à partir des données du contrat
    */
   async genererContratWord(contrat: ContratData): Promise<void> {
@@ -74,11 +134,16 @@ class ContratExportService {
     // Formater les dates
     const dateDebut = contrat.date_debut ? format(new Date(contrat.date_debut), 'dd MMMM yyyy', { locale: fr }) : '_____';
     const dateFin = contrat.date_fin ? format(new Date(contrat.date_fin), 'dd MMMM yyyy', { locale: fr }) : '_____';
-    const dateSignature = contrat.date_signature ? format(new Date(contrat.date_signature), 'dd MMMM yyyy', { locale: fr }) : '_____';
+    const dateSignature = contrat.date_signature ? format(new Date(contrat.date_signature), 'dd MMMM yyyy', { locale: fr }) : format(new Date(), 'dd MMMM yyyy', { locale: fr });
     
-    // Montants en lettres (simplifié)
+    // Montants en lettres
     const loyerEnLettres = this.nombreEnLettres(contrat.loyer_mensuel);
-    const depotEnLettres = this.nombreEnLettres(contrat.depot_garantie);
+    const depotGarantie = this.getDepotGarantie(contrat);
+    const depotEnLettres = this.nombreEnLettres(depotGarantie);
+    const totalMensuel = contrat.loyer_mensuel + (contrat.charges_mensuelles || 0);
+    
+    // Description du bien
+    const descriptionBien = this.getDescriptionBien(contrat);
     
     // Création du document
     const doc = new Document({
@@ -331,26 +396,7 @@ class ContratExportService {
           new Paragraph({
             children: [
               new TextRun({
-                text: `Le bailleur donne à bail au preneur, qui accepte, un bien immobilier situé à :`,
-                size: 24,
-                font: "Times New Roman",
-              }),
-              new TextRun({ text: "\n", break: 1 }),
-              new TextRun({
-                text: `${contrat.bien.adresse}, ${contrat.bien.quartier ? `Quartier ${contrat.bien.quartier}, ` : ''}${contrat.bien.commune}, ${contrat.bien.district}`,
-                bold: true,
-                size: 24,
-                font: "Times New Roman",
-              }),
-              new TextRun({ text: "\n", break: 1 }),
-              new TextRun({
-                text: `Désigné sous le nom : ${contrat.bien.nom}`,
-                size: 24,
-                font: "Times New Roman",
-              }),
-              new TextRun({ text: "\n", break: 1 }),
-              new TextRun({
-                text: `D'une superficie de ${contrat.bien.surface} m², comprenant ${contrat.bien.pieces} pièces${contrat.bien.etage ? `, situé au ${contrat.bien.etage}ème étage` : ''}.`,
+                text: descriptionBien,
                 size: 24,
                 font: "Times New Roman",
               }),
@@ -374,7 +420,7 @@ class ContratExportService {
           new Paragraph({
             children: [
               new TextRun({
-                text: `Le présent bail est consenti pour une durée de ${contrat.date_fin ? 'déterminée' : 'indéterminée'}.`,
+                text: `Le présent bail est consenti pour une durée ${contrat.date_fin ? 'déterminée' : 'indéterminée'}.`,
                 size: 24,
                 font: "Times New Roman",
               }),
@@ -419,21 +465,21 @@ class ContratExportService {
           new Paragraph({
             children: [
               new TextRun({
-                text: `Le loyer mensuel est fixé à : ${contrat.loyer_mensuel.toLocaleString()} FCFA (${loyerEnLettres} Francs CFA).`,
+                text: `Le loyer mensuel est fixé à : ${this.formatMontant(contrat.loyer_mensuel)} FCFA (${loyerEnLettres} Francs CFA).`,
                 size: 24,
                 font: "Times New Roman",
               }),
               ...(contrat.charges_mensuelles > 0 ? [
                 new TextRun({ text: "\n", break: 1 }),
                 new TextRun({
-                  text: `Les charges mensuelles sont de : ${contrat.charges_mensuelles.toLocaleString()} FCFA.`,
+                  text: `Les charges mensuelles sont de : ${this.formatMontant(contrat.charges_mensuelles)} FCFA.`,
                   size: 24,
                   font: "Times New Roman",
                 })
               ] : []),
               new TextRun({ text: "\n", break: 1 }),
               new TextRun({
-                text: `Le dépôt de garantie s'élève à : ${contrat.depot_garantie.toLocaleString()} FCFA (${depotEnLettres} Francs CFA).`,
+                text: `Le dépôt de garantie s'élève à : ${this.formatMontant(depotGarantie)} FCFA (${depotEnLettres} Francs CFA).`,
                 size: 24,
                 font: "Times New Roman",
               }),
@@ -480,7 +526,7 @@ class ContratExportService {
                     children: [new Paragraph({ children: [new TextRun({ text: "Loyer mensuel" })] })],
                   }),
                   new TableCell({
-                    children: [new Paragraph({ children: [new TextRun({ text: contrat.loyer_mensuel.toLocaleString() })] })],
+                    children: [new Paragraph({ children: [new TextRun({ text: this.formatMontant(contrat.loyer_mensuel) })] })],
                   }),
                 ],
               }),
@@ -490,7 +536,7 @@ class ContratExportService {
                     children: [new Paragraph({ children: [new TextRun({ text: "Charges mensuelles" })] })],
                   }),
                   new TableCell({
-                    children: [new Paragraph({ children: [new TextRun({ text: contrat.charges_mensuelles.toLocaleString() })] })],
+                    children: [new Paragraph({ children: [new TextRun({ text: this.formatMontant(contrat.charges_mensuelles) })] })],
                   }),
                 ],
               })] : []),
@@ -500,7 +546,7 @@ class ContratExportService {
                     children: [new Paragraph({ children: [new TextRun({ text: "Dépôt de garantie", bold: true })] })],
                   }),
                   new TableCell({
-                    children: [new Paragraph({ children: [new TextRun({ text: contrat.depot_garantie.toLocaleString(), bold: true })] })],
+                    children: [new Paragraph({ children: [new TextRun({ text: this.formatMontant(depotGarantie), bold: true })] })],
                   }),
                 ],
               }),
@@ -512,7 +558,7 @@ class ContratExportService {
                   new TableCell({
                     children: [new Paragraph({ 
                       children: [new TextRun({ 
-                        text: (contrat.loyer_mensuel + contrat.charges_mensuelles).toLocaleString(), 
+                        text: this.formatMontant(totalMensuel), 
                         bold: true,
                         color: "D4AF37",
                       })] 

@@ -1,17 +1,30 @@
 // app/types/contrats.ts
 export const TYPES_CONTRAT = [
-  { value: 'BAIL_VIDE', label: 'Bail vide (location)', icone: '🏠' },
-  { value: 'BAIL_MEUBLE', label: 'Bail meublé (location)', icone: '🛋️' },
-  { value: 'BAIL_COMMERCIAL', label: 'Bail commercial (location)', icone: '🏪' },
-  { value: 'SOUS_LOCATION', label: 'Sous-location', icone: '📄' },
-  { value: 'VENTE', label: 'Contrat de vente', icone: '💰' } // ✅ Nouveau
+    { value: 'BAIL_VIDE', label: 'Bail vide', icone: '🏠' },
+  { value: 'BAIL_MEUBLE', label: 'Bail meublé', icone: '🛋️' },
+  { value: 'VENTE', label: 'Vente', icone: '💰' }
 ];
 
 export const STATUTS_CONTRAT = [
   { value: 'ACTIF', label: 'Actif', couleur: '#10b981' },
   { value: 'TERMINE', label: 'Terminé', couleur: '#94a3b8' },
-  { value: 'RESILIE', label: 'Résilié', couleur: '#ef4444' },
-  { value: 'EN_ATTENTE', label: 'En attente', couleur: '#f59e0b' }
+  { value: 'RESILIE', label: 'Résilié', couleur: '#ef4444' }
+];
+
+export const MODES_VENTE = [
+  { value: 'COMPTANT', label: 'Comptant', icone: '💵' },
+  { value: 'ECHELONNE', label: 'Échelonné', icone: '📅' }
+];
+
+export const TYPES_CONTRAT_VENTE = [
+  { value: 'COMPTANT', label: 'Comptant', icone: '💵' },
+  { value: 'ECHELONNE', label: 'Échelonné', icone: '📅' }
+];
+
+export const MODES_PAIEMENT_VENTE = [
+  { value: 'ACOMPTE', label: 'Acompte', icone: '💵' },
+  { value: 'VERSEMENT', label: 'Versement', icone: '💰' },
+  { value: 'SOLDE', label: 'Solde final', icone: '✅' }
 ];
 
 export const MODES_PAIEMENT = [
@@ -25,21 +38,18 @@ export const MODES_PAIEMENT = [
 
 export interface Contrat {
   id: number;
+  numero_contrat: string;
   bien_id: number;
   locataire_id: number;
-  numero_contrat: string;
   type_contrat: string;
   date_debut: string;
   date_fin: string | null;
   date_signature?: string;
   date_etat_lieux_entree?: string;
   date_etat_lieux_sortie?: string;
-  loyer_mensuel?: number;      // Optionnel pour la vente
-  charges_mensuelles?: number;  // Optionnel pour la vente
-  depot_garantie?: number;      // Optionnel pour la vente
-  prix_vente?: number;          // ✅ Nouveau pour la vente
-  indexation?: boolean;
-  indice_reference?: string;
+  loyer_mensuel: number;
+  charges_mensuelles: number;
+  depot_garantie: number;
   clause_particuliere?: string;
   statut: string;
   created_at: string;

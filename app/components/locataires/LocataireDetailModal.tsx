@@ -11,13 +11,14 @@ import PaiementForm from '@/app/components/paiements/PaiementForm';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
 import { contratExportService } from '@/app/services/contratExportService';
 import { contratVenteService } from '@/app/services/contratVenteService';
-import { documentPaiementService } from '@/app/services/quittanceService'; 
+import { quittanceService } from '@/app/services/quittanceService';
 import DocumentForm from '@/app/components/documents/DocumentForm';
 import DocumentCard from '@/app/components/documents/DocumentCard';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import '@/app/locataires/locataires.css';
+
 
 interface LocataireDetailModalProps {
   locataire: any;
@@ -108,7 +109,6 @@ useEffect(() => {
   });
 }, [locataireData]);
 
-// Dans LocataireDetailModal.tsx, remplacez la fonction handleImprimerQuittance par :
 
 const handleImprimerQuittance = async (paiement: any) => {
   setIsGeneratingQuittance(true);
@@ -122,8 +122,6 @@ const handleImprimerQuittance = async (paiement: any) => {
       return;
     }
 
-    const isVente = contrat.type_contrat === 'VENTE';
-
     // Récupérer les informations de l'entreprise
     const entrepriseRes = await fetch('/api/entreprise');
     const entrepriseData = await entrepriseRes.json();
@@ -134,19 +132,9 @@ const handleImprimerQuittance = async (paiement: any) => {
       email: 'contact@immolion.ci'
     };
 
-    // Calculer le total déjà versé pour les ventes
-    let totalDejaVerse = 0;
-    if (isVente) {
-      const versementsRes = await fetch(`/api/paiements?contrat_id=${contrat.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
-      const versementsData = await versementsRes.json();
-      if (versementsData.success && versementsData.paiements) {
-        totalDejaVerse = versementsData.paiements.reduce((sum: number, p: any) => sum + (parseFloat(p.montant) || 0), 0);
-      }
-    }
-
-    // ✅ Construction correcte de l'objet quittanceData
+    // ✅ Correction: Utiliser un objet simple sans typage strict
     const quittanceData = {
-      type: isVente ? 'VENTE' as const : 'LOCATION' as const,
+      type: 'LOCATION',
       numero_document: paiement.numero_quittance || `QUIT-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(paiement.id).padStart(6, '0')}`,
       date_emission: new Date().toISOString(),
       paiement: {
@@ -154,23 +142,19 @@ const handleImprimerQuittance = async (paiement: any) => {
         montant: parseFloat(paiement.montant),
         date_paiement: paiement.date_paiement,
         mode_paiement: paiement.mode_paiement,
-        penalite: paiement.penalite ? parseFloat(paiement.penalite) : 0,
-        type_versement: paiement.type_vente,
-        versement_numero: paiement.versement_numero
+        penalite: paiement.penalite ? parseFloat(paiement.penalite) : 0
       },
       contrat: {
         numero: contrat.numero_contrat,
         date_debut: contrat.date_debut,
         date_fin: contrat.date_fin,
-        type: contrat.type_contrat,
-        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0,
-        prix_vente: contrat.prix_vente ? parseFloat(contrat.prix_vente) : 0
+        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0
       },
       client: {
         nom: locataireData.nom,
         prenom: locataireData.prenom,
         telephone: locataireData.telephone || '',
-        type: isVente ? 'acheteur' as const : 'locataire' as const
+        type: 'locataire'
       },
       bien: {
         nom: bien.nom,
@@ -178,8 +162,7 @@ const handleImprimerQuittance = async (paiement: any) => {
         commune: bien.commune || '',
         ville: bien.ville || '',
         quartier: bien.quartier || '',
-        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0,
-        prix_vente: contrat.prix_vente ? parseFloat(contrat.prix_vente) : 0
+        loyer_mensuel: bien.loyer_mensuel ? parseFloat(bien.loyer_mensuel) : 0
       },
       entreprise: {
         nom: entreprise.nom,
@@ -187,18 +170,12 @@ const handleImprimerQuittance = async (paiement: any) => {
         telephone: entreprise.telephone,
         email: entreprise.email,
         site_web: entreprise.site_web
-      },
-      echeancier: isVente ? {
-        total_vente: parseFloat(contrat.prix_vente || 0),
-        deja_verse: totalDejaVerse,
-        reste: parseFloat(contrat.prix_vente || 0) - totalDejaVerse,
-        versement_numero: paiement.versement_numero || 1
-      } : undefined
+      }
     };
 
-    // ✅ Appel du service avec l'objet correctement typé
-    await documentPaiementService.genererDocument(quittanceData);
-    toast.success(isVente ? 'Reçu généré avec succès' : 'Quittance générée avec succès');
+    // ✅ Appel du service
+   await (quittanceService.genererQuittance as any)(quittanceData);
+    toast.success('Quittance générée avec succès');
     
   } catch (error) {
     console.error('❌ Erreur génération:', error);
@@ -525,21 +502,21 @@ const handleEditContrat = (contrat: any) => {
       onClick={onClose}
     >
       <motion.div 
-        className="modal-content locataire-detail-modal"
+        className="modal-content detail-modal"
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div className="modal-header locataire-detail-header">
-          <div className="header-left">
-            <div className="locataire-detail-avatar">
+        <div className="modal-header detail-header">
+          <div className="header-right">
+            <div className="detail-avatar">
               <span>{locataireData.prenom?.[0]}{locataireData.nom?.[0]}</span>
             </div>
-            <div className="locataire-detail-title">
+            <div className="detail-title">
               <h2>{locataireData.prenom} {locataireData.nom}</h2>
-              <div className="locataire-detail-subtitle">
+              <div className="detail-subtitle">
                 <span className="detail-email">{locataireData.email}</span>
                 <span className="detail-tel">{locataireData.telephone}</span>
               </div>
@@ -547,7 +524,7 @@ const handleEditContrat = (contrat: any) => {
           </div>
           <div className="header-right">
             <div 
-              className="locataire-detail-statut"
+              className="detail-type"
               style={{ 
                 background: `${statutInfo.couleur}20`,
                 color: statutInfo.couleur,
@@ -565,7 +542,7 @@ const handleEditContrat = (contrat: any) => {
         </div>
 
         {/* Onglets */}
-        <div className="locataire-detail-tabs">
+        <div className="detail-tabs">
           {tabs.map(tab => (
             <button
               key={tab.id}
@@ -579,18 +556,11 @@ const handleEditContrat = (contrat: any) => {
         </div>
 
         {/* Corps */}
-        <div className="modal-body locataire-detail-body">
+        <div className="modal-body detail-body">
           <AnimatePresence mode="wait">
-            <motion.div
-              key={`${activeTab}-${refreshKey}`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="tab-content"
-            >
+            <motion.div>
               {/* Onglet Informations */}
               {activeTab === 'info' && (
-                <div className="info-tab">
                   <div className="detail-card">
                     <h3>
                       <span className="card-icon">👤</span>
@@ -620,8 +590,7 @@ const handleEditContrat = (contrat: any) => {
                         </div>
                       )}
                     </div>
-                  </div>
-
+               
                   <div className="detail-card">
                     <h3>
                       <span className="card-icon">📞</span>
@@ -674,95 +643,152 @@ const handleEditContrat = (contrat: any) => {
                     </div>
                   )}
 
+                  {/* Logement actuel / Lot */}
+                  {locataireData.lot_actuel && (
+                    <div className="detail-card">
+                      <h3>
+                        <span className="card-icon">🏘️</span>
+                        Lot loué
+                      </h3>
+                      <div className="detail-grid">
+                        <div className="detail-row">
+                          <span className="detail-label">Numéro de lot</span>
+                          <span className="detail-value">{locataireData.lot_actuel.numero_lot}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Type</span>
+                          <span className="detail-value">{locataireData.lot_actuel.type_lot}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Surface</span>
+                          <span className="detail-value">{locataireData.lot_actuel.surface} m²</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Loyer</span>
+                          <span className="detail-value highlight">{formatMoney(locataireData.lot_actuel.loyer_mensuel)}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Immeuble</span>
+                          <span className="detail-value">{locataireData.lot_actuel.immeuble?.nom}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Logement actuel / Bien simple */}
+                  {!locataireData.lot_actuel && locataireData.bien_actuel && (
+                    <div className="detail-card">
+                      <h3>
+                        <span className="card-icon">🏠</span>
+                        Logement actuel
+                      </h3>
+                      <div className="detail-grid">
+                        <div className="detail-row">
+                          <span className="detail-label">Bien</span>
+                          <span className="detail-value">{locataireData.bien_actuel.nom}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Adresse</span>
+                          <span className="detail-value">{locataireData.bien_actuel.adresse}</span>
+                        </div>
+                        {locataireData.bien_actuel.loyer_mensuel > 0 && (
+                          <div className="detail-row">
+                            <span className="detail-label">Loyer</span>
+                            <span className="detail-value highlight">{formatMoney(locataireData.bien_actuel.loyer_mensuel)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Logement actuel / Bien en acquisition */}
-{(() => {
-  // Chercher d'abord dans les contrats de vente
-  const contratVente = locataireData.contrats?.find((c: any) => 
-    c.type_contrat === 'VENTE' && c.statut === 'ACTIF'
-  );
-  
-  if (contratVente) {
-    const bien = contratVente.bien;
-    return (
-      <div className="detail-card">
-        <h3>
-          <span className="card-icon">💰</span>
-          Contrat de vente
-        </h3>
-        <div className="detail-grid">
-          <div className="detail-row">
-            <span className="detail-label">Bien</span>
-            <span className="detail-value">{bien?.nom || 'Non spécifié'}</span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">Adresse</span>
-            <span className="detail-value">
-              {bien?.adresse ? `${bien.adresse}, ${bien.commune || ''}`.replace(/, $/, '') : 'Adresse non disponible'}
-            </span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">Prix de vente</span>
-            <span className="detail-value highlight">
-              {formatMoney(contratVente.prix_vente || 0)}
-            </span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">Date du contrat</span>
-            <span className="detail-value">{formatDate(contratVente.date_debut)}</span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">N° contrat</span>
-            <span className="detail-value">{contratVente.numero_contrat}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Sinon, utiliser bien_actuel
-  if (locataireData.bien_actuel) {
-    const bien = locataireData.bien_actuel;
-    return (
-      <div className="detail-card">
-        <h3>
-          <span className="card-icon">🏠</span>
-          {bien.statut === 'EN_VENTE' || bien.statut === 'VENDU' ? 'Bien en acquisition' : 'Logement actuel'}
-        </h3>
-        <div className="detail-grid">
-          <div className="detail-row">
-            <span className="detail-label">Bien</span>
-            <span className="detail-value">{bien.nom}</span>
-          </div>
-          <div className="detail-row">
-            <span className="detail-label">Adresse</span>
-            <span className="detail-value">{bien.adresse}</span>
-          </div>
-          {bien.prix_vente ? (
-            <div className="detail-row">
-              <span className="detail-label">Prix de vente</span>
-              <span className="detail-value highlight">{formatMoney(bien.prix_vente)}</span>
-            </div>
-          ) : bien.loyer_mensuel > 0 ? (
-            <>
-              <div className="detail-row">
-                <span className="detail-label">Loyer</span>
-                <span className="detail-value highlight">{formatMoney(bien.loyer_mensuel)}</span>
-              </div>
-              {bien.charges > 0 && (
-                <div className="detail-row">
-                  <span className="detail-label">Charges</span>
-                  <span className="detail-value">{formatMoney(bien.charges)}</span>
-                </div>
-              )}
-            </>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-  
-  return null;
-})()}
+                  {(() => {
+                    const contratVente = locataireData.contrats?.find((c: any) => 
+                      c.type_contrat === 'VENTE' && c.statut === 'ACTIF'
+                    );
+                    
+                    if (contratVente) {
+                      const bien = contratVente.bien;
+                      return (
+                        <div className="detail-card">
+                          <h3>
+                            <span className="card-icon">💰</span>
+                            Contrat de vente
+                          </h3>
+                          <div className="detail-grid">
+                            <div className="detail-row">
+                              <span className="detail-label">Bien</span>
+                              <span className="detail-value">{bien?.nom || 'Non spécifié'}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Adresse</span>
+                              <span className="detail-value">
+                                {bien?.adresse ? `${bien.adresse}, ${bien.commune || ''}`.replace(/, $/, '') : 'Adresse non disponible'}
+                              </span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Prix de vente</span>
+                              <span className="detail-value highlight">
+                                {formatMoney(contratVente.prix_vente || 0)}
+                              </span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Date du contrat</span>
+                              <span className="detail-value">{formatDate(contratVente.date_debut)}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">N° contrat</span>
+                              <span className="detail-value">{contratVente.numero_contrat}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // Sinon, utiliser bien_actuel
+                    if (locataireData.bien_actuel) {
+                      const bien = locataireData.bien_actuel;
+                      return (
+                        <div className="detail-card">
+                          <h3>
+                            <span className="card-icon">🏠</span>
+                            {bien.statut === 'EN_VENTE' || bien.statut === 'VENDU' ? 'Bien en acquisition' : 'Logement actuel'}
+                          </h3>
+                          <div className="detail-grid">
+                            <div className="detail-row">
+                              <span className="detail-label">Bien</span>
+                              <span className="detail-value">{bien.nom}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Adresse</span>
+                              <span className="detail-value">{bien.adresse}</span>
+                            </div>
+                            {bien.prix_vente ? (
+                              <div className="detail-row">
+                                <span className="detail-label">Prix de vente</span>
+                                <span className="detail-value highlight">{formatMoney(bien.prix_vente)}</span>
+                              </div>
+                            ) : bien.loyer_mensuel > 0 ? (
+                              <>
+                                <div className="detail-row">
+                                  <span className="detail-label">Loyer</span>
+                                  <span className="detail-value highlight">{formatMoney(bien.loyer_mensuel)}</span>
+                                </div>
+                                {bien.charges > 0 && (
+                                  <div className="detail-row">
+                                    <span className="detail-label">Charges</span>
+                                    <span className="detail-value">{formatMoney(bien.charges)}</span>
+                                  </div>
+                                )}
+                              </>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    return null;
+                  })()}
 
                   {locataireData.notes && (
                     <div className="detail-card">
@@ -777,6 +803,7 @@ const handleEditContrat = (contrat: any) => {
               )}
 
               {/* Onglet Contrats */}
+
               {activeTab === 'contrats' && (
                 <div className="contrats-tab">
                   <div className="tab-actions">
@@ -786,7 +813,7 @@ const handleEditContrat = (contrat: any) => {
                       disabled={isLoading}
                     >
                       <span className="btn-icon">➕</span>
-                      Nouveau
+                      Nouveau contrat
                     </button>
                     <button 
                       className="btn-refresh"
@@ -822,14 +849,12 @@ const handleEditContrat = (contrat: any) => {
                               ✏️
                             </button>
                             <button
-  className="action-btn export"
-  onClick={() => contrat.type_contrat === 'VENTE' 
-    ? handleExporterContratVente(contrat)
-    : handleExporterContrat(contrat)}
-  title={contrat.type_contrat === 'VENTE' ? "Exporter le contrat de vente" : "Exporter le bail"}
->
-  📄
-</button>
+                              className="action-btn export"
+                              onClick={() => handleExporterContrat(contrat)}
+                              title="Exporter le bail"
+                            >
+                              📄
+                            </button>
                             <button
                               className="action-btn delete"
                               onClick={() => handleDeleteContrat(contrat)}

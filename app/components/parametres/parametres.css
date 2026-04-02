@@ -163,47 +163,6 @@
   margin-bottom: 30px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group.full-width {
-  grid-column: span 2;
-}
-
-.form-group label {
-  font-size: 13px;
-  color: #94a3b8;
-  font-weight: 500;
-}
-
-.form-group input,
-.form-group select {
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  color: white;
-  font-size: 14px;
-  transition: all 0.3s ease;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #8B5CF6;
-  background: rgba(139, 92, 246, 0.05);
-}
-
-.form-group input.readonly {
-  background: rgba(255, 255, 255, 0.01);
-  border-color: rgba(255, 255, 255, 0.03);
-  color: #94a3b8;
-  cursor: default;
-}
-
 .entreprise-legal {
   margin-top: 20px;
   padding-top: 20px;
@@ -749,34 +708,6 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 15px;
   margin-bottom: 20px;
-}
-
-.form-group.full-width {
-  grid-column: span 2;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  color: #94a3b8;
-  font-size: 13px;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: white;
-  font-size: 14px;
-}
-
-.form-group input:focus,
-.form-group select:focus {
-  outline: none;
-  border-color: #8B5CF6;
 }
 
 .roles-selector {
@@ -1483,29 +1414,6 @@ input:disabled + .toggle-slider {
   color: #D4AF37;
 }
 
-[data-theme="light"] .form-group label {
-  color: #1A2F4B;
-}
-
-[data-theme="light"] .form-group input,
-[data-theme="light"] .form-group select {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #1A2F4B;
-}
-
-[data-theme="light"] .form-group input:focus,
-[data-theme="light"] .form-group select:focus {
-  border-color: #D4AF37;
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
-}
-
-[data-theme="light"] .theme-option {
-  background: #f1f5f9;
-  color: #1A2F4B;
-  border-color: #e2e8f0;
-}
 
 [data-theme="light"] .theme-option.active {
   background: linear-gradient(135deg, #D4AF37, #996515);

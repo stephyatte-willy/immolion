@@ -6,16 +6,41 @@ export async function GET() {
   try {
     const entreprises = await queryRows('SELECT * FROM entreprise LIMIT 1') as any[];
     
+    // ✅ Si aucune entreprise n'existe, retourner un objet par défaut
+    if (entreprises.length === 0) {
+      return NextResponse.json({
+        success: true,
+        entreprise: {
+          id: null,
+          nom: "ImmoLion Gestion",
+          ville: "Abidjan",
+          telephone: "+225 00 00 00 00",
+          email: "contact@immolion.ci",
+          site_web: "www.immolion.ci",
+          logo_url: null
+        }
+      });
+    }
+    
     return NextResponse.json({
       success: true,
-      entreprise: entreprises[0] || null
+      entreprise: entreprises[0]
     });
   } catch (error) {
     console.error('❌ Erreur GET entreprise:', error);
-    return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur' },
-      { status: 500 }
-    );
+    // ✅ En cas d'erreur, retourner un objet par défaut
+    return NextResponse.json({
+      success: true,
+      entreprise: {
+        id: null,
+        nom: "ImmoLion Gestion",
+        ville: "Abidjan",
+        telephone: "+225 00 00 00 00",
+        email: "contact@immolion.ci",
+        site_web: "www.immolion.ci",
+        logo_url: null
+      }
+    });
   }
 }
 
@@ -43,7 +68,6 @@ export async function POST(request: NextRequest) {
     // Gérer l'upload du logo en Base64
     if (logo && logo.size > 0) {
       try {
-        // Limiter la taille à 2MB
         if (logo.size > 2 * 1024 * 1024) {
           return NextResponse.json(
             { success: false, erreur: 'Le logo ne doit pas dépasser 2MB' },
@@ -51,7 +75,6 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        // Convertir le fichier en base64
         const bytes = await logo.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const base64 = buffer.toString('base64');
@@ -68,7 +91,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insérer dans la base de données
+    // Supprimer l'ancienne entreprise s'il y en a une (car une seule entreprise)
+    await queryInsert('DELETE FROM entreprise', []);
+    
+    // Insérer la nouvelle entreprise
     const result = await queryInsert(
       `INSERT INTO entreprise (nom, ville, telephone, email, site_web, logo_url)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -109,15 +135,6 @@ export async function PUT(request: NextRequest) {
     const site_web = formData.get('site_web') as string;
     const logo = formData.get('logo') as File | null;
 
-    // Vérification de l'ID
-    if (!id) {
-      console.error('❌ ID manquant dans la requête PUT');
-      return NextResponse.json(
-        { success: false, erreur: 'ID manquant' },
-        { status: 400 }
-      );
-    }
-
     // Validation des champs obligatoires
     if (!nom || !ville || !telephone || !email) {
       return NextResponse.json(
@@ -127,25 +144,24 @@ export async function PUT(request: NextRequest) {
     }
 
     // Vérifier que l'entreprise existe
-    const entreprises = await queryRows(
-      'SELECT * FROM entreprise WHERE id = ?',
-      [id]
-    ) as any[];
+    let entrepriseExistante: any = null;
     
-    if (entreprises.length === 0) {
-      return NextResponse.json(
-        { success: false, erreur: 'Entreprise non trouvée' },
-        { status: 404 }
-      );
+    if (id) {
+      const entreprises = await queryRows(
+        'SELECT * FROM entreprise WHERE id = ?',
+        [id]
+      ) as any[];
+      
+      if (entreprises.length > 0) {
+        entrepriseExistante = entreprises[0];
+      }
     }
-
-    const entrepriseExistante = entreprises[0];
-    let logo_url = entrepriseExistante.logo_url;
+    
+    let logo_url = entrepriseExistante?.logo_url || null;
 
     // Gérer le nouveau logo si fourni
     if (logo && logo.size > 0) {
       try {
-        // Limiter la taille à 2MB
         if (logo.size > 2 * 1024 * 1024) {
           return NextResponse.json(
             { success: false, erreur: 'Le logo ne doit pas dépasser 2MB' },
@@ -153,7 +169,6 @@ export async function PUT(request: NextRequest) {
           );
         }
 
-        // Convertir le nouveau logo en base64
         const bytes = await logo.arrayBuffer();
         const buffer = Buffer.from(bytes);
         const base64 = buffer.toString('base64');
@@ -170,16 +185,27 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Mettre à jour la base de données
-    const result = await queryInsert(
-      `UPDATE entreprise 
-       SET nom = ?, ville = ?, telephone = ?, email = ?, site_web = ?, logo_url = ?
-       WHERE id = ?`,
-      [nom, ville, telephone, email, site_web || null, logo_url, id]
-    );
+    let result;
+    
+    if (entrepriseExistante) {
+      // Mettre à jour l'entreprise existante
+      result = await queryInsert(
+        `UPDATE entreprise 
+         SET nom = ?, ville = ?, telephone = ?, email = ?, site_web = ?, logo_url = ?
+         WHERE id = ?`,
+        [nom, ville, telephone, email, site_web || null, logo_url, id]
+      );
+    } else {
+      // Créer une nouvelle entreprise
+      result = await queryInsert(
+        `INSERT INTO entreprise (nom, ville, telephone, email, site_web, logo_url)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [nom, ville, telephone, email, site_web || null, logo_url]
+      );
+    }
 
     if (result.success) {
-      console.log('✅ Entreprise mise à jour avec succès, ID:', id);
+      console.log('✅ Entreprise mise à jour avec succès');
       return NextResponse.json({
         success: true,
         message: 'Entreprise modifiée avec succès'
@@ -213,7 +239,6 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Supprimer de la base de données
     const result = await queryInsert('DELETE FROM entreprise WHERE id = ?', [id]);
 
     if (result.success) {

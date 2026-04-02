@@ -14,13 +14,19 @@ interface LocataireCardProps {
     bien_actuel?: {
       id: number;
       nom: string;
+      type_bien?: string;
+    };
+    lot_actuel?: {
+      id: number;
+      numero_lot: string;
+      type_lot: string;
     };
     impayes?: number;
   };
   onView: (id: number) => void;
   onEdit: (locataire: any) => void;
   onDelete: (locataire: any) => void;
-  formatMoney: (montant: number) => string; // ✅ Ajout de formatMoney
+  formatMoney: (montant: number) => string;
 }
 
 export default function LocataireCard({ locataire, onView, onEdit, onDelete, formatMoney }: LocataireCardProps) {
@@ -28,7 +34,6 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete, for
     const classes: Record<string, string> = {
       'ACTIF': 'statut-actif',
       'INACTIF': 'statut-inactif',
-      'SORTI': 'statut-sorti',
       'PROSPECT': 'statut-prospect'
     };
     return classes[statut] || '';
@@ -38,7 +43,6 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete, for
     const labels: Record<string, string> = {
       'ACTIF': 'Actif',
       'INACTIF': 'Inactif',
-      'SORTI': 'Sorti',
       'PROSPECT': 'Prospect'
     };
     return labels[statut] || statut;
@@ -48,56 +52,72 @@ export default function LocataireCard({ locataire, onView, onEdit, onDelete, for
     return `${locataire.prenom[0]}${locataire.nom[0]}`.toUpperCase();
   };
 
+  const getBienLabel = () => {
+    if (locataire.lot_actuel) {
+      return `${locataire.lot_actuel.numero_lot} - ${locataire.lot_actuel.type_lot}`;
+    }
+    if (locataire.bien_actuel) {
+      return locataire.bien_actuel.nom;
+    }
+    return null;
+  };
+
+  const bienLabel = getBienLabel();
+
   return (
     <motion.div 
-      className="locataire-card"
+      className="card"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="locataire-card-header">
-        <div className="locataire-avat">
+      <div className="card-header">
+        <div className="contenu-avat">
           <span>{getInitials()}</span>
         </div>
-        <div className={`locataire-statut ${getStatutClass(locataire.statut)}`}>
-          {getStatutLabel(locataire.statut)}
-        </div>
-      </div>
-
-      <div className="locataire-card-body">
-        <h3 className="locataire-name">
+        <h3 className="nom">
           {locataire.prenom} {locataire.nom}
         </h3>
+      </div>
 
-        <div className="locataire-info">
-          <div className="info-item-locataire">
-            <span className="info-icon-locataire">✉️</span>
-            <span className="info-text-locataire">{locataire.email}</span>
+      <div className="card-body">
+        
+
+        <div className="info">
+          <div className="info-item">
+            <span className="info-icon">✉️</span>
+            <span className="info-text">{locataire.email}</span>
           </div>
-          <div className="info-item-locataire">
-        <span className="info-icon-locataire">📞</span>
-        <span className="info-text-locataire">{locataire.telephone}</span>
-        </div>
+          <div className="info-item">
+            <span className="info-icon">📞</span>
+            <span className="info-text">{locataire.telephone}</span>
+          </div>
         </div>
 
-        {locataire.bien_actuel && (
-          <div className="locataire-bien-ico">
-            <span className="locataire-icon">🏠</span>
-            <span className="locataire-bien-name">{locataire.bien_actuel.nom}</span>
+        {bienLabel && (
+          <div className="locataire-bien">
+            <span className="bien-icon">
+              {locataire.lot_actuel ? '🏘️' : '🏠'}
+            </span>
+            <span className="bien-nom">{bienLabel}</span>
           </div>
         )}
+
 
         {locataire.impayes && locataire.impayes > 0 && (
           <div className="locataire-alerte">
             <span className="alerte-icon">⚠️</span>
-            <span className="alerte-text">{formatMoney(locataire.impayes)} impayé(s)</span> {/* ✅ Formaté */}
+            <span className="alerte-text">{formatMoney(locataire.impayes)} impayé(s)</span>
           </div>
         )}
       </div>
 
       <div className="locataire-card-footer">
+        <div className={`locataire-statut ${getStatutClass(locataire.statut)}`}>
+          {getStatutLabel(locataire.statut)}
+        </div>
         <button 
           className="action-btn view"
           onClick={() => onView(locataire.id)}

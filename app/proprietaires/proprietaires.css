@@ -1,0 +1,635 @@
+/* app/proprietaires/proprietaires.css */
+/* Styles spécifiques aux propriétaires uniquement */
+
+.proprietaires-container {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg-primary);
+}
+
+.proprietaires-main {
+  flex: 1;
+  margin-left: 280px;
+}
+
+.proprietaires-content {
+  padding: 30px;
+}
+
+/* Statistiques */
+.proprietaires-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+/* Barre d'actions */
+.proprietaires-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.actions-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+/* Grille des propriétaires */
+.proprietaires-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+/* Carte propriétaire */
+.card {
+  background: #f0f4fa;
+  border: 1px solid #c6c8cb;
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.card:hover {
+  border-color: var(--lion-gold);
+  box-shadow: 0 20px 30px -10px rgba(212, 175, 55, 0.2);
+}
+
+.contenu-avat {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, rgb(215, 215, 0), rgb(129, 116, 0));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: white;
+  box-shadow: 0 10px 20px -5px rgba(212, 175, 55, 0.3);
+}
+
+.proprietaire-statut {
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.type-icon {
+  font-size: 14px;
+}
+
+.type-label {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.card-body {
+  padding: 10px;
+}
+
+.nom {
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c6804;
+  margin: 6px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.info-icon {
+  width: 20px;
+  font-size: 14px;
+}
+
+.info-text {
+  font-size: 11px;
+  color: #3e3f41;
+}
+
+.proprietaire-stats {
+  display: flex;
+  gap: 15px;
+  padding: 10px;
+  background: #c3d5d6;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+
+.stat-hint {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #000000;
+  background: #fd9b9b;
+  padding: 2px 4px;
+  border-radius: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: gentlePulse 2s infinite;
+}
+
+@keyframes gentlePulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+
+/* Aperçu des biens */
+.proprietaire-biens-preview {
+  margin-top: 10px;
+}
+
+.biens-preview-title {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.biens-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.bien-tag {
+  padding: 4px 4px;
+  background: rgba(212, 175, 55, 0.267);
+  border-radius: 6px;
+  font-size: 10px;
+  color: #000000;
+}
+
+.bien-tag.more {
+  background: rgba(212, 175, 55, 0.1);
+  color: #636363;
+}
+
+/* Actions sur la carte */
+.proprietaire-card-actions {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 2;
+}
+
+.card:hover .proprietaire-card-actions {
+  opacity: 1;
+}
+
+.proprietaire-card-actions .action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn.view {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.action-btn.view:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.action-btn.edit {
+  background: rgba(212, 175, 55, 0.1);
+  color: var(--lion-gold);
+}
+
+.action-btn.edit:hover {
+  background: rgba(212, 175, 55, 0.2);
+}
+
+.action-btn.delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Tableau */
+.proprietaires-table-container {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  overflow-x: auto;
+}
+
+.proprietaires-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.proprietaires-table th {
+  text-align: left;
+  padding: 15px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--lion-gold);
+}
+
+.proprietaires-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.proprietaires-table tr:hover td {
+  background: var(--hover-bg);
+}
+
+/* Avatar dans tableau */
+.proprietaire-avatar-small {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--lion-gold), var(--lion-gold-dark));
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+}
+
+.proprietaire-cell {
+  font-weight: 500;
+}
+
+.proprietaire-email {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* Badges de type */
+.type-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.type-badge.particulier {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.type-badge.societe {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+.type-badge.agence {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+/* Badges de statut */
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.status-badge.actif {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.status-badge.inactif {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* Compteur de biens */
+.biens-count {
+  text-align: center;
+}
+
+.count-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--bg-tertiary);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lion-gold);
+}
+
+/* Actions tableau */
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-actions button {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions button:hover {
+  transform: scale(1.1);
+}
+
+.table-actions button:nth-child(1):hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.table-actions button:nth-child(2):hover {
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--lion-gold);
+}
+
+.table-actions button:nth-child(3):hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+/* Alerte chic pour les propriétaires sans bien */
+.proprietaire-alert {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-left: 4px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);
+  overflow: hidden;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.alert-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: white;
+  box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
+}
+
+.alert-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  line-height: 1.3;
+}
+
+.alert-message {
+  font-size: 11px;
+  color: #b45309;
+  opacity: 0.8;
+}
+
+.alert-close {
+  width: 24px;
+  height: 24px;
+  background: rgba(245, 158, 11, 0.2);
+  border: none;
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.alert-close:hover {
+  background: rgba(245, 158, 11, 0.4);
+  transform: scale(1.1);
+}
+
+.alert-progress {
+  height: 3px;
+  background: rgba(245, 158, 11, 0.3);
+}
+
+.alert-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+  border-radius: 2px;
+}
+
+/* Bouton rapide pour ajouter un bien */
+.btn-add-bien-rapide {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #e3ccff, #b272ff);
+  border: none;
+  border-radius: 8px;
+  color: rgb(31, 23, 64);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-add-bien-rapide:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -5px rgba(212, 175, 55, 0.4);
+}
+
+.btn-add-bien-rapide .btn-icon {
+  font-size: 14px;
+}
+
+.biens-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.bien-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bien-checkbox:hover {
+  background: var(--hover-bg);
+  transform: translateX(5px);
+}
+
+.bien-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.bien-info {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.bien-nom {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.bien-adresse {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.bien-statut {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: rgba(212, 175, 55, 0.1);
+  border-radius: 12px;
+  color: var(--lion-gold);
+}
+
+.no-biens {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-tertiary);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.toggle-text {
+  margin: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .proprietaires-main {
+    margin-left: 0;
+  }
+  
+  .proprietaires-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .proprietaires-actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .proprietaires-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -17,6 +17,7 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(
     bien.photos && bien.photos.length > 0 ? bien.photos[0].url : null
   );
+  const [showLotsDetails, setShowLotsDetails] = useState(true);
 
   const getStatutClass = (statut: string) => {
     const classes: Record<string, string> = {
@@ -42,22 +43,86 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, string> = {
+      'IMMEUBLE': '🏢',
       'APPARTEMENT': '🏢',
       'MAISON': '🏠',
       'VILLA': '🏛️',
       'STUDIO': '🏢',
       'COMMERCIAL': '🏪',
+      'MAGASIN': '🏪',
       'TERRAIN': '🌲',
       'ENTREPOT': '🏭',
-      'BUREAU': '🏢'
+      'BUREAU': '🏢',
+      'PARKING': '🅿️',
+      'CHAMBRE': '🛏️',
+      'KIOSQUE': '🏪'
     };
     return icons[type] || '🏢';
   };
 
-  // ✅ Déterminer le type d'affichage financier
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'IMMEUBLE': 'Immeuble',
+      'APPARTEMENT': 'Appartement',
+      'MAISON': 'Maison',
+      'VILLA': 'Villa',
+      'STUDIO': 'Studio',
+      'COMMERCIAL': 'Commercial',
+      'MAGASIN': 'Magasin',
+      'TERRAIN': 'Terrain',
+      'ENTREPOT': 'Entrepôt',
+      'BUREAU': 'Bureau',
+      'PARKING': 'Parking',
+      'CHAMBRE': 'Chambre',
+      'KIOSQUE': 'Kiosque'
+    };
+    return labels[type] || type;
+  };
+
+  // Déterminer le type d'affichage financier
   const isVente = bien.statut === 'EN_VENTE';
-  const prixPrincipal = isVente ? bien.prix_vente : bien.loyer_mensuel;
-  const prixLabel = isVente ? 'Prix de vente' : 'Loyer mensuel';
+  const isImmeuble = bien.type_bien === 'IMMEUBLE';
+  
+  // Calculer le prix principal (loyer ou vente)
+  const getPrixPrincipal = () => {
+    if (isVente) {
+      return bien.prix_vente;
+    } else if (isImmeuble && bien.lots && bien.lots.length > 0) {
+      return bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.loyer_mensuel) || 0), 0);
+    } else {
+      return bien.loyer_mensuel;
+    }
+  };
+  
+  const prixPrincipal = getPrixPrincipal();
+  const prixLabel = isVente ? 'Prix de vente' : (isImmeuble ? 'Revenus mensuels totaux' : 'Loyer mensuel');
+
+  // Statistiques des lots pour les immeubles
+  const getLotsStats = () => {
+    if (!bien.lots || bien.lots.length === 0) return null;
+    
+    const stats: Record<string, { count: number; loyers: number[]; total: number; surfaces: number[] }> = {};
+    
+    bien.lots.forEach((lot: any) => {
+      const type = lot.type_lot;
+      const loyer = parseFloat(lot.loyer_mensuel) || 0;
+      const surface = parseFloat(lot.surface) || 0;
+      
+      if (!stats[type]) {
+        stats[type] = { count: 0, loyers: [], total: 0, surfaces: [] };
+      }
+      
+      stats[type].count++;
+      stats[type].loyers.push(loyer);
+      stats[type].surfaces.push(surface);
+      stats[type].total += loyer;
+    });
+    
+    return stats;
+  };
+  
+  const lotsStats = isImmeuble ? getLotsStats() : null;
+  const totalLots = bien.lots?.length || 0;
 
   return (
     <motion.div 
@@ -129,6 +194,23 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
               {getStatutLabel(bien.statut)}
             </div>
             
+            {/* Type de bien */}
+            <div className="detail-section">
+              <h3>
+                <span className="section-icon">🏷️</span>
+                Type de bien
+              </h3>
+              <div className="detail-type">
+                <span className="type-badge-large">
+                  {getTypeIcon(bien.type_bien)} {getTypeLabel(bien.type_bien)}
+                </span>
+                {isImmeuble && totalLots > 0 && (
+                  <span className="lots-badge">🏘️ {totalLots} lots</span>
+                )}
+              </div>
+            </div>
+            
+            {/* Localisation */}
             <div className="detail-section">
               <h3>
                 <span className="section-icon">📍</span>
@@ -144,6 +226,7 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
               </div>
             </div>
 
+            {/* Caractéristiques */}
             <div className="detail-section">
               <h3>
                 <span className="section-icon">📐</span>
@@ -154,11 +237,13 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                   <span className="carac-label">Surface</span>
                   <span className="carac-value">{bien.surface} m²</span>
                 </div>
-                <div className="carac-item">
-                  <span className="carac-label">Pièces</span>
-                  <span className="carac-value">{bien.pieces}</span>
-                </div>
-                {bien.etage !== null && bien.etage !== undefined && (
+                {bien.type_bien !== 'IMMEUBLE' && bien.type_bien !== 'TERRAIN' && (
+                  <div className="carac-item">
+                    <span className="carac-label">Pièces</span>
+                    <span className="carac-value">{bien.pieces}</span>
+                  </div>
+                )}
+                {bien.etage !== null && bien.etage !== undefined && bien.type_bien !== 'IMMEUBLE' && (
                   <div className="carac-item">
                     <span className="carac-label">Étage</span>
                     <span className="carac-value">{bien.etage}</span>
@@ -173,13 +258,13 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
               )}
             </div>
 
+            {/* Aspects financiers */}
             <div className="detail-section">
               <h3>
                 <span className="section-icon">💰</span>
-                {isVente ? 'Prix de vente' : 'Aspects financiers'}
+                {prixLabel}
               </h3>
               <div className="detail-finances">
-                {/* Prix principal (loyer ou vente) */}
                 {prixPrincipal !== undefined && prixPrincipal !== null && prixPrincipal > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">{prixLabel}</span>
@@ -187,23 +272,20 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                   </div>
                 )}
 
-                {/* Charges (uniquement pour les locations) */}
-                {!isVente && bien.charges !== undefined && bien.charges > 0 && (
+                {!isVente && !isImmeuble && bien.charges !== undefined && bien.charges > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Charges</span>
                     <span className="finance-value">{formatMoney(bien.charges)}</span>
                   </div>
                 )}
 
-                {/* Dépôt de garantie (uniquement pour les locations) */}
-                {!isVente && bien.depot_garantie !== undefined && bien.depot_garantie > 0 && (
+                {!isVente && !isImmeuble && bien.depot_garantie !== undefined && bien.depot_garantie > 0 && (
                   <div className="finance-item">
                     <span className="finance-label">Dépôt de garantie</span>
                     <span className="finance-value">{formatMoney(bien.depot_garantie)}</span>
                   </div>
                 )}
 
-                {/* Date d'acquisition */}
                 {bien.date_acquisition && (
                   <div className="finance-item">
                     <span className="finance-label">Date d'acquisition</span>
@@ -213,6 +295,86 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
               </div>
             </div>
 
+            {/* Lots pour les immeubles */}
+            {isImmeuble && bien.lots && bien.lots.length > 0 && (
+              <div className="detail-section lots-detail-section">
+                <h3 onClick={() => setShowLotsDetails(!showLotsDetails)} style={{ cursor: 'pointer' }}>
+                  <span className="section-icon">🏘️</span>
+                  Lots / Unités locatives ({totalLots} lots)
+                  <span className="toggle-icon">{showLotsDetails ? '▲' : '▼'}</span>
+                </h3>
+                
+                {showLotsDetails && (
+                  <div className="detail-lots">
+                    {/* Résumé par type */}
+                    {lotsStats && Object.keys(lotsStats).length > 0 && (
+                      <div className="lots-summary">
+                        <h4>📊 Résumé par type</h4>
+                        <div className="lots-types-grid">
+                          {Object.entries(lotsStats).map(([type, data]) => (
+                            <div key={type} className="lot-type-summary">
+                              <span className="lot-type-name">{type}</span>
+                              <span className="lot-type-count">{data.count} lot(s)</span>
+                              <span className="lot-type-total">{formatMoney(data.total)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="lots-total-revenus">
+                          <strong>💰 Total des revenus mensuels:</strong> {formatMoney(prixPrincipal || 0)}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Liste détaillée des lots - TABLEAU */}
+                    <div className="lots-list-detailed">
+                      <h4>📋 Liste détaillée des lots</h4>
+                      <div className="lots-table-container">
+                        <table className="lots-table">
+                          <thead>
+                            <tr>
+                              <th>N°</th>
+                              <th>Type</th>
+                              <th>Surface</th>
+                              <th>Pièces</th>
+                              <th>Loyer</th>
+                              <th>Statut</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bien.lots.map((lot: any, index: number) => (
+                              <tr key={lot.id || index}>
+                                <td className="lot-number">{lot.numero_lot}</td>
+                                <td className="lot-type-cell">
+                                  <span className="lot-type-badge">
+                                    {lot.type_lot === 'STUDIO' && '🏢'}
+                                    {lot.type_lot === 'APPARTEMENT' && '🏢'}
+                                    {lot.type_lot === 'MAGASIN' && '🏪'}
+                                    {lot.type_lot === 'BUREAU' && '🏢'}
+                                    {lot.type_lot === 'PARKING' && '🅿️'}
+                                    {lot.type_lot === 'CHAMBRE' && '🛏️'}
+                                    {' '}{lot.type_lot}
+                                  </span>
+                                </td>
+                                <td className="lot-surface">{lot.surface} m²</td>
+                                <td className="lot-pieces">{lot.pieces || '-'}</td>
+                                <td className="lot-loyer">{formatMoney(parseFloat(lot.loyer_mensuel) || 0)}</td>
+                                <td className="lot-status">
+                                  <span className={`status-badge ${lot.statut === 'LOUE' ? 'status-loue' : lot.statut === 'DISPONIBLE' ? 'status-disponible' : 'status-vente'}`}>
+                                    {lot.statut === 'LOUE' ? 'Loué' : lot.statut === 'DISPONIBLE' ? 'Disponible' : 'En vente'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Locataire actuel */}
             {bien.locataire_actuel && (
               <div className="detail-section">
                 <h3>
@@ -225,6 +387,7 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
               </div>
             )}
 
+            {/* Dates */}
             <div className="detail-section">
               <h3>
                 <span className="section-icon">📅</span>

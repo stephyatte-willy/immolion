@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const contrat_id = searchParams.get('contrat_id');
     const bien_id = searchParams.get('bien_id');
     const type = searchParams.get('type');
+    const proprietaire_id = searchParams.get('proprietaire_id');
 
     let whereClause = 'WHERE 1=1';
     const params: any[] = [];
@@ -31,6 +32,11 @@ export async function GET(request: NextRequest) {
     if (type) {
       whereClause += ' AND d.type_document = ?';
       params.push(type);
+    }
+
+    if (proprietaire_id) {
+      whereClause += ' AND d.proprietaire_id = ?';
+      params.push(proprietaire_id);
     }
 
     // ✅ Jointure avec la table locataires pour récupérer les informations du client
@@ -70,13 +76,17 @@ export async function POST(request: NextRequest) {
     const bien_id = formData.get('bien_id') as string;
     const type_document = formData.get('type_document') as string;
     const date_expiration = formData.get('date_expiration') as string;
+    const proprietaire_id = formData.get('proprietaire_id') as string;
     
     const fichiers = formData.getAll('documents') as File[];
 
-    // ✅ Validation: un locataire est obligatoire
-    if (!locataire_id || locataire_id === 'null') {
+    // ✅ CORRECTION: Validation conditionnelle - soit locataire, soit proprietaire
+    const hasLocataire = locataire_id && locataire_id !== 'null' && locataire_id !== '0' && locataire_id.trim() !== '';
+    const hasProprietaire = proprietaire_id && proprietaire_id !== 'null' && proprietaire_id !== '0' && proprietaire_id.trim() !== '';
+
+    if (!hasLocataire && !hasProprietaire) {
       return NextResponse.json(
-        { success: false, erreur: 'Un client doit être sélectionné' },
+        { success: false, erreur: 'Un client (locataire) ou un propriétaire doit être sélectionné' },
         { status: 400 }
       );
     }
@@ -86,6 +96,17 @@ export async function POST(request: NextRequest) {
         { success: false, erreur: 'Aucun fichier sélectionné' },
         { status: 400 }
       );
+    }
+
+    // ✅ CORRECTION: Définir les variables correctement
+    let locataireIdFinal = null;
+    if (hasLocataire) {
+      locataireIdFinal = parseInt(locataire_id);
+    }
+
+    let proprietaireIdFinal = null;
+    if (hasProprietaire) {
+      proprietaireIdFinal = parseInt(proprietaire_id);
     }
 
     const MAX_SIZE = 10 * 1024 * 1024;
@@ -125,15 +146,17 @@ export async function POST(request: NextRequest) {
         const mimeType = fichier.type;
         const url = `data:${mimeType};base64,${base64}`;
 
+        // ✅ CORRECTION: Utiliser les variables correctement définies
         const result = await queryInsert(
           `INSERT INTO documents (
-            locataire_id, contrat_id, bien_id, type_document, 
+            locataire_id, contrat_id, bien_id, proprietaire_id, type_document, 
             nom, url, taille, date_expiration, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
           [
-            parseInt(locataire_id),
+            locataireIdFinal,
             contrat_id && contrat_id !== 'null' ? parseInt(contrat_id) : null,
             bien_id && bien_id !== 'null' ? parseInt(bien_id) : null,
+            proprietaireIdFinal,
             type_document || 'AUTRE',
             fichier.name,
             url,

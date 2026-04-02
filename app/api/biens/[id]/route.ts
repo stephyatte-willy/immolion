@@ -16,7 +16,15 @@ export async function GET(
         ) FROM photos p WHERE p.bien_id = b.id) as photos,
         (SELECT JSON_ARRAYAGG(
           JSON_OBJECT('id', l.id, 'nom', l.nom, 'prenom', l.prenom, 'email', l.email, 'telephone', l.telephone, 'actif', l.actif)
-        ) FROM locataires l WHERE l.bien_id = b.id) as locataires
+        ) FROM locataires l WHERE l.bien_id = b.id) as locataires,
+        (SELECT JSON_ARRAYAGG(
+          JSON_OBJECT('id', l.id, 'numero_lot', l.numero_lot, 'etage', l.etage,
+                      'type_lot', l.type_lot, 'nom', l.nom, 'surface', l.surface,
+                      'pieces', l.pieces, 'loyer_mensuel', l.loyer_mensuel,
+                      'charges', l.charges, 'depot_garantie', l.depot_garantie,
+                      'prix_vente', l.prix_vente, 'description', l.description,
+                      'statut', l.statut)
+        ) FROM lots l WHERE l.bien_principal_id = b.id) as lots
        FROM biens b
        WHERE b.id = ?`,
       [id]
@@ -34,10 +42,12 @@ export async function GET(
     try {
       bien.photos = bien.photos ? JSON.parse(bien.photos) : [];
       bien.locataires = bien.locataires ? JSON.parse(bien.locataires) : [];
+      bien.lots = bien.lots ? JSON.parse(bien.lots) : [];
     } catch (e) {
       console.error('❌ Erreur parsing JSON:', e);
       bien.photos = [];
       bien.locataires = [];
+      bien.lots = [];
     }
 
     return NextResponse.json({
@@ -62,6 +72,8 @@ export async function PUT(
     const { id } = await params;
     const formData = await request.formData();
     
+    // Récupération des champs
+    const proprietaire_id = formData.get('proprietaire_id') as string;
     const nom = formData.get('nom') as string;
     const type_bien = formData.get('type_bien') as string;
     const statut = formData.get('statut') as string;
@@ -82,16 +94,19 @@ export async function PUT(
     const date_acquisition = formData.get('date_acquisition') as string;
     const latitude = formData.get('latitude') as string;
     const longitude = formData.get('longitude') as string;
-
+    const lots = formData.get('lots') as string;
+    const lotsToDelete = formData.get('lotsToDelete') as string;
     const photosToDelete = formData.getAll('photosToDelete') as string[];
     const newPhotos = formData.getAll('photos') as File[];
 
     console.log('📦 Mise à jour bien ID:', id);
+    console.log('📸 Nouvelles photos reçues:', newPhotos.length);
     console.log('🗑️ Photos à supprimer:', photosToDelete);
-    console.log('📸 Nouvelles photos:', newPhotos.length);
+    console.log('📦 Lots reçus:', lots ? JSON.parse(lots)?.length : 0);
+    console.log('🗑️ Lots à supprimer:', lotsToDelete);
 
     // Validation des champs obligatoires
-    if (!nom || !type_bien || !adresse || !commune || !district || !surface || !pieces || !loyer_mensuel) {
+    if (!nom || !type_bien || !commune || !district || !surface) {
       return NextResponse.json(
         { success: false, erreur: 'Champs obligatoires manquants' },
         { status: 400 }
@@ -99,171 +114,217 @@ export async function PUT(
     }
 
     const surfaceNum = parseFloat(surface);
-    const piecesNum = parseInt(pieces);
+    const piecesNum = parseInt(pieces) || 1;
     const etageNum = etage ? parseInt(etage) : null;
     const latitudeNum = latitude ? parseFloat(latitude) : null;
     const longitudeNum = longitude ? parseFloat(longitude) : null;
+    const proprietaireIdValue = proprietaire_id && proprietaire_id.trim() !== '' ? parseInt(proprietaire_id) : null;
 
-    // Formater la date pour MySQL
+    // Formater la date
     let dateAcquisitionFormatted = null;
     if (date_acquisition && date_acquisition.trim() !== '') {
-      if (date_acquisition.includes('T')) {
-        dateAcquisitionFormatted = date_acquisition.split('T')[0];
-      } else {
-        dateAcquisitionFormatted = date_acquisition;
-      }
+      dateAcquisitionFormatted = date_acquisition.includes('T') 
+        ? date_acquisition.split('T')[0] 
+        : date_acquisition;
     }
 
-    // ✅ CORRECTION: Gestion des valeurs financières selon le statut
-    let loyerNum = 0;
-    let chargesNum = 0;
-    let depotNum = null;
-    let prixVenteNum = null;
-
+    // Gestion financière
+    let loyerNum = 0, chargesNum = 0, depotNum = null, prixVenteNum = null;
+    
     if (statut === 'EN_VENTE') {
-      // Mode vente
       if (prix_vente) {
         prixVenteNum = parseFloat(prix_vente);
         if (isNaN(prixVenteNum) || prixVenteNum <= 0) {
-          return NextResponse.json(
-            { success: false, erreur: 'Prix de vente invalide' },
-            { status: 400 }
-          );
+          return NextResponse.json({ success: false, erreur: 'Prix de vente invalide' }, { status: 400 });
         }
       }
       loyerNum = 0;
       chargesNum = 0;
     } else {
-      // Mode location
       if (loyer_mensuel) {
         loyerNum = parseFloat(loyer_mensuel);
         if (isNaN(loyerNum) || loyerNum < 0) {
-          return NextResponse.json(
-            { success: false, erreur: 'Loyer mensuel invalide' },
-            { status: 400 }
-          );
+          return NextResponse.json({ success: false, erreur: 'Loyer mensuel invalide' }, { status: 400 });
         }
       }
-      
       chargesNum = charges ? parseFloat(charges) : 0;
-      if (isNaN(chargesNum) || chargesNum < 0) {
-        chargesNum = 0;
-      }
-      
       depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
-      if (depotNum !== null && (isNaN(depotNum) || depotNum < 0)) {
-        depotNum = null;
-      }
     }
 
-    if (isNaN(surfaceNum) || surfaceNum <= 0) {
-      return NextResponse.json(
-        { success: false, erreur: 'Surface invalide' },
-        { status: 400 }
-      );
+    // 1. SUPPRIMER LES PHOTOS MARQUÉES
+    for (const photoId of photosToDelete) {
+      await queryInsert('DELETE FROM photos WHERE id = ?', [photoId]);
+      console.log(`✅ Photo ${photoId} supprimée`);
     }
 
-    if (isNaN(piecesNum) || piecesNum <= 0) {
-      return NextResponse.json(
-        { success: false, erreur: 'Nombre de pièces invalide' },
-        { status: 400 }
-      );
-    }
-
-    // ✅ 1. SUPPRIMER LES PHOTOS MARQUÉES
-    if (photosToDelete.length > 0) {
-      for (const photoId of photosToDelete) {
-        await queryInsert('DELETE FROM photos WHERE id = ?', [photoId]);
-        console.log(`✅ Photo ${photoId} supprimée de la BDD`);
-      }
-    }
-
-    // ✅ 2. METTRE À JOUR LE BIEN
+    // 2. METTRE À JOUR LE BIEN
     await queryInsert(
       `UPDATE biens SET
+        proprietaire_id = ?,
         nom = ?, type_bien = ?, statut = ?, adresse = ?, quartier = ?, commune = ?,
         ville = ?, district = ?, pays = ?, surface = ?, pieces = ?, etage = ?,
         description = ?, loyer_mensuel = ?, charges = ?, depot_garantie = ?,
         prix_vente = ?, date_acquisition = ?, latitude = ?, longitude = ?, updated_at = NOW()
        WHERE id = ?`,
       [
-        nom, type_bien, statut, adresse, quartier || null, commune,
+        proprietaireIdValue,
+        nom, type_bien, statut, adresse || null, quartier || null, commune,
         ville || 'Abidjan', district, pays || 'Côte d\'Ivoire',
-        surfaceNum, piecesNum, etageNum,
-        description || null, 
-        loyerNum, 
-        chargesNum, 
-        depotNum,
-        prixVenteNum,
-        dateAcquisitionFormatted,
-        latitudeNum, longitudeNum, id
+        surfaceNum, piecesNum, etageNum, description || null,
+        loyerNum, chargesNum, depotNum, prixVenteNum,
+        dateAcquisitionFormatted, latitudeNum, longitudeNum, id
       ]
     );
+    console.log('✅ Bien mis à jour');
 
-    // ✅ 3. Récupérer l'ordre max actuel
+    // 3. GÉRER LES LOTS (si immeuble)
+    if (type_bien === 'IMMEUBLE') {
+      // Supprimer les lots marqués
+      if (lotsToDelete && lotsToDelete !== '[]') {
+        const lotsToDeleteArray = JSON.parse(lotsToDelete);
+        for (const lotId of lotsToDeleteArray) {
+          await queryInsert('DELETE FROM lots WHERE id = ?', [lotId]);
+          console.log(`✅ Lot ${lotId} supprimé`);
+        }
+      }
+
+      // Mettre à jour ou ajouter les lots
+      if (lots && lots !== '[]' && lots !== 'null') {
+        const lotsData = JSON.parse(lots);
+        console.log(`📦 ${lotsData.length} lots à traiter`);
+        
+        for (const lot of lotsData) {
+          if (lot.id) {
+            // Mise à jour d'un lot existant
+            await queryInsert(
+              `UPDATE lots SET
+                numero_lot = ?, etage = ?, type_lot = ?, nom = ?,
+                surface = ?, pieces = ?, loyer_mensuel = ?, charges = ?,
+                depot_garantie = ?, prix_vente = ?, description = ?, statut = ?,
+                updated_at = NOW()
+               WHERE id = ?`,
+              [
+                lot.numero_lot,
+                lot.etage ? parseInt(lot.etage) : null,
+                lot.type_lot || 'APPARTEMENT',
+                lot.nom || null,
+                parseFloat(lot.surface) || 0,
+                lot.pieces ? parseInt(lot.pieces) : null,
+                parseFloat(lot.loyer_mensuel) || 0,
+                parseFloat(lot.charges) || 0,
+                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
+                lot.prix_vente ? parseFloat(lot.prix_vente) : null,
+                lot.description || null,
+                lot.statut || 'DISPONIBLE',
+                lot.id
+              ]
+            );
+            console.log(`✅ Lot ${lot.numero_lot} mis à jour`);
+          } else {
+            // Ajout d'un nouveau lot
+            const lotResult = await queryInsert(
+              `INSERT INTO lots (
+                bien_principal_id, numero_lot, etage, type_lot, nom,
+                surface, pieces, loyer_mensuel, charges, depot_garantie,
+                prix_vente, description, statut, created_at, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              [
+                parseInt(id),
+                lot.numero_lot || `Lot_${Date.now()}`,
+                lot.etage ? parseInt(lot.etage) : null,
+                lot.type_lot || 'APPARTEMENT',
+                lot.nom || null,
+                parseFloat(lot.surface) || 0,
+                lot.pieces ? parseInt(lot.pieces) : null,
+                parseFloat(lot.loyer_mensuel) || 0,
+                parseFloat(lot.charges) || 0,
+                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
+                lot.prix_vente ? parseFloat(lot.prix_vente) : null,
+                lot.description || null,
+                lot.statut || 'DISPONIBLE'
+              ]
+            );
+            console.log(`✅ Nouveau lot ${lot.numero_lot} ajouté, ID: ${lotResult.insertId}`);
+          }
+        }
+      }
+
+      // Mettre à jour le nombre total de lots
+      const lotsCount = await queryRows(
+        'SELECT COUNT(*) as count FROM lots WHERE bien_principal_id = ?',
+        [id]
+      ) as any[];
+      await queryInsert(
+        'UPDATE biens SET nombre_lots = ? WHERE id = ?',
+        [lotsCount[0]?.count || 0, id]
+      );
+      console.log(`✅ Nombre de lots mis à jour: ${lotsCount[0]?.count || 0}`);
+    }
+
+    // 4. AJOUTER LES NOUVELLES PHOTOS
     const existingPhotos = await queryRows(
       'SELECT MAX(ordre) as maxOrdre FROM photos WHERE bien_id = ?',
       [id]
     ) as any[];
     let ordre = (existingPhotos[0]?.maxOrdre || -1) + 1;
-
-    // ✅ 4. AJOUTER LES NOUVELLES PHOTOS en base64
-    if (newPhotos.length > 0) {
-      for (let i = 0; i < newPhotos.length; i++) {
-        const photo = newPhotos[i];
+    
+    for (let i = 0; i < newPhotos.length; i++) {
+      const photo = newPhotos[i];
+      if (photo.size === 0 || photo.size > 5 * 1024 * 1024) continue;
+      
+      try {
+        const bytes = await photo.arrayBuffer();
+        const base64 = Buffer.from(bytes).toString('base64');
+        const url = `data:${photo.type};base64,${base64}`;
         
-        if (photo.size === 0) continue;
-        
-        try {
-          // Limiter la taille à 5MB
-          if (photo.size > 5 * 1024 * 1024) {
-            console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
-            continue;
-          }
-
-          // Vérifier le type
-          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-          if (!allowedTypes.includes(photo.type)) {
-            console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
-            continue;
-          }
-
-          // Convertir en base64
-          const bytes = await photo.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const base64 = buffer.toString('base64');
-          const mimeType = photo.type;
-          
-          const url = `data:${mimeType};base64,${base64}`;
-          
-          await queryInsert(
-            'INSERT INTO photos (bien_id, url, est_principale, ordre) VALUES (?, ?, ?, ?)',
-            [id, url, 0, ordre++]
-          );
-          
-          console.log(`✅ Nouvelle photo ${i+1} ajoutée en base64`);
-        } catch (photoError) {
-          console.error(`❌ Erreur traitement photo ${i+1}:`, photoError);
-        }
+        const photoResult = await queryInsert(
+          'INSERT INTO photos (bien_id, url, est_principale, ordre, created_at) VALUES (?, ?, ?, ?, NOW())',
+          [id, url, i === 0 ? 1 : 0, ordre++]
+        );
+        console.log(`✅ Nouvelle photo ${i+1} ajoutée, ID: ${photoResult.insertId}`);
+      } catch (photoError) {
+        console.error('❌ Erreur photo:', photoError);
       }
     }
 
-    // ✅ 5. RÉCUPÉRER LE BIEN MIS À JOUR
+    // 5. RÉCUPÉRER LE BIEN MIS À JOUR
     const updatedBien = await queryRows(
-      `SELECT * FROM biens WHERE id = ?`,
+      `SELECT b.*, 
+        (SELECT JSON_ARRAYAGG(
+          JSON_OBJECT('id', p.id, 'url', p.url, 'legende', p.legende, 'est_principale', p.est_principale)
+        ) FROM photos p WHERE p.bien_id = b.id) as photos,
+        (SELECT JSON_ARRAYAGG(
+          JSON_OBJECT('id', l.id, 'numero_lot', l.numero_lot, 'etage', l.etage,
+                      'type_lot', l.type_lot, 'nom', l.nom, 'surface', l.surface,
+                      'pieces', l.pieces, 'loyer_mensuel', l.loyer_mensuel,
+                      'charges', l.charges, 'depot_garantie', l.depot_garantie,
+                      'prix_vente', l.prix_vente, 'description', l.description,
+                      'statut', l.statut)
+        ) FROM lots l WHERE l.bien_principal_id = b.id) as lots
+       FROM biens b
+       WHERE b.id = ?`,
       [id]
     ) as any[];
-
+    
+    const bien = updatedBien[0];
+    try {
+      bien.photos = bien.photos ? JSON.parse(bien.photos) : [];
+      bien.lots = bien.lots ? JSON.parse(bien.lots) : [];
+    } catch (e) {
+      bien.photos = [];
+      bien.lots = [];
+    }
+    
     return NextResponse.json({
       success: true,
       message: 'Bien modifié avec succès',
-      bien: updatedBien[0]
+      bien
     });
     
   } catch (error: any) {
     console.error('❌ Erreur PUT bien:', error);
     return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur: ' + (error as Error).message },
+      { success: false, erreur: error.message || 'Erreur serveur' },
       { status: 500 }
     );
   }
@@ -277,30 +338,26 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Récupérer les photos pour les supprimer
-    const photos = await queryRows(
-      'SELECT url FROM photos WHERE bien_id = ?',
+    const bien = await queryRows(
+      'SELECT id, type_bien, nombre_lots FROM biens WHERE id = ?',
       [id]
     ) as any[];
+    
+    if (bien.length === 0) {
+      return NextResponse.json({ success: false, erreur: 'Bien non trouvé' }, { status: 404 });
+    }
 
-    console.log(`🗑️ Suppression du bien ${id} avec ${photos.length} photos`);
-
-    // Supprimer les photos de la BDD (les fichiers sont en base64, pas besoin de suppression physique)
+    if (bien[0].type_bien === 'IMMEUBLE') {
+      await queryInsert('DELETE FROM lots WHERE bien_principal_id = ?', [id]);
+    }
+    
     await queryInsert('DELETE FROM photos WHERE bien_id = ?', [id]);
-
-    // Supprimer le bien
     await queryInsert('DELETE FROM biens WHERE id = ?', [id]);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Bien supprimé avec succès'
-    });
+    return NextResponse.json({ success: true, message: 'Bien supprimé avec succès' });
     
   } catch (error) {
     console.error('❌ Erreur DELETE bien:', error);
-    return NextResponse.json(
-      { success: false, erreur: 'Erreur serveur' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, erreur: 'Erreur serveur' }, { status: 500 });
   }
 }

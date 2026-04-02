@@ -17,8 +17,6 @@ import { useTheme } from '@/app/providers/ThemeProvider';
 import toast from 'react-hot-toast';
 import './biens.css';
 
-// Dans app/biens/page.tsx, ajoutez la propriété pays dans l'interface Bien
-
 export interface Bien {
   id: number;
   proprietaire_id: number;
@@ -28,7 +26,7 @@ export interface Bien {
   commune?: string;
   ville: string;
   district: string;
-  pays: string;  // ✅ Ajout de la propriété pays
+  pays: string;
   type_bien: string;
   statut: string;
   surface: number;
@@ -48,6 +46,9 @@ export interface Bien {
     nom: string;
     prenom: string;
   };
+  nombre_lots?: number;
+  lots?: any[];
+  est_principal?: boolean;
   created_at: string;
 }
 
@@ -77,6 +78,8 @@ export default function BiensPage() {
   // ✅ États pour la sélection multiple
   const [selectedBiens, setSelectedBiens] = useState<number[]>([]);
   const [showMultipleDeleteConfirm, setShowMultipleDeleteConfirm] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   
   const router = useRouter();
@@ -303,32 +306,32 @@ const handleSort = (key: string) => {
 
   // ✅ Suppression multiple
   const handleMultipleDelete = async () => {
-    if (selectedBiens.length === 0) return;
+  if (selectedBiens.length === 0) return;
+  
+  setShowMultipleDeleteConfirm(false);
+  setIsDeletingMultiple(true);
+  
+  try {
+    const promises = selectedBiens.map(id => 
+      fetch(`/api/biens/${id}`, { method: 'DELETE' })
+    );
     
-    setShowMultipleDeleteConfirm(false);
-    setIsDeletingMultiple(true);
+    const results = await Promise.all(promises);
+    const allSuccess = results.every(res => res.ok);
     
-    try {
-      const promises = selectedBiens.map(id => 
-        fetch(`/api/biens/${id}`, { method: 'DELETE' })
-      );
-      
-      const results = await Promise.all(promises);
-      const allSuccess = results.every(res => res.ok);
-      
-      if (allSuccess) {
-        toast.success(`${selectedBiens.length} bien(s) supprimé(s) avec succès`);
-        chargerBiens();
-      } else {
-        toast.error('Erreur lors de la suppression de certains biens');
-      }
-    } catch (error) {
-      console.error('❌ Erreur suppression multiple:', error);
-      toast.error('Erreur lors de la suppression multiple');
-    } finally {
-      setIsDeletingMultiple(false);
+    if (allSuccess) {
+      toast.success(`${selectedBiens.length} bien(s) supprimé(s) avec succès`);
+      chargerBiens();
+    } else {
+      toast.error('Erreur lors de la suppression de certains biens');
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur suppression multiple:', error);
+    toast.error('Erreur lors de la suppression multiple');
+  } finally {
+    setIsDeletingMultiple(false);
+  }
+};
 
   const handleAddBien = () => {
     setSelectedBien(null);
@@ -357,28 +360,30 @@ const handleSort = (key: string) => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!bienToDelete) return;
+  if (!bienToDelete) return;
+  
+  setIsDeleting(true);
+  try {
+    const response = await fetch(`/api/biens/${bienToDelete.id}`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
 
-    try {
-      const response = await fetch(`/api/biens/${bienToDelete.id}`, {
-        method: 'DELETE'
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('Bien supprimé avec succès');
-        chargerBiens();
-      } else {
-        toast.error(data.erreur || 'Erreur lors de la suppression');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error('Erreur lors de la suppression');
-    } finally {
-      setShowDeleteConfirm(false);
-      setBienToDelete(null);
+    if (data.success) {
+      toast.success('Bien supprimé avec succès');
+      chargerBiens();
+    } else {
+      toast.error(data.erreur || 'Erreur lors de la suppression');
     }
-  };
+  } catch (error) {
+    console.error('Erreur:', error);
+    toast.error('Erreur lors de la suppression');
+  } finally {
+    setIsDeleting(false);
+    setShowDeleteConfirm(false);
+    setBienToDelete(null);
+  }
+};
 
   const handleFormSuccess = () => {
     setShowForm(false);
@@ -430,14 +435,11 @@ const handleSort = (key: string) => {
               statuts={['DISPONIBLE', 'LOUE', 'EN_TRAVAUX', 'EN_VENTE', 'RESERVE']}
               districts={districts}
             />
-            
-            <div className="actions-right">
-              <ActionButtons
+            <ActionButtons
                 data={filteredBiens}
                 columns={exportColumns}
                 titre="Liste des biens"
-              />
-              
+              /> 
               <div className="vue-selector">
                 <button 
                   className={`vue-btn ${vueActive === 'grid' ? 'active' : ''}`}
@@ -454,8 +456,7 @@ const handleSort = (key: string) => {
                   <span className="vue-icon">📋</span>
                 </button>
               </div>
-              
-              <button 
+            <button 
                 className="btn-add"
                 onClick={handleAddBien}
                 title='Nouveau Bien'
@@ -464,16 +465,15 @@ const handleSort = (key: string) => {
                 Nouveau
               </button>
             </div>
-          </div>
 
           {/* Liste des biens */}
           {isLoading ? (
-            <div className="biens-loading">
+            <div className="gestion-loading">
               <div className="loading-spinner"></div>
               <p>Chargement des biens...</p>
             </div>
           ) : filteredBiens.length === 0 ? (
-            <div className="biens-empty">
+            <div className="gestion-empty">
               <div className="empty-icon">🏢</div>
               <h3>Aucun bien trouvé</h3>
               <p>Commencez par ajouter votre premier bien immobilier</p>
@@ -715,31 +715,32 @@ const handleSort = (key: string) => {
 
       {/* Modale de confirmation suppression simple */}
       <ConfirmModal
-        isOpen={showDeleteConfirm}
-        title="Supprimer le bien"
-        message={`Êtes-vous sûr de vouloir supprimer "${bienToDelete?.nom}" ? Cette action est irréversible.`}
-        type="danger"
-        confirmText="Supprimer"
-        cancelText="Annuler"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setShowDeleteConfirm(false);
-          setBienToDelete(null);
-        }}
-      />
+  isOpen={showDeleteConfirm}
+  title="Supprimer le bien"
+  message={`Êtes-vous sûr de vouloir supprimer "${bienToDelete?.nom}" ? Cette action est irréversible.`}
+  type="danger"
+  confirmText="Supprimer"
+  cancelText="Annuler"
+  onConfirm={handleConfirmDelete}
+  onCancel={() => {
+    setShowDeleteConfirm(false);
+    setBienToDelete(null);
+  }}
+  isLoading={isDeleting}
+/>
 
       {/* ✅ Modale de confirmation suppression multiple */}
       <ConfirmModal
-        isOpen={showMultipleDeleteConfirm}
-        title="Supprimer plusieurs biens"
-        message={`Êtes-vous sûr de vouloir supprimer ${selectedBiens.length} bien(s) ? Cette action est irréversible.`}
-        type="danger"
-        confirmText="Supprimer tous"
-        cancelText="Annuler"
-        onConfirm={handleMultipleDelete}
-        onCancel={() => setShowMultipleDeleteConfirm(false)}
-        isLoading={isDeletingMultiple}
-      />
+  isOpen={showMultipleDeleteConfirm}
+  title="Supprimer plusieurs biens"
+  message={`Êtes-vous sûr de vouloir supprimer ${selectedBiens.length} bien(s) ? Cette action est irréversible.`}
+  type="danger"
+  confirmText="Supprimer tous"
+  cancelText="Annuler"
+  onConfirm={handleMultipleDelete}
+  onCancel={() => setShowMultipleDeleteConfirm(false)}
+  isLoading={isDeletingMultiple}
+/>
     </div>
   );
 }

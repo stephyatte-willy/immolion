@@ -443,3 +443,21 @@ select option {
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
+
+.form-static {
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+
+.form-static strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.text-muted {
+  color: #94a3b8;
+}

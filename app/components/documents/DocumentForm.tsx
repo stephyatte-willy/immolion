@@ -8,15 +8,27 @@ import './documents.css';
 
 interface DocumentFormProps {
   locataire_id?: number;
+  acquereur_id?: number;
+  bien_id?: number;
+  proprietaire_id?: number;
   locataire_nom?: string;
+  acquereur_nom?: string;
+  bien_nom?: string;
+  proprietaire_nom?: string;
   document?: any;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export default function DocumentForm({ 
-  locataire_id, 
+  locataire_id,
+  acquereur_id,
+  bien_id,
+  proprietaire_id,
   locataire_nom,
+  acquereur_nom,
+  bien_nom,
+  proprietaire_nom,
   document,
   onClose, 
   onSuccess 
@@ -28,6 +40,34 @@ export default function DocumentForm({
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Déterminer le nom du client à afficher
+  const getClientName = () => {
+    if (locataire_nom) return locataire_nom;
+    if (acquereur_nom) return acquereur_nom;
+    if (bien_nom) return bien_nom;
+    if (proprietaire_nom) return proprietaire_nom;
+    if (document) {
+      if (document.locataire_prenom && document.locataire_nom) {
+        return `${document.locataire_prenom} ${document.locataire_nom}`;
+      }
+      if (document.acquereur_prenom && document.acquereur_nom) {
+        return `${document.acquereur_prenom} ${document.acquereur_nom}`;
+      }
+      if (document.bien_nom) return document.bien_nom;
+      if (document.proprietaire_nom) return document.proprietaire_nom;
+    }
+    return 'Client sélectionné';
+  };
+
+  // Déterminer le type de client
+  const getClientType = () => {
+    if (locataire_id) return 'Locataire';
+    if (acquereur_id) return 'Acquéreur';
+    if (bien_id) return 'Bien';
+    if (proprietaire_id) return 'Propriétaire';
+    return 'Client';
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -73,8 +113,18 @@ export default function DocumentForm({
     try {
       const formData = new FormData();
       
+      // Ajouter l'ID approprié selon le type de client
       if (locataire_id) {
         formData.append('locataire_id', locataire_id.toString());
+      }
+      if (acquereur_id) {
+        formData.append('acquereur_id', acquereur_id.toString());
+      }
+      if (bien_id) {
+        formData.append('bien_id', bien_id.toString());
+      }
+      if (proprietaire_id) {
+        formData.append('proprietaire_id', proprietaire_id.toString());
       }
       
       formData.append('type_document', typeDocument);
@@ -141,6 +191,9 @@ export default function DocumentForm({
     return '📎';
   };
 
+  const clientName = getClientName();
+  const clientType = getClientType();
+
   return (
     <motion.div 
       className="modal-overlay"
@@ -158,7 +211,7 @@ export default function DocumentForm({
       >
         <div className="modal-header">
           <div className="modal-title">
-            <h2>{document ? '📎Modifier le document' : '📎Ajouter un document'}</h2>
+            <h2>{document ? '📎 Modifier le document' : '📎 Ajouter un document'}</h2>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -171,20 +224,19 @@ export default function DocumentForm({
           <form onSubmit={handleSubmit} className="document-form">
             <div className="form-section">
               <div className="modal-section-title">
-                <span>👤</span> Client
+                <span>👤</span> Client / Entité
               </div>
               
               <div className="info-panel">
                 <div className="client-info">
                   <span className="client-icon">👥</span>
-                  <span className="client-name">
-                    {locataire_nom || (document?.locataire_prenom && document?.locataire_nom ? 
-                      `${document.locataire_prenom} ${document.locataire_nom}` : 
-                      'Client sélectionné')}
-                  </span>
+                  <div className="client-details">
+                    <span className="client-type">{clientType}</span>
+                    <span className="client-name">{clientName}</span>
+                  </div>
                 </div>
-                {!locataire_id && !document?.locataire_id && (
-                  <p className="warning-text">⚠️ Aucun client sélectionné. Veuillez fermer et sélectionner un client.</p>
+                {!locataire_id && !acquereur_id && !bien_id && !proprietaire_id && !document?.locataire_id && !document?.acquereur_id && (
+                  <p className="warning-text">⚠️ Aucune entité sélectionnée. Veuillez fermer et sélectionner un client, bien ou propriétaire.</p>
                 )}
               </div>
             </div>

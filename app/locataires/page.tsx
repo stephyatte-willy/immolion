@@ -29,6 +29,14 @@ interface Locataire {
     id: number;
     nom: string;
     statut: string;
+    type_bien?: string;
+  };
+  lot_actuel?: {
+    id: number;
+    numero_lot: string;
+    type_lot: string;
+    loyer_mensuel?: number;
+    surface?: number;
   };
   impayes?: number;
   created_at: string;
@@ -52,9 +60,11 @@ export default function LocatairesPage() {
   // États pour la sélection multiple
   const [selectedLocataires, setSelectedLocataires] = useState<number[]>([]);
   const [showMultipleDeleteConfirm, setShowMultipleDeleteConfirm] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
-  // ✅ État pour le tri
+  // État pour le tri
   const [sortConfig, setSortConfig] = useState<{
     key: string;
     direction: 'asc' | 'desc';
@@ -68,7 +78,7 @@ export default function LocatairesPage() {
   });
   
   const router = useRouter();
-  const { formatDate, formatMoney } = useTheme();
+  const { formatDate, formatMoney } = useTheme(); 
 
   // Colonnes pour l'export Excel
   const exportColumns: ExportColumn[] = [
@@ -78,8 +88,7 @@ export default function LocatairesPage() {
     { header: 'Email', key: 'email' },
     { header: 'Téléphone', key: 'telephone' },
     { header: 'Statut', key: 'statut' },
-    { header: 'Bien actuel', key: 'bien_actuel', format: (v) => v ? v.nom : '-' },
-    { header: 'Statut du bien', key: 'bien_actuel', format: (v) => v ? v.statut : '-' },
+    { header: 'Bien / Lot', key: 'bien_actuel', format: (v) => v ? v.nom : (v?.lot_actuel ? v.lot_actuel.numero_lot : '-') },
     { header: 'Impayés', key: 'impayes', format: (v) => v ? v.toString() : '0' },
     { header: 'Date d\'inscription', key: 'created_at', format: (v) => new Date(v).toLocaleDateString('fr-FR') }
   ];
@@ -154,23 +163,17 @@ export default function LocatairesPage() {
       filtered = filtered.filter(l => l.statut === filters.statut);
     }
 
-    if (filters.statutBien && filters.statutBien !== 'TOUS') {
-      filtered = filtered.filter(l => {
-        return l.bien_actuel && l.bien_actuel.statut === filters.statutBien;
-      });
-    }
-
     if (filters.hasBien === 'oui') {
-      filtered = filtered.filter(l => l.bien_actuel);
+      filtered = filtered.filter(l => l.bien_actuel || l.lot_actuel);
     } else if (filters.hasBien === 'non') {
-      filtered = filtered.filter(l => !l.bien_actuel);
+      filtered = filtered.filter(l => !l.bien_actuel && !l.lot_actuel);
     }
 
     setFilteredLocataires(filtered);
     setSelectedLocataires([]);
   };
 
-  // ✅ Fonction de tri
+  // Fonction de tri
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     
@@ -186,10 +189,9 @@ export default function LocatairesPage() {
       let aValue: any = a[key as keyof Locataire];
       let bValue: any = b[key as keyof Locataire];
       
-      // Gestion spéciale pour certaines colonnes
       if (key === 'bien_actuel') {
-        aValue = a.bien_actuel?.nom || '';
-        bValue = b.bien_actuel?.nom || '';
+        aValue = a.bien_actuel?.nom || a.lot_actuel?.numero_lot || '';
+        bValue = b.bien_actuel?.nom || b.lot_actuel?.numero_lot || '';
       }
       
       if (key === 'impayes') {
@@ -240,32 +242,32 @@ export default function LocatairesPage() {
 
   // Suppression multiple
   const handleMultipleDelete = async () => {
-    if (selectedLocataires.length === 0) return;
+  if (selectedLocataires.length === 0) return;
+  
+  setShowMultipleDeleteConfirm(false);
+  setIsDeletingMultiple(true);
+  
+  try {
+    const promises = selectedLocataires.map(id => 
+      fetch(`/api/locataires/${id}`, { method: 'DELETE' })
+    );
     
-    setShowMultipleDeleteConfirm(false);
-    setIsDeletingMultiple(true);
+    const results = await Promise.all(promises);
+    const allSuccess = results.every(res => res.ok);
     
-    try {
-      const promises = selectedLocataires.map(id => 
-        fetch(`/api/locataires/${id}`, { method: 'DELETE' })
-      );
-      
-      const results = await Promise.all(promises);
-      const allSuccess = results.every(res => res.ok);
-      
-      if (allSuccess) {
-        toast.success(`${selectedLocataires.length} locataire(s) supprimé(s) avec succès`);
-        chargerLocataires();
-      } else {
-        toast.error('Erreur lors de la suppression de certains locataires');
-      }
-    } catch (error) {
-      console.error('❌ Erreur suppression multiple:', error);
-      toast.error('Erreur lors de la suppression multiple');
-    } finally {
-      setIsDeletingMultiple(false);
+    if (allSuccess) {
+      toast.success(`${selectedLocataires.length} locataire(s) supprimé(s) avec succès`);
+      chargerLocataires();
+    } else {
+      toast.error('Erreur lors de la suppression de certains locataires');
     }
-  };
+  } catch (error) {
+    console.error('❌ Erreur suppression multiple:', error);
+    toast.error('Erreur lors de la suppression multiple');
+  } finally {
+    setIsDeletingMultiple(false);
+  }
+};
 
   const handleAddLocataire = () => {
     setSelectedLocataire(null);
@@ -291,28 +293,30 @@ export default function LocatairesPage() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!locataireToDelete) return;
+  if (!locataireToDelete) return;
 
-    try {
-      const response = await fetch(`/api/locataires/${locataireToDelete.id}`, {
-        method: 'DELETE'
-      });
-      const data = await response.json();
+  setIsDeleting(true);
+  try {
+    const response = await fetch(`/api/locataires/${locataireToDelete.id}`, {
+      method: 'DELETE'
+    });
+    const data = await response.json();
 
-      if (data.success) {
-        toast.success('Locataire supprimé avec succès');
-        chargerLocataires();
-      } else {
-        toast.error(data.erreur || 'Erreur lors de la suppression');
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
-      toast.error('Erreur lors de la suppression');
-    } finally {
-      setShowDeleteConfirm(false);
-      setLocataireToDelete(null);
+    if (data.success) {
+      toast.success('Locataire supprimé avec succès');
+      chargerLocataires();
+    } else {
+      toast.error(data.erreur || 'Erreur lors de la suppression');
     }
-  };
+  } catch (error) {
+    console.error('Erreur:', error);
+    toast.error('Erreur lors de la suppression');
+  } finally {
+    setIsDeleting(false);
+    setShowDeleteConfirm(false);
+    setLocataireToDelete(null);
+  }
+};
 
   const handleFormSuccess = () => {
     setShowForm(false);
@@ -386,17 +390,17 @@ export default function LocatairesPage() {
 
           {/* Liste des locataires */}
           {isLoading ? (
-            <div className="locataires-loading">
+            <div className="gestion-loading">
               <div className="loading-spinner"></div>
               <p>Chargement des locataires...</p>
             </div>
           ) : filteredLocataires.length === 0 ? (
-            <div className="locataires-empty">
+            <div className="gestion-empty">
               <div className="empty-icon">👥</div>
               <h3>Aucun locataire trouvé</h3>
               <p>Commencez par ajouter votre premier locataire</p>
               <button 
-                className="btn-add empty-btn"
+                className="btn-add empty"
                 onClick={handleAddLocataire}
               >
                 Ajouter un locataire
@@ -514,7 +518,7 @@ export default function LocatairesPage() {
                         </span>
                       </th>
                       <th className={`sortable ${sortConfig?.key === 'bien_actuel' ? 'active' : ''}`} onClick={() => handleSort('bien_actuel')}>
-                        Bien actuel
+                        Bien / Lot
                         <span className="sort-icon">
                           {sortConfig?.key === 'bien_actuel' ? (
                             sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
@@ -556,7 +560,11 @@ export default function LocatairesPage() {
                             {loc.statut === 'ACTIF' ? 'Actif' : loc.statut === 'PROSPECT' ? 'Prospect' : 'Inactif'}
                           </span>
                         </td>
-                        <td>{loc.bien_actuel?.nom || '-'}</td>
+                        <td>
+                          {loc.lot_actuel 
+                            ? `${loc.lot_actuel.numero_lot} (${loc.lot_actuel.type_lot})`
+                            : loc.bien_actuel?.nom || '-'}
+                        </td>
                         <td>{loc.impayes && loc.impayes > 0 ? `${loc.impayes} ⚠️` : '-'}</td>
                         <td>
                           <div className="table-actions">
@@ -598,31 +606,32 @@ export default function LocatairesPage() {
 
       {/* Modale de confirmation suppression simple */}
       <ConfirmModal
-        isOpen={showDeleteConfirm}
-        title="Supprimer le locataire"
-        message={`Êtes-vous sûr de vouloir supprimer ${locataireToDelete?.prenom} ${locataireToDelete?.nom} ? Cette action est irréversible.`}
-        type="danger"
-        confirmText="Supprimer"
-        cancelText="Annuler"
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          setShowDeleteConfirm(false);
-          setLocataireToDelete(null);
-        }}
-      />
+  isOpen={showDeleteConfirm}
+  title="Supprimer le locataire"
+  message={`Êtes-vous sûr de vouloir supprimer ${locataireToDelete?.prenom} ${locataireToDelete?.nom} ? Cette action est irréversible.`}
+  type="danger"
+  confirmText="Supprimer"
+  cancelText="Annuler"
+  onConfirm={handleConfirmDelete}
+  onCancel={() => {
+    setShowDeleteConfirm(false);
+    setLocataireToDelete(null);
+  }}
+  isLoading={isDeleting}
+/>
 
       {/* Modale de confirmation suppression multiple */}
       <ConfirmModal
-        isOpen={showMultipleDeleteConfirm}
-        title="Supprimer plusieurs locataires"
-        message={`Êtes-vous sûr de vouloir supprimer ${selectedLocataires.length} locataire(s) ? Cette action est irréversible.`}
-        type="danger"
-        confirmText="Supprimer tous"
-        cancelText="Annuler"
-        onConfirm={handleMultipleDelete}
-        onCancel={() => setShowMultipleDeleteConfirm(false)}
-        isLoading={isDeletingMultiple}
-      />
+  isOpen={showMultipleDeleteConfirm}
+  title="Supprimer plusieurs locataires"
+  message={`Êtes-vous sûr de vouloir supprimer ${selectedLocataires.length} locataire(s) ? Cette action est irréversible.`}
+  type="danger"
+  confirmText="Supprimer tous"
+  cancelText="Annuler"
+  onConfirm={handleMultipleDelete}
+  onCancel={() => setShowMultipleDeleteConfirm(false)}
+  isLoading={isDeletingMultiple}
+/>
     </div>
   );
 }

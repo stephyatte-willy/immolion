@@ -2,7 +2,6 @@
 export const STATUTS_LOCATAIRE = [
   { value: 'ACTIF', label: 'Actif', couleur: '#10b981' },
   { value: 'INACTIF', label: 'Inactif', couleur: '#94a3b8' },
-  { value: 'SORTI', label: 'Sorti', couleur: '#ef4444' },
   { value: 'PROSPECT', label: 'Prospect', couleur: '#f59e0b' }
 ];
 
@@ -73,15 +72,14 @@ export interface Locataire {
   profession?: string;
   employeur?: string;
   revenus_mensuels?: number;
-  statut: 'ACTIF' | 'INACTIF' | 'SORTI' | 'PROSPECT';
+  statut: string;
   notes?: string;
-  documents?: Document[];
-  contrats?: Contrat[];
-  paiements?: Paiement[];
   bien_actuel?: {
     id: number;
     nom: string;
     adresse: string;
+    loyer_mensuel: number;
+    charges: number;
   };
   created_at: string;
   updated_at: string;

@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { STATUTS_PAIEMENT, MODES_PAIEMENT, TYPES_PAIEMENT } from '@/app/types/paiements';
-import { documentPaiementService } from '@/app/services/quittanceService';
+import { quittanceService } from '@/app/services/quittanceService';
 import toast from 'react-hot-toast';
 import './paiements.css';
 
@@ -16,6 +16,7 @@ interface PaiementCardProps {
   compact?: boolean;
   contrat?: any;
   locataire?: any;
+  acquereur?: any;
   bien?: any;
   entreprise?: any;
 }
@@ -28,11 +29,34 @@ export default function PaiementCard({
   compact = false,
   contrat: propContrat,
   locataire: propLocataire,
+  acquereur: propAcquereur,
   bien: propBien,
   entreprise: propEntreprise
 }: PaiementCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // ✅ Déterminer si c'est une vente
+  const isVente = paiement.type_transaction === 'VENTE';
+  const isLocation = paiement.type_transaction === 'LOCATION' || !paiement.type_transaction;
+
+  // ✅ Obtenir le nom du client (locataire ou acquéreur)
+  const getClientName = () => {
+    if (isVente) {
+      return paiement.acquereur_prenom && paiement.acquereur_nom 
+        ? `${paiement.acquereur_prenom} ${paiement.acquereur_nom}`
+        : 'Client non renseigné';
+    }
+    return paiement.locataire_prenom && paiement.locataire_nom 
+      ? `${paiement.locataire_prenom} ${paiement.locataire_nom}`
+      : 'Client non renseigné';
+  };
+
+  // ✅ Obtenir le type de transaction
+  const getTransactionType = () => {
+    if (isVente) return 'VENTE';
+    return 'LOCATION';
+  };
 
   const getStatutInfo = (statut: string) => {
     const statutObj = STATUTS_PAIEMENT.find(s => s.value === statut) || STATUTS_PAIEMENT[0];
@@ -58,6 +82,8 @@ export default function PaiementCard({
   const statutInfo = getStatutInfo(paiement.statut);
   const typeInfo = getTypeInfo(paiement.type_paiement);
   const modeIcon = getModeIcon(paiement.mode_paiement);
+  const clientName = getClientName();
+  const transactionType = getTransactionType();
 
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('fr-FR', {
@@ -76,28 +102,31 @@ export default function PaiementCard({
 
   const moisConcerne = getMoisConcerne();
 
-  // ✅ Génération directe de la quittance
   const handleGenerateQuittance = async () => {
     setIsGenerating(true);
     
     try {
-      // Récupérer les données nécessaires si non fournies en props
       let contrat = propContrat;
-      let locataire = propLocataire;
+      let client = propLocataire;
       let bien = propBien;
       let entreprise = propEntreprise;
 
-      // Si les données ne sont pas fournies, les récupérer depuis l'API
       if (!contrat && paiement.contrat_id) {
         const contratRes = await fetch(`/api/contrats/${paiement.contrat_id}`);
         const contratData = await contratRes.json();
         contrat = contratData.contrat;
       }
       
-      if (!locataire && paiement.locataire_id) {
+      if (!client && paiement.locataire_id && !isVente) {
         const locataireRes = await fetch(`/api/locataires/${paiement.locataire_id}`);
         const locataireData = await locataireRes.json();
-        locataire = locataireData.locataire;
+        client = locataireData.locataire;
+      }
+      
+      if (!client && paiement.acquereur_id && isVente) {
+        const acquereurRes = await fetch(`/api/acquereurs/${paiement.acquereur_id}`);
+        const acquereurData = await acquereurRes.json();
+        client = acquereurData.acquereur;
       }
       
       if (!bien && paiement.bien_id) {
@@ -112,16 +141,15 @@ export default function PaiementCard({
         entreprise = entrepriseData.entreprise;
       }
 
-      if (!contrat || !locataire || !bien || !entreprise) {
+      if (!contrat || !client || !bien || !entreprise) {
         toast.error('Impossible de récupérer toutes les informations');
         return;
       }
 
-      const isVente = contrat.type_contrat === 'VENTE';
+      const isVenteContrat = contrat.type_contrat === 'VENTE';
       
-      // Calculer le total déjà versé pour les ventes
       let totalDejaVerse = 0;
-      if (isVente) {
+      if (isVenteContrat) {
         const versementsRes = await fetch(`/api/paiements?contrat_id=${contrat.id}&type_paiement=ACOMPTE,VERSEMENT,SOLDE`);
         const versementsData = await versementsRes.json();
         if (versementsData.success && versementsData.paiements) {
@@ -129,9 +157,8 @@ export default function PaiementCard({
         }
       }
 
-      // ✅ Type explicite pour quittanceData
       const quittanceData: any = {
-        type: isVente ? 'VENTE' : 'LOCATION',
+        type: isVenteContrat ? 'VENTE' : 'LOCATION',
         numero_document: paiement.numero_quittance || `QUIT-${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(paiement.id).padStart(6, '0')}`,
         date_emission: new Date().toISOString(),
         paiement: {
@@ -152,10 +179,10 @@ export default function PaiementCard({
           prix_vente: contrat.prix_vente ? parseFloat(contrat.prix_vente) : 0
         },
         client: {
-          nom: locataire.nom,
-          prenom: locataire.prenom,
-          telephone: locataire.telephone || '',
-          type: isVente ? 'acheteur' : 'locataire'
+          nom: client.nom,
+          prenom: client.prenom,
+          telephone: client.telephone || '',
+          type: isVenteContrat ? 'acheteur' : 'locataire'
         },
         bien: {
           nom: bien.nom,
@@ -173,7 +200,7 @@ export default function PaiementCard({
           email: entreprise.email || 'contact@immolion.ci',
           site_web: entreprise.site_web
         },
-        echeancier: isVente ? {
+        echeancier: isVenteContrat ? {
           total_vente: parseFloat(contrat.prix_vente || 0),
           deja_verse: totalDejaVerse,
           reste: parseFloat(contrat.prix_vente || 0) - totalDejaVerse,
@@ -181,7 +208,7 @@ export default function PaiementCard({
         } : undefined
       };
 
-      await documentPaiementService.genererDocument(quittanceData);
+      await quittanceService.genererQuittance(quittanceData);
       toast.success('Document généré avec succès');
       
     } catch (error) {
@@ -192,7 +219,7 @@ export default function PaiementCard({
     }
   };
 
-  // ✅ Version compacte
+  // Version compacte
   if (compact) {
     return (
       <motion.div 
@@ -251,25 +278,28 @@ export default function PaiementCard({
             </div>
           </div>
 
-          {moisConcerne && (
-            <div className="compact-details">
-              <span className="compact-mois">📅 Le mois : {moisConcerne}</span>
-              {paiement.reference && (
-                <span className="compact-reference">
-                  Réf: {paiement.reference}
-                </span>
-              )}
-              <span className="compact-mode">
-                {modeIcon} {paiement.mode_paiement} 
-              </span>
-            </div>
-          )}
+          <div className="compact-details">
+            {/* ✅ Ajout du type de transaction (Location/Vente) */}
+            <span className={`compact-transaction ${isVente ? 'vente' : 'location'}`}>
+              {isVente ? '💰 Vente' : '🏠 Location'}
+            </span>
+            {/* ✅ Ajout du nom du client */}
+            <span className="compact-client">
+              👤 {clientName}
+            </span>
+            {moisConcerne && (
+              <span className="compact-mois">📅 {moisConcerne}</span>
+            )}
+            <span className="compact-mode">
+              {modeIcon} {paiement.mode_paiement} 
+            </span>
+          </div>
         </div>
       </motion.div>
     );
   }
 
-  // ✅ Version normale
+  // Version normale
   return (
     <motion.div 
       className={`paiement-card ${paiement.statut.toLowerCase()}`}
@@ -285,6 +315,10 @@ export default function PaiementCard({
         <div className="paiement-type">
           <span className="type-icon">{typeInfo.icone}</span>
           <span className="type-label">{typeInfo.label}</span>
+        </div>
+        {/* ✅ Ajout du badge Vente/Location */}
+        <div className={`transaction-badge ${isVente ? 'vente' : 'location'}`}>
+          {isVente ? '💰 Vente' : '🏠 Location'}
         </div>
         <div 
           className="paiement-statut-badge"
@@ -309,11 +343,10 @@ export default function PaiementCard({
         </div>
 
         <div className="paiement-infos">
+          {/* ✅ Affichage du client selon le type */}
           <div className="paiement-client">
-            <span className="info-icon">👤</span>
-            <span className="info-text">
-              {paiement.locataire_prenom} {paiement.locataire_nom}
-            </span>
+            <span className="info-icon">{isVente ? '👤 Acheteur' : '👤 Locataire'}</span>
+            <span className="info-text">{clientName}</span>
           </div>
           
           <div className="paiement-bien">

@@ -342,18 +342,6 @@
   gap: 20px;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  color: var(--lion-navy);
-  font-size: 14px;
-  font-weight: 500;
-}
-
 .input-wrapper {
   display: flex;
   align-items: center;

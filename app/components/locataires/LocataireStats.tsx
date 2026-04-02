@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import '@/app/locataires/locataires.css';
-import '@/app/biens/biens.css';
 
 interface LocataireStatsProps {
   stats: {

@@ -32,10 +32,24 @@ const menuItems: MenuItem[] = [
     roles: ['SUPER_ADMIN', 'ADMIN', 'PROPRIETAIRE', 'GESTIONNAIRE']
   },
   { 
+    id: 'proprietaires', 
+    label: 'Propriétaires', 
+    icon: '🤵', 
+    path: '/proprietaires',
+    roles: ['SUPER_ADMIN', 'ADMIN', 'GESTIONNAIRE']
+  },
+  { 
     id: 'locataires', 
     label: 'Locataires', 
     icon: '👥', 
     path: '/locataires',
+    roles: ['SUPER_ADMIN', 'ADMIN', 'PROPRIETAIRE', 'GESTIONNAIRE']
+  },
+  { 
+    id: 'acquereurs',  // ✅ NOUVEAU
+    label: 'Acquéreurs', 
+    icon: '🤝', 
+    path: '/acquereurs',
     roles: ['SUPER_ADMIN', 'ADMIN', 'PROPRIETAIRE', 'GESTIONNAIRE']
   },
   { 

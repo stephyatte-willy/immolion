@@ -38,6 +38,9 @@ export default function CalendrierPage() {
   // ✅ États pour la sélection multiple (toujours actifs)
   const [selectedEvenements, setSelectedEvenements] = useState<number[]>([]);
   const [showMultipleDeleteConfirm, setShowMultipleDeleteConfirm] = useState(false);
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const router = useRouter();
   const { formatDate } = useTheme();
@@ -182,11 +185,12 @@ export default function CalendrierPage() {
     }
   };
 
-  // ✅ Suppression multiple
+  // ✅ Suppression multiple fetch(`/api/evenements/${id}`, { method: 'DELETE' })
   const handleMultipleDelete = async () => {
     if (selectedEvenements.length === 0) return;
     
-    setShowMultipleDeleteConfirm(false);
+      setShowMultipleDeleteConfirm(false);
+      setIsDeletingMultiple(true);
     
     try {
       const promises = selectedEvenements.map(id => 
@@ -456,7 +460,7 @@ export default function CalendrierPage() {
 
           {/* Vue calendrier ou liste */}
           {isLoading ? (
-            <div className="calendrier-loading">
+            <div className="gestion-loading">
               <div className="loading-spinner"></div>
               <p>Chargement du calendrier...</p>
             </div>
@@ -481,7 +485,7 @@ export default function CalendrierPage() {
               </div>
               
               {filteredEvenements.length === 0 ? (
-                <div className="evenements-empty">
+                <div className="gestion-empty">
                   <span className="empty-icon">📅</span>
                   <h3>Aucun événement trouvé</h3>
                   <p>Commencez par créer un nouvel événement</p>
@@ -618,6 +622,7 @@ export default function CalendrierPage() {
           setShowDeleteConfirm(false);
           setEvenementToDelete(null);
         }}
+        isLoading={isDeleting}
       />
 
       <ConfirmModal
@@ -629,6 +634,7 @@ export default function CalendrierPage() {
         cancelText="Annuler"
         onConfirm={handleMultipleDelete}
         onCancel={() => setShowMultipleDeleteConfirm(false)}
+        isLoading={isDeletingMultiple}        
       />
     </div>
   );

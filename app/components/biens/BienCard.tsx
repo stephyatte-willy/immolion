@@ -19,8 +19,8 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
 
   // Types de biens
   const typesResidentiels = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO'];
-  const typesCommerciaux = ['COMMERCIAL', 'BUREAU', 'ENTREPOT'];
-  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU', 'ENTREPOT'];
+  const typesCommerciaux = ['COMMERCIAL', 'BUREAU', 'ENTREPOT', 'MAGASIN'];
+  const typesLocation = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO', 'COMMERCIAL', 'BUREAU', 'ENTREPOT', 'MAGASIN'];
 
   const getStatutClass = (statut: string) => {
     const classes: Record<string, string> = {
@@ -46,60 +46,92 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, string> = {
+      'IMMEUBLE': '🏢',
       'APPARTEMENT': '🏢',
       'MAISON': '🏠',
       'VILLA': '🏛️',
       'STUDIO': '🏢',
       'COMMERCIAL': '🏪',
+      'MAGASIN': '🏪',
       'TERRAIN': '🌲',
       'ENTREPOT': '🏭',
-      'BUREAU': '🏢'
+      'BUREAU': '🏢',
+      'PARKING': '🅿️',
+      'CHAMBRE': '🛏️',
+      'KIOSQUE': '🏪'
     };
     return icons[type] || '🏢';
   };
 
-  // ✅ Fonction pour obtenir le libellé du prix selon le statut
+  const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      'IMMEUBLE': 'Immeuble',
+      'APPARTEMENT': 'Appartement',
+      'MAISON': 'Maison',
+      'VILLA': 'Villa',
+      'STUDIO': 'Studio',
+      'COMMERCIAL': 'Commercial',
+      'MAGASIN': 'Magasin',
+      'TERRAIN': 'Terrain',
+      'ENTREPOT': 'Entrepôt',
+      'BUREAU': 'Bureau',
+      'PARKING': 'Parking',
+      'CHAMBRE': 'Chambre',
+      'KIOSQUE': 'Kiosque'
+    };
+    return labels[type] || type;
+  };
+
+  // Fonction pour obtenir le libellé du prix selon le statut
   const getPriceLabel = () => {
     if (bien.statut === 'EN_VENTE') {
       return 'Prix de vente';
     } else if (typesLocation.includes(bien.type_bien)) {
       return 'Loyer mensuel';
+    } else if (bien.type_bien === 'IMMEUBLE') {
+      return 'Revenus mensuels';
     } else {
       return 'Prix';
     }
   };
 
-  // ✅ Fonction pour obtenir la valeur du prix selon le statut
+  // Fonction pour obtenir la valeur du prix selon le statut et le type
   const getPriceValue = () => {
     if (bien.statut === 'EN_VENTE') {
       return bien.prix_vente || 0;
+    } else if (bien.type_bien === 'IMMEUBLE' && bien.lots && bien.lots.length > 0) {
+      // Calculer le total des loyers des lots pour un immeuble
+      return bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.loyer_mensuel) || 0), 0);
     } else {
       return bien.loyer_mensuel || 0;
     }
   };
 
-  // ✅ Fonction pour vérifier si on doit afficher les charges
+  // Fonction pour vérifier si on doit afficher les charges
   const showCharges = () => {
     return bien.statut !== 'EN_VENTE' && 
+           bien.type_bien !== 'IMMEUBLE' &&
            typesLocation.includes(bien.type_bien) && 
            bien.charges !== undefined && 
            bien.charges > 0;
   };
 
-  // ✅ Fonction pour vérifier si on doit afficher les pièces
+  // Fonction pour vérifier si on doit afficher les pièces
   const showPieces = () => {
-    return typesResidentiels.includes(bien.type_bien) || 
-           typesCommerciaux.includes(bien.type_bien);
+    return bien.type_bien !== 'IMMEUBLE' && bien.type_bien !== 'TERRAIN' &&
+           (typesResidentiels.includes(bien.type_bien) || 
+            typesCommerciaux.includes(bien.type_bien));
   };
 
-  // ✅ Fonction pour vérifier si on doit afficher l'étage
+  // Fonction pour vérifier si on doit afficher l'étage
   const showEtage = () => {
-    return ['APPARTEMENT', 'COMMERCIAL', 'BUREAU'].includes(bien.type_bien) && 
+    return bien.type_bien !== 'IMMEUBLE' &&
+           ['APPARTEMENT', 'COMMERCIAL', 'BUREAU', 'MAGASIN'].includes(bien.type_bien) && 
            bien.etage !== null && 
            bien.etage !== undefined;
   };
 
-  // ✅ Fonction pour obtenir la localisation complète
+  // Fonction pour obtenir la localisation complète
   const getLocalisation = () => {
     let localisation = bien.adresse;
     
@@ -116,6 +148,14 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
     return localisation;
   };
 
+  // Fonction pour obtenir le nombre total de lots (pour les immeubles)
+  const getTotalLots = () => {
+    if (bien.type_bien === 'IMMEUBLE' && bien.lots && bien.lots.length > 0) {
+      return bien.lots.length;
+    }
+    return null;
+  };
+
   const getPhotoUrl = () => {
     if (imageError) return null;
     
@@ -129,6 +169,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
   const photoUrl = getPhotoUrl();
   const priceLabel = getPriceLabel();
   const priceValue = getPriceValue();
+  const totalLots = getTotalLots();
 
   return (
     <motion.div 
@@ -174,8 +215,16 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
         </div>
         <div className="bien-card-type">
           <span className="type-icon">{getTypeIcon(bien.type_bien)}</span>
-          <span className="type-label">{bien.type_bien}</span>
+          <span className="type-label">{getTypeLabel(bien.type_bien)}</span>
         </div>
+
+        {/* Badge pour le nombre de lots (immeuble) */}
+        {totalLots !== null && (
+          <div className="bien-card-lots-count">
+            <span className="lots-icon">🏘️</span>
+            <span className="lots-count">{totalLots} lots</span>
+          </div>
+        )}
 
         {/* Overlay au survol */}
         <div className="bien-card-overlay">
@@ -219,6 +268,14 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
             <div className="feature">
               <span className="feature-icon">🏢</span>
               <span>Étage {bien.etage}</span>
+            </div>
+          )}
+
+          {/* Pour les immeubles, afficher le nombre de lots */}
+          {totalLots !== null && (
+            <div className="feature">
+              <span className="feature-icon">🏘️</span>
+              <span>{totalLots} lots</span>
             </div>
           )}
 
