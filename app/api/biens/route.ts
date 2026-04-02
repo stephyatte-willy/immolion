@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { queryRows, queryInsert } from '@/app/lib/database';
 
 // GET - Liste des biens
-// GET - Liste des biens
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -93,7 +92,6 @@ export async function GET(request: NextRequest) {
         photos: photos || [],
         locataire_actuel: locataire_actuel || null,
         lots: lots || [],
-        // ✅ Ajouter les infos du propriétaire
         proprietaire: b.proprietaire_id ? {
           id: b.proprietaire_id,
           nom: b.proprietaire_nom,
@@ -160,8 +158,7 @@ export async function POST(request: NextRequest) {
       pieces, 
       loyer_mensuel, 
       prix_vente,
-      lots_reçu: lots ? 'oui' : 'non',
-      lots_length: lots ? JSON.parse(lots)?.length : 0
+      lots_reçu: lots ? 'oui' : 'non'
     });
 
     // ========== VALIDATION DES CHAMPS OBLIGATOIRES ==========
@@ -375,7 +372,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ========== GESTION DES PHOTOS (VERSION QUI FONCTIONNAIT) ==========
+    // ========== GESTION DES PHOTOS ==========
     const photos = formData.getAll('photos') as File[];
     console.log(`📸 ${photos.length} photos reçues`);
     
@@ -386,29 +383,24 @@ export async function POST(request: NextRequest) {
         const photo = photos[i];
         
         try {
-          // Vérifier la taille (max 5MB)
           if (photo.size > 5 * 1024 * 1024) {
-            console.log(`⚠️ Photo ${i+1} trop grande (${(photo.size / 1024 / 1024).toFixed(2)}MB), ignorée`);
+            console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
             continue;
           }
 
-          // Vérifier le type MIME
           const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
           if (!allowedTypes.includes(photo.type)) {
             console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
             continue;
           }
 
-          // Convertir en base64
           const bytes = await photo.arrayBuffer();
           const buffer = Buffer.from(bytes);
           const base64 = buffer.toString('base64');
           const mimeType = photo.type;
           
-          // Stocker l'image en base64
           const url = `data:${mimeType};base64,${base64}`;
           
-          // Insérer dans la base de données
           const photoResult = await queryInsert(
             'INSERT INTO photos (bien_id, url, est_principale, ordre, created_at) VALUES (?, ?, ?, ?, NOW())',
             [bienId, url, i === 0 ? 1 : 0, i]
@@ -428,7 +420,6 @@ export async function POST(request: NextRequest) {
       console.log(`✅ ${photosAjoutées}/${photos.length} photos ajoutées avec succès`);
     }
 
-    // ========== RÉPONSE FINALE ==========
     return NextResponse.json({
       success: true,
       id: bienId,
@@ -450,294 +441,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  }
-}
-
-// PUT - Modifier un bien
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const formData = await request.formData();
-    
-    const proprietaire_id = formData.get('proprietaire_id') as string;
-    const nom = formData.get('nom') as string;
-    const type_bien = formData.get('type_bien') as string;
-    const statut = formData.get('statut') as string;
-    const adresse = formData.get('adresse') as string;
-    const quartier = formData.get('quartier') as string;
-    const commune = formData.get('commune') as string;
-    const ville = formData.get('ville') as string;
-    const district = formData.get('district') as string;
-    const pays = formData.get('pays') as string;
-    const surface = formData.get('surface') as string;
-    const pieces = formData.get('pieces') as string;
-    const etage = formData.get('etage') as string;
-    const description = formData.get('description') as string;
-    const loyer_mensuel = formData.get('loyer_mensuel') as string;
-    const charges = formData.get('charges') as string;
-    const depot_garantie = formData.get('depot_garantie') as string;
-    const prix_vente = formData.get('prix_vente') as string;
-    const date_acquisition = formData.get('date_acquisition') as string;
-    const latitude = formData.get('latitude') as string;
-    const longitude = formData.get('longitude') as string;
-    const lots = formData.get('lots') as string;
-    const lotsToDelete = formData.get('lotsToDelete') as string;
-
-    const photosToDelete = formData.getAll('photosToDelete') as string[];
-    const newPhotos = formData.getAll('photos') as File[];
-
-    console.log('📦 Mise à jour bien ID:', id);
-    console.log('📸 Nouvelles photos:', newPhotos.length);
-    console.log('🗑️ Photos à supprimer:', photosToDelete);
-
-    // Validation des champs obligatoires
-    if (!nom || !type_bien || !commune || !district || !surface) {
-      return NextResponse.json(
-        { success: false, erreur: 'Champs obligatoires manquants' },
-        { status: 400 }
-      );
-    }
-
-    const surfaceNum = parseFloat(surface);
-    const piecesNum = parseInt(pieces) || 1;
-    const etageNum = etage ? parseInt(etage) : null;
-    const latitudeNum = latitude ? parseFloat(latitude) : null;
-    const longitudeNum = longitude ? parseFloat(longitude) : null;
-
-    let dateAcquisitionFormatted = null;
-    if (date_acquisition && date_acquisition.trim() !== '') {
-      dateAcquisitionFormatted = date_acquisition.includes('T') 
-        ? date_acquisition.split('T')[0] 
-        : date_acquisition;
-    }
-
-    // Gestion financière
-    let loyerNum = 0, chargesNum = 0, depotNum = null, prixVenteNum = null;
-    
-    if (statut === 'EN_VENTE') {
-      if (prix_vente) {
-        prixVenteNum = parseFloat(prix_vente);
-        if (isNaN(prixVenteNum) || prixVenteNum <= 0) {
-          return NextResponse.json({ success: false, erreur: 'Prix de vente invalide' }, { status: 400 });
-        }
-      }
-    } else {
-      if (loyer_mensuel) {
-        loyerNum = parseFloat(loyer_mensuel);
-        if (isNaN(loyerNum) || loyerNum < 0) {
-          return NextResponse.json({ success: false, erreur: 'Loyer mensuel invalide' }, { status: 400 });
-        }
-      }
-      chargesNum = charges ? parseFloat(charges) : 0;
-      depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
-    }
-
-    // 1. SUPPRIMER LES PHOTOS MARQUÉES
-    if (photosToDelete && photosToDelete.length > 0) {
-      for (const photoId of photosToDelete) {
-        await queryInsert('DELETE FROM photos WHERE id = ?', [photoId]);
-        console.log(`✅ Photo ${photoId} supprimée`);
-      }
-    }
-
-    // 2. METTRE À JOUR LE BIEN
-    const proprietaireIdValue = proprietaire_id && proprietaire_id.trim() !== '' 
-      ? parseInt(proprietaire_id) 
-      : null;
-    
-    await queryInsert(
-      `UPDATE biens SET
-        proprietaire_id = ?,
-        nom = ?, type_bien = ?, statut = ?, adresse = ?, quartier = ?, commune = ?,
-        ville = ?, district = ?, pays = ?, surface = ?, pieces = ?, etage = ?,
-        description = ?, loyer_mensuel = ?, charges = ?, depot_garantie = ?,
-        prix_vente = ?, date_acquisition = ?, latitude = ?, longitude = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [
-        proprietaireIdValue,
-        nom, type_bien, statut, adresse || null, quartier || null, commune,
-        ville || 'Abidjan', district, pays || 'Côte d\'Ivoire',
-        surfaceNum, piecesNum, etageNum, description || null,
-        loyerNum, chargesNum, depotNum, prixVenteNum,
-        dateAcquisitionFormatted, latitudeNum, longitudeNum, id
-      ]
-    );
-
-    // 3. GÉRER LES LOTS
-    if (type_bien === 'IMMEUBLE') {
-      if (lotsToDelete && lotsToDelete !== '[]') {
-        const lotsToDeleteArray = JSON.parse(lotsToDelete);
-        for (const lotId of lotsToDeleteArray) {
-          await queryInsert('DELETE FROM lots WHERE id = ?', [lotId]);
-          console.log(`✅ Lot ${lotId} supprimé`);
-        }
-      }
-
-      if (lots && lots !== '[]' && lots !== 'null') {
-        const lotsData = JSON.parse(lots);
-        console.log(`📦 ${lotsData.length} lots à traiter`);
-        
-        for (const lot of lotsData) {
-          if (lot.id) {
-            await queryInsert(
-              `UPDATE lots SET
-                numero_lot = ?, etage = ?, type_lot = ?, nom = ?,
-                surface = ?, pieces = ?, loyer_mensuel = ?, charges = ?,
-                depot_garantie = ?, prix_vente = ?, description = ?, statut = ?,
-                updated_at = NOW()
-               WHERE id = ?`,
-              [
-                lot.numero_lot || `Lot_${Date.now()}`,
-                lot.etage ? parseInt(lot.etage) : null,
-                lot.type_lot || 'APPARTEMENT',
-                lot.nom || null,
-                parseFloat(lot.surface) || 0,
-                lot.pieces ? parseInt(lot.pieces) : null,
-                parseFloat(lot.loyer_mensuel) || 0,
-                parseFloat(lot.charges) || 0,
-                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
-                lot.prix_vente ? parseFloat(lot.prix_vente) : null,
-                lot.description || null,
-                lot.statut || 'DISPONIBLE',
-                lot.id
-              ]
-            );
-            console.log(`✅ Lot ${lot.numero_lot} mis à jour`);
-          } else {
-            await queryInsert(
-              `INSERT INTO lots (
-                bien_principal_id, numero_lot, etage, type_lot, nom,
-                surface, pieces, loyer_mensuel, charges, depot_garantie,
-                prix_vente, description, statut, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-              [
-                parseInt(id),
-                lot.numero_lot || `Lot_${Date.now()}`,
-                lot.etage ? parseInt(lot.etage) : null,
-                lot.type_lot || 'APPARTEMENT',
-                lot.nom || null,
-                parseFloat(lot.surface) || 0,
-                lot.pieces ? parseInt(lot.pieces) : null,
-                parseFloat(lot.loyer_mensuel) || 0,
-                parseFloat(lot.charges) || 0,
-                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
-                lot.prix_vente ? parseFloat(lot.prix_vente) : null,
-                lot.description || null,
-                lot.statut || 'DISPONIBLE'
-              ]
-            );
-            console.log(`✅ Nouveau lot ${lot.numero_lot} ajouté`);
-          }
-        }
-      }
-
-      const lotsCount = await queryRows(
-        'SELECT COUNT(*) as count FROM lots WHERE bien_principal_id = ?',
-        [id]
-      ) as any[];
-      await queryInsert(
-        'UPDATE biens SET nombre_lots = ? WHERE id = ?',
-        [lotsCount[0]?.count || 0, id]
-      );
-    }
-
-    // 4. AJOUTER LES NOUVELLES PHOTOS (VERSION QUI FONCTIONNAIT)
-    if (newPhotos.length > 0) {
-      const existingPhotos = await queryRows(
-        'SELECT MAX(ordre) as maxOrdre FROM photos WHERE bien_id = ?',
-        [id]
-      ) as any[];
-      let ordre = (existingPhotos[0]?.maxOrdre || -1) + 1;
-      
-      for (let i = 0; i < newPhotos.length; i++) {
-        const photo = newPhotos[i];
-        
-        if (photo.size === 0) continue;
-        
-        try {
-          if (photo.size > 5 * 1024 * 1024) {
-            console.log(`⚠️ Photo ${i+1} trop grande, ignorée`);
-            continue;
-          }
-
-          const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-          if (!allowedTypes.includes(photo.type)) {
-            console.log(`⚠️ Type de fichier non supporté: ${photo.type}`);
-            continue;
-          }
-
-          const bytes = await photo.arrayBuffer();
-          const buffer = Buffer.from(bytes);
-          const base64 = buffer.toString('base64');
-          const mimeType = photo.type;
-          
-          const url = `data:${mimeType};base64,${base64}`;
-          
-          await queryInsert(
-            'INSERT INTO photos (bien_id, url, est_principale, ordre, created_at) VALUES (?, ?, ?, ?, NOW())',
-            [id, url, 0, ordre++]
-          );
-          
-          console.log(`✅ Nouvelle photo ${i+1} ajoutée en base64`);
-        } catch (photoError) {
-          console.error(`❌ Erreur traitement photo ${i+1}:`, photoError);
-        }
-      }
-    }
-
-    const updatedBien = await queryRows(
-      `SELECT * FROM biens WHERE id = ?`,
-      [id]
-    ) as any[];
-
-    return NextResponse.json({
-      success: true,
-      message: 'Bien modifié avec succès',
-      bien: updatedBien[0]
-    });
-    
-  } catch (error: any) {
-    console.error('❌ Erreur PUT bien:', error);
-    return NextResponse.json(
-      { success: false, erreur: error.message || 'Erreur serveur' },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE - Supprimer un bien
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-
-    const bien = await queryRows(
-      'SELECT id, type_bien, nombre_lots FROM biens WHERE id = ?',
-      [id]
-    ) as any[];
-    
-    if (bien.length === 0) {
-      return NextResponse.json({ success: false, erreur: 'Bien non trouvé' }, { status: 404 });
-    }
-
-    console.log(`🗑️ Suppression du bien ${id}`);
-
-    if (bien[0].type_bien === 'IMMEUBLE') {
-      await queryInsert('DELETE FROM lots WHERE bien_principal_id = ?', [id]);
-    }
-    
-    await queryInsert('DELETE FROM photos WHERE bien_id = ?', [id]);
-    await queryInsert('DELETE FROM biens WHERE id = ?', [id]);
-
-    return NextResponse.json({ success: true, message: 'Bien supprimé avec succès' });
-    
-  } catch (error) {
-    console.error('❌ Erreur DELETE bien:', error);
-    return NextResponse.json({ success: false, erreur: 'Erreur serveur' }, { status: 500 });
   }
 }
