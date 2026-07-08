@@ -142,6 +142,25 @@
   color: var(--text-secondary);
 }
 
+.client-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.client-type {
+  font-size: 0.65rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.client-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
 .info-icon {
   width: 20px;
   font-size: 14px;
@@ -1542,10 +1561,491 @@
 .compact-client {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: #f1f5f9;
+  border-radius: 20px;
   font-size: 0.7rem;
   color: #475569;
-  background: #f1f5f9;
-  padding: 2px 8px;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compact-client:hover {
+  max-width: none;
+  white-space: normal;
+  background: #e2e8f0;
+}
+
+/* Indicateurs pour le champ contrat */
+.label-with-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.label-with-indicator label {
+  margin-bottom: 0;
+  font-weight: 600;
+}
+
+.no-contrat-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: #fef3c7;
+  color: #d97706;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.has-contrat-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: #d1fae5;
+  color: #059669;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Message quand aucun contrat */
+.no-contrat-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: #f8fafc;
+  border: 2px dashed #cbd5e1;
   border-radius: 12px;
+  text-align: center;
+}
+
+.no-contrat-icon {
+  font-size: 3rem;
+}
+
+.no-contrat-text strong {
+  font-size: 1rem;
+  color: #1e293b;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.no-contrat-text p {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.no-contrat-text ul {
+  text-align: left;
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0;
+}
+
+.no-contrat-text li {
+  margin: 0.25rem 0;
+}
+
+.btn-create-contrat {
+  padding: 0.5rem 1rem;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-create-contrat:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+/* Groupe d'input avec bouton de suggestion */
+.montant-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.montant-input-group input {
+  flex: 1;
+}
+
+.suggest-btn {
+  padding: 0.5rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.suggest-btn:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+/* Radio désactivée */
+.radio-label-vente.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-label-vente.disabled input {
+  cursor: not-allowed;
+}
+
+/* Panneau de progression */
+.progress-panel {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.stat-progress {
+  text-align: center;
+  flex: 1;
+}
+
+.stat-progress .stat-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.stat-progress .stat-value {
+  display: block;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.stat-progress .stat-value.success {
+  color: #10b981;
+}
+
+.stat-progress .stat-value.warning {
+  color: #f59e0b;
+}
+
+.progress-bar-container {
+  background: #e2e8f0;
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-bar-fill {
+  background: linear-gradient(90deg, #10b981, #059669);
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.progress-percent {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* Carte de versement automatique */
+.highlight-section {
+  background: #f0fdf4;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.auto-versement-card {
+  background: white;
+  border-radius: 12px;
+  border-left: 4px solid;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.auto-versement-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.auto-versement-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 1.5rem;
+}
+
+.auto-versement-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.auto-versement-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.auto-versement-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.message-icon {
+  font-size: 1rem;
+}
+
+/* Champ de montant amélioré */
+.montant-input-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.montant-input-group input {
+  flex: 1;
+}
+
+.suggest-btn {
+  padding: 0.5rem 1rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  color: #166534;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.suggest-btn:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.field-hint.success-hint {
+  color: #059669;
+  margin-top: 0.5rem;
+  display: block;
+}
+
+/* Styles pour le tri des colonnes */
+.paiements-table-simple th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.paiements-table-simple th.sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.paiements-table-simple th.sortable.active {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+/* Mode info dans l'en-tête du contrat */
+.mode-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.75rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+}
+
+.mode-info.comptant {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.mode-info.echelonne {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+/* Petit input pour le filtre */
+.small-input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.field-hint {
+  display: block;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+/* Styles pour la colonne N° Versement dans le tableau */
+.versement-numero-cell {
+  text-align: center;
+  font-weight: 500;
+}
+
+.versement-badge-table {
+  display: inline-block;
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 0.2rem 0.5rem;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.versement-none {
+  color: #cbd5e1;
+  font-size: 0.75rem;
+}
+
+/* Styles pour le tri des colonnes */
+.paiements-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.paiements-table th.sortable:hover {
+  background-color: #f1f5f9;
+}
+
+.paiements-table th.sortable.active {
+  background-color: #e2e8f0;
+  color: #1e293b;
+}
+
+.sort-icon {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+th.sortable.active .sort-icon {
+  opacity: 1;
+  font-weight: bold;
+}
+
+/* Type de paiement dans le tableau */
+.type-paiement-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+/* Styles pour le prochain paiement */
+.auto-versement-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  border-left: 4px solid #10b981;
+}
+
+.auto-versement-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.auto-versement-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #d1fae5;
+  border-radius: 50%;
+  font-size: 1.5rem;
+}
+
+.auto-versement-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #065f46;
+}
+
+.auto-versement-info p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #047857;
+}
+
+.auto-versement-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: #92400e;
+}
+
+.auto-versement-montant {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.5rem;
+  border-top: 1px solid #bbf7d0;
+  font-size: 0.9rem;
+}
+
+.auto-versement-montant strong {
+  font-size: 1.2rem;
+  color: #059669;
+}
+
+.highlight-section {
+  background: #f0fdf4;
+  border-radius: 12px;
+  margin-bottom: 1rem;
 }

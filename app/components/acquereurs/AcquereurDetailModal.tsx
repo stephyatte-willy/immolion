@@ -812,7 +812,7 @@ export default function AcquereurDetailModal({
       </motion.div>
 
       {/* Modale formulaire contrat */}
-      <AnimatePresence>
+  <AnimatePresence>
   {showContratForm && (
     <ContratVenteForm
       contrat={selectedContrat}

@@ -131,8 +131,24 @@ body {
   color: white;
 }
 
-/* Cards */
+/* Styles */
 
+.style1 {
+  font-size: 11px;
+  color: #7f7fb9;
+}
+
+.style2 {
+  font-size: 11px;
+  color: #000000;
+  font-weight: 600;
+}
+
+.style3 {
+  font-size: 14px;
+  color: #f65a00;
+  font-weight: 600;
+}
 
 /* Boutons */
 .btn {
@@ -364,9 +380,7 @@ tr:hover td {
 .modal-header h2 {
   font-size: 24px;
   font-weight: 600;
-  background: linear-gradient(135deg, var(--lion-gold, #D4AF37), var(--lion-gold-dark, #996515));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #b7ad1d;
   margin: 0;
   position: relative;
   padding-left: 16px;

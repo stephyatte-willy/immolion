@@ -21,7 +21,6 @@ export async function GET(
           JSON_OBJECT('id', l.id, 'numero_lot', l.numero_lot, 'etage', l.etage,
                       'type_lot', l.type_lot, 'nom', l.nom, 'surface', l.surface,
                       'pieces', l.pieces, 'loyer_mensuel', l.loyer_mensuel,
-                      'charges', l.charges, 'depot_garantie', l.depot_garantie,
                       'prix_vente', l.prix_vente, 'description', l.description,
                       'statut', l.statut)
         ) FROM lots l WHERE l.bien_principal_id = b.id) as lots
@@ -88,8 +87,6 @@ export async function PUT(
     const etage = formData.get('etage') as string;
     const description = formData.get('description') as string;
     const loyer_mensuel = formData.get('loyer_mensuel') as string;
-    const charges = formData.get('charges') as string;
-    const depot_garantie = formData.get('depot_garantie') as string;
     const prix_vente = formData.get('prix_vente') as string;
     const date_acquisition = formData.get('date_acquisition') as string;
     const latitude = formData.get('latitude') as string;
@@ -128,8 +125,9 @@ export async function PUT(
         : date_acquisition;
     }
 
-    // Gestion financière
-    let loyerNum = 0, chargesNum = 0, depotNum = null, prixVenteNum = null;
+    // Gestion financière (sans charges et depot_garantie)
+    let loyerNum = 0;
+    let prixVenteNum = null;
     
     if (statut === 'EN_VENTE') {
       if (prix_vente) {
@@ -139,7 +137,6 @@ export async function PUT(
         }
       }
       loyerNum = 0;
-      chargesNum = 0;
     } else {
       if (loyer_mensuel) {
         loyerNum = parseFloat(loyer_mensuel);
@@ -147,8 +144,6 @@ export async function PUT(
           return NextResponse.json({ success: false, erreur: 'Loyer mensuel invalide' }, { status: 400 });
         }
       }
-      chargesNum = charges ? parseFloat(charges) : 0;
-      depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
     }
 
     // 1. SUPPRIMER LES PHOTOS MARQUÉES
@@ -157,13 +152,13 @@ export async function PUT(
       console.log(`✅ Photo ${photoId} supprimée`);
     }
 
-    // 2. METTRE À JOUR LE BIEN
+    // 2. METTRE À JOUR LE BIEN (sans charges et depot_garantie)
     await queryInsert(
       `UPDATE biens SET
         proprietaire_id = ?,
         nom = ?, type_bien = ?, statut = ?, adresse = ?, quartier = ?, commune = ?,
         ville = ?, district = ?, pays = ?, surface = ?, pieces = ?, etage = ?,
-        description = ?, loyer_mensuel = ?, charges = ?, depot_garantie = ?,
+        description = ?, loyer_mensuel = ?,
         prix_vente = ?, date_acquisition = ?, latitude = ?, longitude = ?, updated_at = NOW()
        WHERE id = ?`,
       [
@@ -171,13 +166,14 @@ export async function PUT(
         nom, type_bien, statut, adresse || null, quartier || null, commune,
         ville || 'Abidjan', district, pays || 'Côte d\'Ivoire',
         surfaceNum, piecesNum, etageNum, description || null,
-        loyerNum, chargesNum, depotNum, prixVenteNum,
+        loyerNum,
+        prixVenteNum,
         dateAcquisitionFormatted, latitudeNum, longitudeNum, id
       ]
     );
     console.log('✅ Bien mis à jour');
 
-    // 3. GÉRER LES LOTS (si immeuble)
+    // 3. GÉRER LES LOTS (si immeuble) - sans charges et depot_garantie
     if (type_bien === 'IMMEUBLE') {
       // Supprimer les lots marqués
       if (lotsToDelete && lotsToDelete !== '[]') {
@@ -199,8 +195,8 @@ export async function PUT(
             await queryInsert(
               `UPDATE lots SET
                 numero_lot = ?, etage = ?, type_lot = ?, nom = ?,
-                surface = ?, pieces = ?, loyer_mensuel = ?, charges = ?,
-                depot_garantie = ?, prix_vente = ?, description = ?, statut = ?,
+                surface = ?, pieces = ?, loyer_mensuel = ?,
+                prix_vente = ?, description = ?, statut = ?,
                 updated_at = NOW()
                WHERE id = ?`,
               [
@@ -211,8 +207,6 @@ export async function PUT(
                 parseFloat(lot.surface) || 0,
                 lot.pieces ? parseInt(lot.pieces) : null,
                 parseFloat(lot.loyer_mensuel) || 0,
-                parseFloat(lot.charges) || 0,
-                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
                 lot.prix_vente ? parseFloat(lot.prix_vente) : null,
                 lot.description || null,
                 lot.statut || 'DISPONIBLE',
@@ -225,9 +219,9 @@ export async function PUT(
             const lotResult = await queryInsert(
               `INSERT INTO lots (
                 bien_principal_id, numero_lot, etage, type_lot, nom,
-                surface, pieces, loyer_mensuel, charges, depot_garantie,
+                surface, pieces, loyer_mensuel,
                 prix_vente, description, statut, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
               [
                 parseInt(id),
                 lot.numero_lot || `Lot_${Date.now()}`,
@@ -237,8 +231,6 @@ export async function PUT(
                 parseFloat(lot.surface) || 0,
                 lot.pieces ? parseInt(lot.pieces) : null,
                 parseFloat(lot.loyer_mensuel) || 0,
-                parseFloat(lot.charges) || 0,
-                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
                 lot.prix_vente ? parseFloat(lot.prix_vente) : null,
                 lot.description || null,
                 lot.statut || 'DISPONIBLE'
@@ -297,7 +289,6 @@ export async function PUT(
           JSON_OBJECT('id', l.id, 'numero_lot', l.numero_lot, 'etage', l.etage,
                       'type_lot', l.type_lot, 'nom', l.nom, 'surface', l.surface,
                       'pieces', l.pieces, 'loyer_mensuel', l.loyer_mensuel,
-                      'charges', l.charges, 'depot_garantie', l.depot_garantie,
                       'prix_vente', l.prix_vente, 'description', l.description,
                       'statut', l.statut)
         ) FROM lots l WHERE l.bien_principal_id = b.id) as lots

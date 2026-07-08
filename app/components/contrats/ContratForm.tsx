@@ -41,6 +41,8 @@ export default function ContratForm({
     depot_garantie: '',
     clause_particuliere: '',
     statut: 'BROUILLON',
+    nombre_mois_avance: '2', 
+    nombre_mois_caution: '2',
     statut_validation: 'BROUILLON'
   });
 
@@ -149,6 +151,8 @@ export default function ContratForm({
         depot_garantie: contrat.depot_garantie?.toString() || '',
         clause_particuliere: contrat.clause_particuliere || '',
         statut: contrat.statut || 'BROUILLON',
+        nombre_mois_avance: contrat.nombre_mois_avance || '2',
+        nombre_mois_caution: contrat.nombre_mois_caution || '2',
         statut_validation: contrat.statut_validation || 'BROUILLON'
       });
       
@@ -548,34 +552,59 @@ export default function ContratForm({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Dans ContratForm.tsx, assurez-vous que handleSubmit envoie bien type_contrat = 'BAIL_VIDE'
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    toast.error('Veuillez corriger les erreurs du formulaire');
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const dataToSend = {
+      ...formData,
+      bien_id: parseInt(formData.bien_id),
+      locataire_id: locataire_id || (contrat?.locataire_id ? parseInt(contrat.locataire_id) : null),
+      type_contrat: 'BAIL_VIDE', // ✅ Important pour les locations
+      loyer_mensuel: parseFloat(formData.loyer_mensuel) || 0,
+      charges_mensuelles: parseFloat(formData.charges_mensuelles) || 0,
+      depot_garantie: parseFloat(formData.depot_garantie) || null,
+      date_debut: formData.date_debut,
+      date_fin: formData.date_fin || null
+    };
+
+    console.log('📦 Envoi création contrat location:', dataToSend);
+
+    const url = contrat 
+      ? `/api/contrats/${contrat.id}`
+      : '/api/contrats';
     
-    if (!validateForm()) {
-      toast.error('Veuillez corriger les erreurs du formulaire');
-      return;
-    }
+    const method = contrat ? 'PUT' : 'POST';
 
-    if (contrat) {
-      setShowConditionsForm(true);
-      setCreatedContratId(contrat.id);
-      return;
-    }
+    const response = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dataToSend)
+    });
 
-    if (!showConditionsForm) {
-      const newReservationId = await creerReservation();
-      if (newReservationId) {
-        const contratId = await creerContrat(newReservationId);
-        if (contratId) {
-          setShowConditionsForm(true);
-        }
-      }
+    const data = await response.json();
+
+    if (data.success) {
+      toast.success(contrat ? 'Contrat modifié avec succès' : 'Contrat créé avec succès');
+      onSuccess();
     } else {
-      if (createdContratId) {
-        await validerContrat(createdContratId);
-      }
+      toast.error(data.erreur || 'Une erreur est survenue');
     }
-  };
+  } catch (error) {
+    console.error('Erreur:', error);
+    toast.error('Erreur de connexion au serveur');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const calculerTotal = () => {
     const caution = parseFloat(conditions.caution) || 0;
@@ -704,6 +733,40 @@ export default function ContratForm({
                   <div className="modal-section-title">
                     <span>🤝</span> Parties prenantes
                   </div>
+
+                    <div className="modal-section-title">
+    <span>🏦</span> Conditions de location (Côte d'Ivoire)
+  </div>
+  <div className="form-grid">
+    <div className="form-group">
+      <label>Nombre de mois d'avance</label>
+      <select
+        value={formData.nombre_mois_avance}
+        onChange={(e) => setFormData({...formData, nombre_mois_avance: e.target.value})}
+      >
+        <option value="0">Aucune avance</option>
+        <option value="1">1 mois d'avance</option>
+        <option value="2">2 mois d'avance (Recommandé)</option>
+        <option value="3">3 mois d'avance</option>
+      </select>
+      <small className="field-hint">En Côte d'Ivoire, la pratique est 2 mois d'avance</small>
+    </div>
+
+    <div className="form-group">
+      <label>Nombre de mois de caution</label>
+      <select
+        value={formData.nombre_mois_caution}
+        onChange={(e) => setFormData({...formData, nombre_mois_caution: e.target.value})}
+      >
+        <option value="0">Aucune caution</option>
+        <option value="1">1 mois de caution</option>
+        <option value="2">2 mois de caution (Recommandé)</option>
+        <option value="3">3 mois de caution</option>
+      </select>
+      <small className="field-hint">En Côte d'Ivoire, la pratique est 2 mois de caution</small>
+    </div>
+  </div>
+
                   <div className="form-grid">
                     <div className="form-group">
                       <label>Client *</label>

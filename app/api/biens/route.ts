@@ -48,9 +48,8 @@ export async function GET(request: NextRequest) {
           JSON_OBJECT('id', l.id, 'numero_lot', l.numero_lot, 'etage', l.etage,
                       'type_lot', l.type_lot, 'nom', l.nom, 'surface', l.surface,
                       'pieces', l.pieces, 'loyer_mensuel', l.loyer_mensuel,
-                      'charges', l.charges, 'depot_garantie', l.depot_garantie,
                       'prix_vente', l.prix_vente, 'description', l.description,
-                      'statut', l.statut, 'quantite', l.quantite)
+                      'statut', l.statut)
         ) FROM lots l WHERE l.bien_principal_id = b.id) as lots
        FROM biens b
        ${joinProprietaire}
@@ -137,14 +136,16 @@ export async function POST(request: NextRequest) {
     const etage = formData.get('etage') as string;
     const description = formData.get('description') as string;
     const loyer_mensuel = formData.get('loyer_mensuel') as string;
-    const charges = formData.get('charges') as string;
-    const depot_garantie = formData.get('depot_garantie') as string;
     const prix_vente = formData.get('prix_vente') as string;
     const date_acquisition = formData.get('date_acquisition') as string;
     const latitude = formData.get('latitude') as string;
     const longitude = formData.get('longitude') as string;
     const lots = formData.get('lots') as string;
     const nombre_lots = formData.get('nombre_lots') as string;
+    const reference_unique = formData.get('reference_unique') as string;
+    
+    // ✅ Récupérer le mode de vente de l'immeuble (si présent)
+    const mode_vente_immeuble = formData.get('mode_vente_immeuble') as string;
 
     console.log('📦 Données reçues:', {
       proprietaire_id, 
@@ -158,7 +159,9 @@ export async function POST(request: NextRequest) {
       pieces, 
       loyer_mensuel, 
       prix_vente,
-      lots_reçu: lots ? 'oui' : 'non'
+      lots_reçu: lots ? 'oui' : 'non',
+      reference_unique,
+      mode_vente_immeuble
     });
 
     // ========== VALIDATION DES CHAMPS OBLIGATOIRES ==========
@@ -183,18 +186,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ✅ VALIDATION DES LOTS POUR IMMEUBLE - AVEC GESTION DU MODE GLOBAL
     if (type_bien === 'IMMEUBLE') {
-      if (!lots || lots === '[]' || lots === 'null') {
-        errors.push('lots manquants pour l\'immeuble');
-      } else {
-        try {
-          const lotsData = JSON.parse(lots);
-          if (!Array.isArray(lotsData) || lotsData.length === 0) {
-            errors.push('Au moins un lot est requis pour un immeuble');
+      // Si c'est une vente globale, les lots ne sont pas obligatoires
+      const estVenteGlobale = statut === 'EN_VENTE' && mode_vente_immeuble === 'global';
+      
+      if (!estVenteGlobale) {
+        // Mode vente par lots ou location - les lots sont obligatoires
+        if (!lots || lots === '[]' || lots === 'null') {
+          errors.push('lots manquants pour l\'immeuble');
+        } else {
+          try {
+            const lotsData = JSON.parse(lots);
+            if (!Array.isArray(lotsData) || lotsData.length === 0) {
+              errors.push('Au moins un lot est requis pour un immeuble');
+            }
+          } catch (e) {
+            errors.push('Format de lots invalide');
           }
-        } catch (e) {
-          errors.push('Format de lots invalide');
         }
+      } else {
+        console.log('🏢 Vente globale d\'immeuble - lots non requis');
       }
     }
 
@@ -221,8 +233,6 @@ export async function POST(request: NextRequest) {
 
     // ========== GESTION FINANCIÈRE ==========
     let loyerNum = 0;
-    let chargesNum = 0;
-    let depotNum = null;
     let prixVenteNum = null;
 
     if (statut === 'EN_VENTE') {
@@ -235,6 +245,7 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+      loyerNum = 0;
     } else {
       if (loyer_mensuel && type_bien !== 'IMMEUBLE') {
         loyerNum = parseFloat(loyer_mensuel);
@@ -245,12 +256,6 @@ export async function POST(request: NextRequest) {
           );
         }
       }
-      
-      chargesNum = charges ? parseFloat(charges) : 0;
-      if (isNaN(chargesNum) || chargesNum < 0) chargesNum = 0;
-      
-      depotNum = depot_garantie ? parseFloat(depot_garantie) : null;
-      if (depotNum !== null && (isNaN(depotNum) || depotNum < 0)) depotNum = null;
     }
 
     // ========== FORMATAGE DE LA DATE ==========
@@ -259,6 +264,18 @@ export async function POST(request: NextRequest) {
       dateAcquisitionFormatted = date_acquisition.includes('T') 
         ? date_acquisition.split('T')[0] 
         : date_acquisition;
+    }
+
+    // ========== GÉNÉRATION DE LA RÉFÉRENCE UNIQUE SI NÉCESSAIRE ==========
+    let referenceFinale = reference_unique;
+    if (!referenceFinale || referenceFinale.trim() === '') {
+      const lastBien = await queryRows(
+        'SELECT id FROM biens ORDER BY id DESC LIMIT 1',
+        []
+      ) as any[];
+      const dernierId = lastBien.length > 0 ? lastBien[0].id : 0;
+      const nouveauNumero = dernierId + 1;
+      referenceFinale = `BIEN-${nouveauNumero.toString().padStart(5, '0')}`;
     }
 
     // ========== INSERTION DU BIEN PRINCIPAL ==========
@@ -270,9 +287,9 @@ export async function POST(request: NextRequest) {
       `INSERT INTO biens (
         proprietaire_id, nom, type_bien, statut, adresse, quartier, commune,
         ville, district, pays, surface, pieces, etage, description,
-        loyer_mensuel, charges, depot_garantie, prix_vente, date_acquisition,
-        latitude, longitude, nombre_lots, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        loyer_mensuel, prix_vente, date_acquisition,
+        latitude, longitude, nombre_lots, reference_unique, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         proprietaireIdValue, 
         nom, 
@@ -289,13 +306,12 @@ export async function POST(request: NextRequest) {
         etageNum,
         description || null, 
         loyerNum, 
-        chargesNum, 
-        depotNum,
         prixVenteNum,
         dateAcquisitionFormatted, 
         latitudeNum,
         longitudeNum,
-        0
+        0,
+        referenceFinale
       ]
     );
 
@@ -308,12 +324,15 @@ export async function POST(request: NextRequest) {
     }
 
     const bienId = bienInsertResult.insertId;
-    console.log('✅ Bien créé avec ID:', bienId);
+    console.log('✅ Bien créé avec ID:', bienId, 'Référence:', referenceFinale);
 
     // ========== GESTION DES LOTS ==========
     let totalLotsInsérés = 0;
-
-    if (type_bien === 'IMMEUBLE' && lots && lots !== '[]' && lots !== 'null') {
+    
+    // ✅ Vérifier si on doit insérer des lots
+    const estVenteGlobale = type_bien === 'IMMEUBLE' && statut === 'EN_VENTE' && mode_vente_immeuble === 'global';
+    
+    if (type_bien === 'IMMEUBLE' && !estVenteGlobale && lots && lots !== '[]' && lots !== 'null') {
       try {
         const lotsData = JSON.parse(lots);
         console.log(`📦 ${lotsData.length} lots à insérer`);
@@ -331,9 +350,9 @@ export async function POST(request: NextRequest) {
             const lotResult = await queryInsert(
               `INSERT INTO lots (
                 bien_principal_id, numero_lot, etage, type_lot, nom,
-                surface, pieces, loyer_mensuel, charges, depot_garantie,
+                surface, pieces, loyer_mensuel,
                 prix_vente, description, statut, created_at, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
               [
                 bienId,
                 lot.numero_lot || `Lot_${Date.now()}_${idx}`,
@@ -343,9 +362,7 @@ export async function POST(request: NextRequest) {
                 parseFloat(lot.surface) || 0,
                 lot.pieces ? parseInt(lot.pieces) : null,
                 parseFloat(lot.loyer_mensuel) || 0,
-                parseFloat(lot.charges) || 0,
-                lot.depot_garantie ? parseFloat(lot.depot_garantie) : null,
-                lot.prix_vente ? parseFloat(lot.prix_vente) : null,
+                lot.prix_vente ? parseFloat(lot.prix_vente) : null,  // ✅ Prix de vente pour les lots
                 lot.description || null,
                 lot.statut || 'DISPONIBLE'
               ]
@@ -370,6 +387,8 @@ export async function POST(request: NextRequest) {
       } catch (lotError) {
         console.error('❌ Erreur insertion lots:', lotError);
       }
+    } else if (estVenteGlobale) {
+      console.log('🏢 Vente globale - aucun lot inséré');
     }
 
     // ========== GESTION DES PHOTOS ==========
@@ -423,6 +442,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       id: bienId,
+      reference: referenceFinale,
       message: 'Bien créé avec succès',
       details: {
         lots_insérés: totalLotsInsérés,

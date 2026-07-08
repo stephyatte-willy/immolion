@@ -23,17 +23,22 @@ export async function GET(request: NextRequest) {
 
     const acquereurs = await queryRows(
       `SELECT a.*,
-        (SELECT JSON_OBJECT(
-          'id', b.id,
-          'nom', b.nom,
-          'adresse', b.adresse,
-          'type_bien', b.type_bien,
-          'prix_vente', b.prix_vente,
-          'surface', b.surface,
-          'pieces', b.pieces,
-          'commune', b.commune,
-          'ville', b.ville
-        ) FROM biens b WHERE b.id = a.bien_id) as bien,
+        (SELECT JSON_ARRAYAGG(
+          JSON_OBJECT(
+            'id', b.id,
+            'nom', b.nom,
+            'adresse', b.adresse,
+            'type_bien', b.type_bien,
+            'prix_vente', b.prix_vente,
+            'surface', b.surface,
+            'pieces', b.pieces,
+            'commune', b.commune,
+            'ville', b.ville,
+            'statut', b.statut
+          )
+        ) FROM acquereur_biens ab 
+        LEFT JOIN biens b ON ab.bien_id = b.id 
+        WHERE ab.acquereur_id = a.id) as biens,
         (SELECT JSON_ARRAYAGG(
           JSON_OBJECT('id', c.id, 'numero_contrat', c.numero_contrat, 
                       'prix_vente', c.prix_vente, 'date_debut', c.date_debut,
@@ -48,12 +53,12 @@ export async function GET(request: NextRequest) {
     ) as any[];
 
     const acquereursFormatted = acquereurs.map(a => {
-      let bien = null;
-      if (a.bien) {
+      let biens = [];
+      if (a.biens) {
         try {
-          bien = typeof a.bien === 'string' ? JSON.parse(a.bien) : a.bien;
+          biens = typeof a.biens === 'string' ? JSON.parse(a.biens) : a.biens;
         } catch (e) {
-          bien = null;
+          biens = [];
         }
       }
       
@@ -68,7 +73,7 @@ export async function GET(request: NextRequest) {
       
       return {
         ...a,
-        bien,
+        biens,
         contrats
       };
     });
@@ -97,34 +102,25 @@ export async function POST(request: NextRequest) {
       nom, prenom, email, telephone, telephone_secondaire,
       date_naissance, lieu_naissance, nationalite,
       profession, employeur, revenus_mensuels,
-      type_acquereur, bien_id, raison_sociale, num_identite,
+      type_acquereur, biens_ids, raison_sociale, num_identite,
       adresse, ville, pays, notes, actif
     } = body;
 
     // Validation selon le type d'acquéreur
     const errors = [];
     
-    // Email toujours requis
-    if (!email) {
-      errors.push('email manquant');
-    }
+    if (!email) errors.push('email manquant');
     
-    // Validation selon le type
     const isEntite = type_acquereur === 'SOCIETE' || type_acquereur === 'AGENCE';
     
     if (isEntite) {
-      // Pour les sociétés et agences
-      if (!raison_sociale) {
-        errors.push('raison_sociale manquant');
-      }
+      if (!raison_sociale) errors.push('raison_sociale manquant');
     } else {
-      // Pour les particuliers
       if (!nom) errors.push('nom manquant');
       if (!prenom) errors.push('prenom manquant');
     }
 
     if (errors.length > 0) {
-      console.error('❌ Champs manquants:', errors);
       return NextResponse.json(
         { success: false, erreur: 'Champs obligatoires manquants', details: errors },
         { status: 400 }
@@ -144,21 +140,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Si un bien_id est fourni, vérifier qu'il existe
-    if (bien_id) {
-      const bien = await queryRows(
-        'SELECT id, type_bien, statut FROM biens WHERE id = ?',
-        [bien_id]
-      ) as any[];
-      
-      if (bien.length === 0) {
-        return NextResponse.json(
-          { success: false, erreur: 'Le bien sélectionné n\'existe pas' },
-          { status: 400 }
-        );
-      }
-    }
-
     // Préparer les données pour l'insertion
     let nomFinal = '';
     let prenomFinal = '';
@@ -171,38 +152,36 @@ export async function POST(request: NextRequest) {
       prenomFinal = prenom;
     }
 
-    
-const result = await queryInsert(
-  `INSERT INTO acquereurs (
-    nom, prenom, email, telephone, telephone_secondaire,
-    date_naissance, lieu_naissance, nationalite,
-    profession, employeur, revenus_mensuels,
-    type_acquereur, bien_id, raison_sociale, num_identite,
-    adresse, ville, pays, notes, actif, created_at
-  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-  [
-    nomFinal,
-    prenomFinal,
-    email,
-    telephone || null,
-    telephone_secondaire || null,
-    date_naissance || null,
-    lieu_naissance || null,
-    nationalite || 'Ivoirienne',
-    profession || null,
-    employeur || null,
-    revenus_mensuels || null,
-    type_acquereur || 'PARTICULIER',
-    bien_id || null, // ✅ Important: insérer bien_id
-    raison_sociale || null,
-    num_identite || null,
-    adresse || null,
-    ville || null,
-    pays || 'Côte d\'Ivoire',
-    notes || null,
-    actif !== undefined ? (actif ? 1 : 0) : 1
-  ]
-);
+    const result = await queryInsert(
+      `INSERT INTO acquereurs (
+        nom, prenom, email, telephone, telephone_secondaire,
+        date_naissance, lieu_naissance, nationalite,
+        profession, employeur, revenus_mensuels,
+        type_acquereur, raison_sociale, num_identite,
+        adresse, ville, pays, notes, actif, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        nomFinal,
+        prenomFinal,
+        email,
+        telephone || null,
+        telephone_secondaire || null,
+        date_naissance || null,
+        lieu_naissance || null,
+        nationalite || 'Ivoirienne',
+        profession || null,
+        employeur || null,
+        revenus_mensuels || null,
+        type_acquereur || 'PARTICULIER',
+        raison_sociale || null,
+        num_identite || null,
+        adresse || null,
+        ville || null,
+        pays || 'Côte d\'Ivoire',
+        notes || null,
+        actif !== undefined ? (actif ? 1 : 0) : 1
+      ]
+    );
 
     if (!result.success) {
       console.error('❌ Erreur insertion:', result);
@@ -212,11 +191,24 @@ const result = await queryInsert(
       );
     }
 
-    console.log('✅ Acquéreur créé avec succès, ID:', result.insertId);
+    const acquereurId = result.insertId;
+
+    // ✅ Ajouter les biens associés
+    if (biens_ids && Array.isArray(biens_ids) && biens_ids.length > 0) {
+      for (const bienId of biens_ids) {
+        await queryInsert(
+          `INSERT INTO acquereur_biens (acquereur_id, bien_id) VALUES (?, ?)`,
+          [acquereurId, bienId]
+        );
+      }
+      console.log(`✅ ${biens_ids.length} bien(s) associé(s) à l'acquéreur`);
+    }
+
+    console.log('✅ Acquéreur créé avec succès, ID:', acquereurId);
 
     return NextResponse.json({
       success: true,
-      id: result.insertId,
+      id: acquereurId,
       message: 'Acquéreur créé avec succès'
     });
   } catch (error) {

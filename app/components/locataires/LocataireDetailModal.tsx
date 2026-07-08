@@ -410,18 +410,45 @@ const handleEditContrat = (contrat: any) => {
     console.log('Voir contrat', id);
   };
 
-  const handleContratSuccess = async () => {
-    setShowContratForm(false);
-    await refreshLocataireData();
-    toast.success('Opération réussie');
-  };
+const forceRefresh = async () => {
+  setIsLoading(true);
+  try {
+    // Forcer un rechargement complet avec cache busting
+    const response = await fetch(`/api/locataires/${initialLocataire.id}?_=${Date.now()}`);
+    const data = await response.json();
+    
+    if (data.success) {
+      setLocataireData(data.locataire);
+      setRefreshKey(prev => prev + 1);
+      console.log('✅ Données rafraîchies:', data.locataire.contrats?.length, 'contrats');
+    } else {
+      toast.error('Erreur lors du rechargement');
+    }
+  } catch (error) {
+    console.error('❌ Erreur rechargement:', error);
+    toast.error('Erreur de connexion');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const handlePaiementSuccess = async () => {
-    setShowPaiementForm(false);
-    await chargerPaiements();
-    setRefreshKey(prev => prev + 1);
-    toast.success('Paiement enregistré avec succès');
-  };
+const handleContratSuccess = async () => {
+  setShowContratForm(false);
+  await forceRefresh();
+  toast.success('Opération réussie');
+};
+
+const handlePaiementSuccess = async () => {
+  setShowPaiementForm(false);
+  await forceRefresh(); 
+  toast.success('Paiement enregistré avec succès');
+};
+
+const handleDocumentSuccess = () => {
+  setShowDocumentForm(false);
+  forceRefresh();
+  toast.success('Documents uploadés avec succès');
+};
 
   const confirmDelete = async () => {
     if (!itemToDelete) return;

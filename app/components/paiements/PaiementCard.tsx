@@ -19,6 +19,8 @@ interface PaiementCardProps {
   acquereur?: any;
   bien?: any;
   entreprise?: any;
+  versementNumero?: number;
+  totalVersements?: number;
 }
 
 export default function PaiementCard({ 
@@ -31,28 +33,117 @@ export default function PaiementCard({
   locataire: propLocataire,
   acquereur: propAcquereur,
   bien: propBien,
-  entreprise: propEntreprise
+  entreprise: propEntreprise,
+  versementNumero: propVersementNumero,
+  totalVersements: propTotalVersements
 }: PaiementCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // ✅ Déterminer si c'est une vente
   const isVente = paiement.type_transaction === 'VENTE';
   const isLocation = paiement.type_transaction === 'LOCATION' || !paiement.type_transaction;
 
-  // ✅ Obtenir le nom du client (locataire ou acquéreur)
-  const getClientName = () => {
+  // ✅ Fonction pour obtenir le nom du client (améliorée)
+  const getClientName = (): string => {
+    // Pour les ventes
     if (isVente) {
-      return paiement.acquereur_prenom && paiement.acquereur_nom 
-        ? `${paiement.acquereur_prenom} ${paiement.acquereur_nom}`
-        : 'Client non renseigné';
+      // Cas 1: Société/Agence avec raison sociale
+      if (paiement.acquereur_raison_sociale) {
+        return paiement.acquereur_raison_sociale;
+      }
+      // Cas 2: Société/Agence via le nom (fallback)
+      if (paiement.acquereur_type === 'SOCIETE' || paiement.acquereur_type === 'AGENCE') {
+        return paiement.acquereur_nom || 'Client';
+      }
+      // Cas 3: Particulier avec prénom et nom
+      if (paiement.acquereur_prenom && paiement.acquereur_nom) {
+        return `${paiement.acquereur_prenom} ${paiement.acquereur_nom}`;
+      }
+      // Cas 4: Particulier avec nom seul
+      if (paiement.acquereur_nom) {
+        return paiement.acquereur_nom;
+      }
+      // Cas 5: Via l'objet acquereur passé en prop
+      if (propAcquereur) {
+        if (propAcquereur.raison_sociale) return propAcquereur.raison_sociale;
+        if (propAcquereur.type_acquereur !== 'PARTICULIER') return propAcquereur.nom || 'Client';
+        return `${propAcquereur.prenom || ''} ${propAcquereur.nom || ''}`.trim() || 'Client';
+      }
+      return 'Client non renseigné';
     }
-    return paiement.locataire_prenom && paiement.locataire_nom 
-      ? `${paiement.locataire_prenom} ${paiement.locataire_nom}`
-      : 'Client non renseigné';
+    
+    // Pour les locations
+    // Cas 1: Locataire avec prénom et nom
+    if (paiement.locataire_prenom && paiement.locataire_nom) {
+      return `${paiement.locataire_prenom} ${paiement.locataire_nom}`;
+    }
+    // Cas 2: Locataire avec nom seul
+    if (paiement.locataire_nom) {
+      return paiement.locataire_nom;
+    }
+    // Cas 3: Via l'objet locataire passé en prop
+    if (propLocataire) {
+      return `${propLocataire.prenom || ''} ${propLocataire.nom || ''}`.trim() || 'Client';
+    }
+    return 'Client non renseigné';
   };
 
-  // ✅ Obtenir le type de transaction
+  // ✅ Fonction pour obtenir le type de client (Particulier, Société, Agence)
+  const getClientType = (): string => {
+    if (isVente) {
+      if (paiement.acquereur_type === 'SOCIETE') return 'Société';
+      if (paiement.acquereur_type === 'AGENCE') return 'Agence';
+      if (paiement.acquereur_raison_sociale) return 'Société';
+      return 'Particulier';
+    }
+    return 'Particulier';
+  };
+
+  // ✅ Icône du client selon le type
+  const getClientIcon = (): string => {
+    const clientType = getClientType();
+    if (clientType === 'Société') return '🏢';
+    if (clientType === 'Agence') return '🏪';
+    return '👤';
+  };
+
+  const getVersementNumero = () => {
+    if (paiement.versement_numero) return paiement.versement_numero;
+    if (propVersementNumero) return propVersementNumero;
+    if (paiement.type_paiement === 'VERSEMENT') {
+      const match = paiement.reference?.match(/VERSEMENT[_-]?(\d+)/i);
+      if (match) return parseInt(match[1]);
+    }
+    return null;
+  };
+
+  const versementNumero = getVersementNumero();
+  const totalVersements = propTotalVersements || (paiement.nombre_versements_total);
+
+  const getTypeLabelWithNumber = (): string => {
+    const type = paiement.type_paiement;
+    
+    switch (type) {
+      case 'ACOMPTE':
+        return 'Acompte';
+      case 'VERSEMENT':
+        if (versementNumero) {
+          return `Versement ${versementNumero}${totalVersements ? `/${totalVersements}` : ''}`;
+        }
+        return 'Versement';
+      case 'SOLDE':
+        return 'Solde final';
+      case 'CAUTION':
+        return 'Caution';
+      case 'AVANCE':
+        return 'Avance loyer';
+      case 'LOYER':
+        return 'Loyer mensuel';
+      default:
+        return type || 'Paiement';
+    }
+  };
+
   const getTransactionType = () => {
     if (isVente) return 'VENTE';
     return 'LOCATION';
@@ -71,18 +162,26 @@ export default function PaiementCard({
     return modeObj?.icone || '💳';
   };
 
-  const getTypeInfo = (type: string) => {
-    const typeObj = TYPES_PAIEMENT.find(t => t.value === type);
-    return {
-      icone: typeObj?.icone || '💰',
-      label: typeObj?.label || type
+  const getTypeIcon = (type: string): string => {
+    const icons: Record<string, string> = {
+      'CAUTION': '🔒',
+      'AVANCE': '⏩',
+      'LOYER': '🏠',
+      'ACOMPTE': '💵',
+      'VERSEMENT': '💰',
+      'SOLDE': '✅',
+      'AUTRE': '📝'
     };
+    return icons[type] || '💳';
   };
 
   const statutInfo = getStatutInfo(paiement.statut);
-  const typeInfo = getTypeInfo(paiement.type_paiement);
+  const typeIcon = getTypeIcon(paiement.type_paiement);
+  const typeLabelWithNumber = getTypeLabelWithNumber();
   const modeIcon = getModeIcon(paiement.mode_paiement);
   const clientName = getClientName();
+  const clientIcon = getClientIcon();
+  const clientType = getClientType();
   const transactionType = getTransactionType();
 
   const formatDate = (date: string) => {
@@ -168,7 +267,7 @@ export default function PaiementCard({
           mode_paiement: paiement.mode_paiement,
           penalite: paiement.penalite ? parseFloat(paiement.penalite) : 0,
           type_versement: paiement.type_vente,
-          versement_numero: paiement.versement_numero
+          versement_numero: versementNumero
         },
         contrat: {
           numero: contrat.numero_contrat,
@@ -204,7 +303,7 @@ export default function PaiementCard({
           total_vente: parseFloat(contrat.prix_vente || 0),
           deja_verse: totalDejaVerse,
           reste: parseFloat(contrat.prix_vente || 0) - totalDejaVerse,
-          versement_numero: paiement.versement_numero || 1
+          versement_numero: versementNumero || 1
         } : undefined
       };
 
@@ -219,7 +318,7 @@ export default function PaiementCard({
     }
   };
 
-  // Version compacte
+  // Version compacte (pour la vue "Tous" en mode cartes)
   if (compact) {
     return (
       <motion.div 
@@ -279,13 +378,15 @@ export default function PaiementCard({
           </div>
 
           <div className="compact-details">
-            {/* ✅ Ajout du type de transaction (Location/Vente) */}
             <span className={`compact-transaction ${isVente ? 'vente' : 'location'}`}>
               {isVente ? '💰 Vente' : '🏠 Location'}
             </span>
-            {/* ✅ Ajout du nom du client */}
-            <span className="compact-client">
-              👤 {clientName}
+            <span className="compact-type">
+              {typeIcon} {typeLabelWithNumber}
+            </span>
+            {/* ✅ Affichage amélioré du client */}
+            <span className="compact-client" title={`${clientType} - ${clientName}`}>
+              {clientIcon} {clientName}
             </span>
             {moisConcerne && (
               <span className="compact-mois">📅 {moisConcerne}</span>
@@ -299,7 +400,7 @@ export default function PaiementCard({
     );
   }
 
-  // Version normale
+  // Version normale (vue détaillée)
   return (
     <motion.div 
       className={`paiement-card ${paiement.statut.toLowerCase()}`}
@@ -313,10 +414,9 @@ export default function PaiementCard({
     >
       <div className="paiement-card-header">
         <div className="paiement-type">
-          <span className="type-icon">{typeInfo.icone}</span>
-          <span className="type-label">{typeInfo.label}</span>
+          <span className="type-icon">{typeIcon}</span>
+          <span className="type-label">{typeLabelWithNumber}</span>
         </div>
-        {/* ✅ Ajout du badge Vente/Location */}
         <div className={`transaction-badge ${isVente ? 'vente' : 'location'}`}>
           {isVente ? '💰 Vente' : '🏠 Location'}
         </div>
@@ -343,10 +443,13 @@ export default function PaiementCard({
         </div>
 
         <div className="paiement-infos">
-          {/* ✅ Affichage du client selon le type */}
+          {/* ✅ Affichage amélioré du client avec icône et type */}
           <div className="paiement-client">
-            <span className="info-icon">{isVente ? '👤 Acheteur' : '👤 Locataire'}</span>
-            <span className="info-text">{clientName}</span>
+            <span className="info-icon">{clientIcon}</span>
+            <div className="client-info">
+              <span className="client-type">{clientType}</span>
+              <span className="client-name">{clientName}</span>
+            </div>
           </div>
           
           <div className="paiement-bien">
@@ -430,9 +533,9 @@ export default function PaiementCard({
         </button>
       </div>
 
-      {paiement.versement_numero && (
+      {versementNumero && paiement.type_paiement === 'VERSEMENT' && (
         <div className="paiement-versement-badge">
-          Versement #{paiement.versement_numero}
+          Versement #{versementNumero}{totalVersements ? `/${totalVersements}` : ''}
         </div>
       )}
     </motion.div>

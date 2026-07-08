@@ -7,14 +7,15 @@ import { TYPES_BIENS_CI_AVANCES, STATUTS_LOT } from '@/app/types/biens';
 import { 
   DISTRICTS_CI, 
   COMMUNES_ABIDJAN, 
-  QUARTIERS_CI 
+  QUARTIERS_CI,
+  VILLES_PAR_DISTRICT,
 } from '@/app/types/ci';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/app/components/common/ConfirmModal';
 import '@/app/biens/biens.css';
 
 type TypeBien = 'IMMEUBLE' | 'APPARTEMENT' | 'MAISON' | 'VILLA' | 'STUDIO' | 'MAGASIN' | 'ENTREPOT' | 'BUREAU' | 'TERRAIN' | 'PARKING' | 'CHAMBRE' | 'KIOSQUE';
-type StatutBien = 'DISPONIBLE' | 'LOUE' | 'EN_TRAVAUX' | 'EN_VENTE' | 'RESERVE';
+type StatutBien = 'DISPONIBLE' | 'EN_VENTE';
 
 interface LotForm {
   id?: number;
@@ -25,9 +26,7 @@ interface LotForm {
   surface: string;
   pieces: string;
   loyer_mensuel: string;
-  charges: string;
-  depot_garantie: string;
-  prix_vente: string;
+  prix_vente: string; 
   description?: string;
   statut: string;
 }
@@ -42,6 +41,7 @@ interface BienFormProps {
 export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: BienFormProps) {
   const [formData, setFormData] = useState({
     proprietaire_id: '',
+    reference_unique: '',
     nom: '',
     type_bien: 'MAISON' as TypeBien,
     statut: 'DISPONIBLE' as StatutBien,
@@ -55,8 +55,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     etage: '',
     description: '',
     loyer_mensuel: '',
-    charges: '',
-    depot_garantie: '',
     prix_vente: '',
     date_acquisition: '',
     latitude: '',
@@ -68,15 +66,32 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     lots: [] as LotForm[]
   });
 
+  // État pour le mode de vente de l'immeuble
+  const [modeVenteImmeuble, setModeVenteImmeuble] = useState<'par_lots' | 'global'>('par_lots');
+
+  // États pour la modale d'ajout multiple de lots
+  const [showMultipleLotModal, setShowMultipleLotModal] = useState(false);
+  const [multipleLotConfig, setMultipleLotConfig] = useState({
+    quantite: 1,
+    prefixe: 'LOT',
+    startNumber: 1
+  });
+
   const [proprietaires, setProprietaires] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [existingPhotos, setExistingPhotos] = useState<{id: number, url: string, est_principale: boolean}[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<{id: number, url: string} | null>(null);
-  const [quartiersDisponibles, setQuartiersDisponibles] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [communeSaisie, setCommuneSaisie] = useState('');
+
+  // ── Localisation ──────────────────────────────────────
+  const [villesDisponibles, setVillesDisponibles] = useState<string[]>([]);
+  const [quartiersDisponibles, setQuartiersDisponibles] = useState<string[]>([]);
+  const [villeSaisie, setVilleSaisie] = useState('');
+  const [quartierSaisi, setQuartierSaisi] = useState('');
+  // ─────────────────────────────────────────────────────
+
   const [showLotForm, setShowLotForm] = useState(false);
   const [editingLotIndex, setEditingLotIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'resume' | 'details'>('resume');
@@ -90,8 +105,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     surface: '',
     pieces: '',
     loyer_mensuel: '',
-    charges: '',
-    depot_garantie: '',
     prix_vente: '',
     description: '',
     statut: 'DISPONIBLE'
@@ -99,91 +112,478 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
 
   const isImmeuble = formData.type_bien === 'IMMEUBLE';
   const isVente = formData.statut === 'EN_VENTE';
+  
+  // Déterminer si on doit afficher la section des lots
+  const afficherSectionLots = () => {
+    if (!isImmeuble) return false;
+    if (isVente && modeVenteImmeuble === 'global') return false;
+    return true;
+  };
 
   const typesLots = [
     'APPARTEMENT', 'MAGASIN', 'BUREAU', 'STUDIO', 'PARKING', 'CHAMBRE'
   ];
 
-  // Fonction pour formater les nombres sans décimales
-  const formatNumber = (value: string) => {
-    if (!value) return '';
-    // Supprimer tout ce qui n'est pas un chiffre
-    const cleaned = value.replace(/[^\d]/g, '');
-    return cleaned;
+  // ── FONCTIONS POUR LA GESTION DES LOTS ────────────────────────────────────────
+
+  // Fonction pour générer le nom du lot automatiquement
+  const genererNomLotAuto = (numeroLot?: string, etage?: string, typeLot?: string): string => {
+    const typeLotValue = typeLot || currentLot.type_lot;
+    const typeMap: Record<string, string> = {
+      'APPARTEMENT': 'Appartement',
+      'MAGASIN': 'Magasin',
+      'BUREAU': 'Bureau',
+      'STUDIO': 'Studio',
+      'PARKING': 'Parking',
+      'CHAMBRE': 'Chambre'
+    };
+    
+    const typeLibelle = typeMap[typeLotValue] || typeLotValue;
+    const numLot = numeroLot || currentLot.numero_lot || '';
+    const etageValue = etage || currentLot.etage || '';
+    
+    let nomAuto = typeLibelle;
+    if (etageValue) nomAuto += ` - Étage ${etageValue}`;
+    if (numLot) nomAuto += ` - Lot ${numLot}`;
+    
+    return nomAuto;
   };
 
-  // Fonction pour gérer les changements de champs numériques
-  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: string, isFormData: boolean = true) => {
-    const rawValue = e.target.value;
-    const cleanValue = formatNumber(rawValue);
+  // Fonction pour générer un numéro de lot séquentiel
+  const genererNumeroLotSequentiel = (prefixe: string, index: number): string => {
+    const numero = String(index).padStart(3, '0');
+    return `${prefixe}-${numero}`;
+  };
+
+  // Fonction pour obtenir le prochain numéro de lot disponible
+  const getProchainNumeroLot = (prefixe: string): number => {
+    const lotsExistants = formData.lots;
+    let maxNumero = 0;
     
-    if (isFormData) {
-      setFormData({ ...formData, [field]: cleanValue });
-    } else {
-      setCurrentLot({ ...currentLot, [field]: cleanValue });
+    lotsExistants.forEach(lot => {
+      if (lot.numero_lot && lot.numero_lot.startsWith(prefixe)) {
+        const match = lot.numero_lot.match(new RegExp(`${prefixe}-(\\d+)`));
+        if (match && match[1]) {
+          const num = parseInt(match[1]);
+          if (num > maxNumero) maxNumero = num;
+        }
+      }
+    });
+    
+    return maxNumero + 1;
+  };
+
+  // Mettre à jour le nom du lot automatiquement
+  const mettreAJourNomLotAuto = () => {
+    const nomSuggere = genererNomLotAuto();
+    if (nomSuggere && nomSuggere !== currentLot.nom) {
+      setCurrentLot(prev => ({ ...prev, nom: nomSuggere }));
     }
   };
 
-  const lotsParType = () => {
-    const result: Record<string, { 
-      count: number; 
-      loyers: number[]; 
-      total: number; 
-      lots: any[];
-      surfaces: number[];
-      pieces: number[];
-    }> = {};
+  // Effet pour mettre à jour le nom du lot
+  useEffect(() => {
+    mettreAJourNomLotAuto();
+  }, [currentLot.type_lot, currentLot.numero_lot, currentLot.etage]);
+
+  // Ouvrir la modale d'ajout multiple
+  const openMultipleLotModal = () => {
+    // Validation des champs obligatoires
+    if (isVente && !currentLot.prix_vente) {
+      toast.error('Veuillez remplir le prix de vente');
+      return;
+    }
+    if (!isVente && !currentLot.loyer_mensuel) {
+      toast.error('Veuillez remplir le loyer mensuel');
+      return;
+    }
     
-    formData.lots.forEach(lot => {
-      const type = lot.type_lot;
-      const loyer = parseFloat(lot.loyer_mensuel) || 0;
-      const surface = parseFloat(lot.surface) || 0;
-      const pieces = parseInt(lot.pieces) || 0;
-      
-      if (!result[type]) {
-        result[type] = { 
-          count: 0, 
-          loyers: [], 
-          total: 0, 
-          lots: [],
-          surfaces: [],
-          pieces: []
-        };
-      }
-      
-      result[type].count += 1;
-      result[type].loyers.push(loyer);
-      result[type].surfaces.push(surface);
-      result[type].pieces.push(pieces);
-      result[type].total += loyer;
-      result[type].lots.push(lot);
+    const prochainNumero = getProchainNumeroLot('LOT');
+    setMultipleLotConfig({
+      quantite: 1,
+      prefixe: 'LOT',
+      startNumber: prochainNumero
     });
-    
-    return result;
+    setShowMultipleLotModal(true);
   };
 
-  const lotsStats = lotsParType();
+  // Fonction pour ajouter plusieurs lots
+const handleAddMultipleLotsFromModal = () => {
+  const { quantite, prefixe, startNumber } = multipleLotConfig;
   
-  const totalRevenus = formData.lots.reduce((sum, lot) => {
-    return sum + (parseFloat(lot.loyer_mensuel) || 0);
-  }, 0);
+  if (quantite < 1 || quantite > 100) {
+    toast.error('La quantité doit être entre 1 et 100');
+    return;
+  }
+  
+  // ✅ Validation selon le type (vente ou location)
+  if (isVente && !currentLot.prix_vente) {
+    toast.error('Veuillez remplir le prix de vente du lot');
+    return;
+  }
+  if (!isVente && !currentLot.loyer_mensuel) {
+    toast.error('Veuillez remplir le loyer mensuel du lot');
+    return;
+  }
+  
+  const newLots = [...formData.lots];
+  const etageValue = currentLot.etage || '';
+  const typeLotValue = currentLot.type_lot;
+  const surfaceValue = currentLot.surface || '';
+  const piecesValue = currentLot.pieces || '';
+  const prixVenteValue = currentLot.prix_vente || '';
+  const loyerMensuelValue = currentLot.loyer_mensuel || '';
+  const statutValue = currentLot.statut || 'DISPONIBLE';
+  
+  for (let i = 0; i < quantite; i++) {
+    const numeroLot = genererNumeroLotSequentiel(prefixe, startNumber + i);
+    const nomAuto = genererNomLotAuto(numeroLot, etageValue, typeLotValue);
+    
+    newLots.push({
+      id: undefined,
+      numero_lot: numeroLot,
+      etage: etageValue,
+      type_lot: typeLotValue,
+      nom: nomAuto,
+      surface: surfaceValue,
+      pieces: piecesValue,
+      loyer_mensuel: loyerMensuelValue, 
+      prix_vente: prixVenteValue, 
+      description: '',
+      statut: statutValue
+    });
+  }
+  
+  setFormData(prev => ({ ...prev, lots: newLots, nombre_lots: newLots.length }));
+  setShowMultipleLotModal(false);
+  resetCurrentLot();
+  toast.success(`${quantite} lot(s) ajouté(s) avec succès (${prefixe}-${String(startNumber).padStart(3, '0')} à ${prefixe}-${String(startNumber + quantite - 1).padStart(3, '0')})`);
+};
 
+  // Ajouter un seul lot
+  const handleAddLot = () => {
+    // Validation des champs obligatoires
+    if (isVente && !currentLot.prix_vente) {
+      toast.error('Veuillez remplir le prix de vente');
+      return;
+    }
+    if (!isVente && !currentLot.loyer_mensuel) {
+      toast.error('Veuillez remplir le loyer mensuel');
+      return;
+    }
+    
+    const newLots = [...formData.lots];
+    
+    // Si pas de numéro de lot, en générer un automatiquement
+    let numeroLot = currentLot.numero_lot;
+    if (!numeroLot || numeroLot.trim() === '') {
+      const prochainNumero = getProchainNumeroLot('LOT');
+      numeroLot = genererNumeroLotSequentiel('LOT', prochainNumero);
+    }
+    
+    // Générer le nom si vide
+    let nomLot = currentLot.nom;
+    if (!nomLot || nomLot.trim() === '') {
+      nomLot = genererNomLotAuto(numeroLot, currentLot.etage, currentLot.type_lot);
+    }
+    
+    const newLot = { 
+      ...currentLot, 
+      numero_lot: numeroLot,
+      nom: nomLot,
+      description: '' 
+    };
+    
+    if (editingLotIndex !== null) {
+      newLots[editingLotIndex] = newLot;
+      toast.success('Lot modifié avec succès');
+    } else {
+      newLots.push(newLot);
+      toast.success(`Lot ajouté avec succès (${numeroLot})`);
+    }
+    
+    setFormData(prev => ({ ...prev, lots: newLots, nombre_lots: newLots.length }));
+    resetCurrentLot();
+    setEditingLotIndex(null);
+    setShowLotForm(false);
+  };
+
+  // Ajouter plusieurs lots (version simple avec prompt - conservée pour compatibilité)
+  const handleAddMultipleLotsPrompt = () => {
+    // Validation des champs obligatoires
+    if (isVente && !currentLot.prix_vente) {
+      toast.error('Veuillez remplir le prix de vente');
+      return;
+    }
+    if (!isVente && !currentLot.loyer_mensuel) {
+      toast.error('Veuillez remplir le loyer mensuel');
+      return;
+    }
+    
+    const quantite = prompt('Combien de lots identiques voulez-vous ajouter ?', '1');
+    const quantiteNum = parseInt(quantite || '1');
+    if (isNaN(quantiteNum) || quantiteNum < 1) { 
+      toast.error('Quantité invalide'); 
+      return; 
+    }
+    if (quantiteNum > 100) { 
+      toast.error('La quantité maximale est de 100 lots par opération'); 
+      return; 
+    }
+    
+    const prefixe = prompt('Préfixe pour les numéros de lot (ex: LOT, APP, BUREAU) ou laissez vide', 'LOT');
+    const prefixeFinal = prefixe && prefixe.trim() ? prefixe.trim().toUpperCase() : 'LOT';
+    
+    let prochainNumero = getProchainNumeroLot(prefixeFinal);
+    
+    const newLots = [...formData.lots];
+    const etageValue = currentLot.etage || '';
+    const typeLotValue = currentLot.type_lot;
+    const surfaceValue = currentLot.surface || '';
+    const piecesValue = currentLot.pieces || '';
+    const prixVenteValue = currentLot.prix_vente || '';
+    const loyerMensuelValue = currentLot.loyer_mensuel || '';
+    const statutValue = currentLot.statut || 'DISPONIBLE';
+    
+    for (let i = 0; i < quantiteNum; i++) {
+      const numeroLot = genererNumeroLotSequentiel(prefixeFinal, prochainNumero + i);
+      const nomAuto = genererNomLotAuto(numeroLot, etageValue, typeLotValue);
+      
+      newLots.push({
+        id: undefined,
+        numero_lot: numeroLot,
+        etage: etageValue,
+        type_lot: typeLotValue,
+        nom: nomAuto,
+        surface: surfaceValue,
+        pieces: piecesValue,
+        loyer_mensuel: loyerMensuelValue,
+        prix_vente: prixVenteValue,
+        description: '',
+        statut: statutValue
+      });
+    }
+    
+    setFormData(prev => ({ ...prev, lots: newLots, nombre_lots: newLots.length }));
+    resetCurrentLot();
+    setShowLotForm(false);
+    toast.success(`${quantiteNum} lot(s) ajouté(s) avec succès (${prefixeFinal}-${String(prochainNumero).padStart(3, '0')} à ${prefixeFinal}-${String(prochainNumero + quantiteNum - 1).padStart(3, '0')})`);
+  };
+
+  const resetCurrentLot = () => {
+    setCurrentLot({ 
+      numero_lot: '', 
+      etage: '', 
+      type_lot: 'APPARTEMENT', 
+      nom: '', 
+      surface: '', 
+      pieces: '', 
+      loyer_mensuel: '', 
+      prix_vente: '', 
+      description: '', 
+      statut: 'DISPONIBLE' 
+    });
+  };
+
+  const handleEditLot = (index: number) => {
+    setCurrentLot({ ...formData.lots[index] });
+    setEditingLotIndex(index);
+    setShowLotForm(true);
+  };
+
+  const handleRemoveLot = (index: number) => {
+    const lotToRemove = formData.lots[index];
+    if (lotToRemove.id) setLotsToDelete(prev => [...prev, lotToRemove.id!]);
+    const newLots = [...formData.lots];
+    newLots.splice(index, 1);
+    setFormData(prev => ({ ...prev, lots: newLots, nombre_lots: newLots.length }));
+    toast.success('Lot supprimé');
+  };
+
+  // ── FIN FONCTIONS POUR LA GESTION DES LOTS ────────────────────────────────────
+
+  // ── Fonction pour générer le nom commercial suggéré ────────────────────────
+  const genererNomCommercial = (): string => {
+    const typeBien = formData.type_bien;
+    const typeMap: Record<string, string> = {
+      'APPARTEMENT': 'Appartement',
+      'MAISON': 'Maison',
+      'VILLA': 'Villa',
+      'STUDIO': 'Studio',
+      'COMMERCIAL': 'Local commercial',
+      'MAGASIN': 'Magasin',
+      'ENTREPOT': 'Entrepôt',
+      'BUREAU': 'Bureau',
+      'TERRAIN': 'Terrain',
+      'PARKING': 'Parking',
+      'CHAMBRE': 'Chambre',
+      'KIOSQUE': 'Kiosque',
+      'IMMEUBLE': 'Immeuble'
+    };
+    
+    const typeLibelle = typeMap[typeBien] || typeBien;
+    
+    let localisation = '';
+    const quartierFinal = formData.quartier === '__autre__' ? quartierSaisi : formData.quartier;
+    if (quartierFinal) {
+      localisation = quartierFinal;
+    } else if (formData.district === 'Abidjan' && formData.commune) {
+      localisation = formData.commune;
+    } else if (formData.ville && formData.ville !== '__autre__') {
+      localisation = formData.ville;
+    } else if (villeSaisie) {
+      localisation = villeSaisie;
+    }
+    
+    let nomCommercial = '';
+    if (typeLibelle) nomCommercial += typeLibelle;
+    if (localisation) nomCommercial += ` - ${localisation}`;
+    
+    if (!nomCommercial) {
+      nomCommercial = `Bien ${new Date().toISOString().slice(0, 10)}`;
+    }
+    
+    return nomCommercial;
+  };
+
+  // ── Fonction pour générer une référence unique ────────────────────────────
+  const genererReferenceUnique = async (): Promise<string> => {
+    try {
+      const response = await fetch('/api/biens?limit=1&sort=desc');
+      const data = await response.json();
+      
+      let dernierNumero = 0;
+      if (data.success && data.biens && data.biens.length > 0) {
+        const derniereRef = data.biens[0].reference_unique || data.biens[0].id;
+        const match = derniereRef.match(/BIEN-(\d+)/);
+        if (match) {
+          dernierNumero = parseInt(match[1]);
+        }
+      }
+      
+      const nouveauNumero = dernierNumero + 1;
+      return `BIEN-${nouveauNumero.toString().padStart(5, '0')}`;
+    } catch (error) {
+      console.error('Erreur génération référence:', error);
+      return `BIEN-${Date.now().toString().slice(-5)}`;
+    }
+  };
+
+  // ── Mettre à jour le nom commercial suggéré ────────────────────────────────
+  const mettreAJourNomCommercial = () => {
+    if (bien) return;
+    const nomSuggere = genererNomCommercial();
+    if (nomSuggere && nomSuggere !== formData.nom) {
+      setFormData(prev => ({ ...prev, nom: nomSuggere }));
+    }
+  };
+
+  // ── Effet pour initialiser la référence unique en création ─────────────────
+  useEffect(() => {
+    if (!bien && !formData.reference_unique) {
+      genererReferenceUnique().then(ref => {
+        setFormData(prev => ({ ...prev, reference_unique: ref }));
+      });
+    }
+  }, [bien]);
+
+  // ── Effet pour mettre à jour le nom commercial ────────────────────────────
+  useEffect(() => {
+    if (!bien) {
+      mettreAJourNomCommercial();
+    }
+  }, [formData.type_bien, formData.district, formData.commune, formData.ville, formData.quartier, villeSaisie, quartierSaisi]);
+
+  // ── Helpers numériques ────────────────────────────────
+  const formatNumber = (value: string) => {
+    if (!value) return '';
+    return value.replace(/[^\d]/g, '');
+  };
+
+  const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>, field: string, isFormData: boolean = true) => {
+    const cleanValue = formatNumber(e.target.value);
+    if (isFormData) {
+      setFormData(prev => ({ ...prev, [field]: cleanValue }));
+    } else {
+      setCurrentLot(prev => ({ ...prev, [field]: cleanValue }));
+    }
+  };
+
+  // ── Statistiques lots ─────────────────────────────────
+  // ── Statistiques lots ─────────────────────────────────
+const lotsParType = () => {
+  const result: Record<string, { 
+    count: number; 
+    valeurs: number[];  // ✅ Utiliser 'valeurs' au lieu de 'loyers'
+    total: number; 
+    lots: any[];
+    surfaces: number[];
+    pieces: number[];
+  }> = {};
+  
+  formData.lots.forEach(lot => {
+    const type = lot.type_lot;
+    // ✅ Utiliser prix_vente pour la vente, loyer_mensuel pour la location
+    const valeur = isVente 
+      ? (parseFloat(lot.prix_vente) || 0)
+      : (parseFloat(lot.loyer_mensuel) || 0);
+    const surface = parseFloat(lot.surface) || 0;
+    const pieces = parseInt(lot.pieces) || 0;
+    
+    if (!result[type]) {
+      result[type] = { 
+        count: 0, 
+        valeurs: [], 
+        total: 0, 
+        lots: [], 
+        surfaces: [], 
+        pieces: [] 
+      };
+    }
+    result[type].count += 1;
+    result[type].valeurs.push(valeur);  // ✅ Utiliser 'valeurs'
+    result[type].surfaces.push(surface);
+    result[type].pieces.push(pieces);
+    result[type].total += valeur;
+    result[type].lots.push(lot);
+  });
+  
+  return result;
+};
+
+  const lotsStats = lotsParType();
+  const totalRevenus = formData.lots.reduce((sum, lot) => sum + (parseFloat(lot.loyer_mensuel) || 0), 0);
   const lotsLoues = formData.lots.filter(lot => lot.statut === 'LOUE').length;
   const lotsDisponibles = formData.lots.filter(lot => lot.statut === 'DISPONIBLE').length;
   const lotsEnVente = formData.lots.filter(lot => lot.statut === 'EN_VENTE').length;
   const totalLots = formData.lots.length;
 
+  // ── useEffect : chargement initial ───────────────────
   useEffect(() => {
     chargerProprietaires();
     
     if (bien) {
       chargerLotsDuBien(bien.id);
       
+      let statutInitial = bien.statut as StatutBien;
+      if (statutInitial === 'LOUE') statutInitial = 'DISPONIBLE';
+      if (statutInitial === 'VENDU') statutInitial = 'EN_VENTE';
+      
+      // Déterminer le mode de vente de l'immeuble
+      if (bien.type_bien === 'IMMEUBLE' && bien.statut === 'EN_VENTE') {
+        if (bien.lots && bien.lots.length > 0) {
+          setModeVenteImmeuble('par_lots');
+        } else {
+          setModeVenteImmeuble('global');
+        }
+      }
+      
       setFormData({
         proprietaire_id: bien.proprietaire_id?.toString() || '',
+        reference_unique: bien.reference_unique || `BIEN-${bien.id.toString().padStart(5, '0')}`,
         nom: bien.nom,
         type_bien: bien.type_bien as TypeBien,
-        statut: bien.statut as StatutBien,
+        statut: statutInitial,
         adresse: bien.adresse || '',
         quartier: bien.quartier || '',
         commune: bien.commune || '',
@@ -194,8 +594,6 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
         etage: bien.etage?.toString() || '',
         description: bien.description || '',
         loyer_mensuel: bien.loyer_mensuel?.toString() || '',
-        charges: bien.charges?.toString() || '',
-        depot_garantie: bien.depot_garantie?.toString() || '',
         prix_vente: bien.prix_vente?.toString() || '',
         date_acquisition: bien.date_acquisition || '',
         latitude: bien.latitude?.toString() || '',
@@ -215,13 +613,37 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
         })));
         setPhotoPreviews(bien.photos.map(p => p.url));
       }
-
-      if (bien.commune && QUARTIERS_CI[bien.commune]) {
-        setQuartiersDisponibles(QUARTIERS_CI[bien.commune]);
-      }
     }
   }, [bien]);
 
+  // ── useEffect : district → villes disponibles ─────────
+  useEffect(() => {
+    if (!formData.district) {
+      setVillesDisponibles([]);
+      return;
+    }
+    if (formData.district === 'Abidjan') {
+      setVillesDisponibles([]);
+    } else {
+      setVillesDisponibles(VILLES_PAR_DISTRICT[formData.district] ?? []);
+    }
+    setVilleSaisie('');
+    setQuartiersDisponibles([]);
+    setQuartierSaisi('');
+  }, [formData.district]);
+
+  // ── useEffect : commune/ville → quartiers disponibles ─
+  useEffect(() => {
+    const villeActive = formData.district === 'Abidjan' ? formData.commune : formData.ville;
+    if (villeActive && QUARTIERS_CI[villeActive]) {
+      setQuartiersDisponibles(QUARTIERS_CI[villeActive]);
+    } else {
+      setQuartiersDisponibles([]);
+    }
+    setQuartierSaisi('');
+  }, [formData.commune, formData.ville, formData.district]);
+
+  // ── Chargements API ───────────────────────────────────
   const chargerLotsDuBien = async (bienId: number) => {
     try {
       const response = await fetch(`/api/biens/${bienId}/lots`);
@@ -234,329 +656,211 @@ export default function BienForm({ bien, onClose, onSuccess, utilisateurId }: Bi
     }
   };
 
-  useEffect(() => {
-    if (formData.commune && QUARTIERS_CI[formData.commune]) {
-      setQuartiersDisponibles(QUARTIERS_CI[formData.commune]);
-    } else {
-      setQuartiersDisponibles([]);
-    }
-  }, [formData.commune]);
-
   const chargerProprietaires = async () => {
     try {
       const response = await fetch('/api/proprietaires?actif=ACTIF');
       const data = await response.json();
-      if (data.success) {
-        setProprietaires(data.proprietaires);
-      }
+      if (data.success) setProprietaires(data.proprietaires);
     } catch (error) {
       console.error('Erreur chargement propriétaires:', error);
     }
   };
 
-  // Ajouter plusieurs lots identiques
-  const handleAddMultipleLots = () => {
-    if (!currentLot.loyer_mensuel) {
-      toast.error('Veuillez remplir le loyer mensuel');
-      return;
-    }
-
-    const quantite = prompt('Combien d\'appartements identiques voulez-vous ajouter ?', '1');
-    const quantiteNum = parseInt(quantite || '1');
-    
-    if (isNaN(quantiteNum) || quantiteNum < 1) {
-      toast.error('Quantité invalide');
-      return;
-    }
-
-    if (quantiteNum > 100) {
-      toast.error('La quantité maximale est de 100 lots par opération');
-      return;
-    }
-
-    const newLots = [...formData.lots];
-    
-    for (let i = 0; i < quantiteNum; i++) {
-      let numeroLot = currentLot.numero_lot || `Lot_${Date.now()}_${i + 1}`;
-      if (quantiteNum > 1 && i > 0) {
-        numeroLot = `${currentLot.numero_lot || 'Lot'}_${i + 1}`;
-      }
-      
-      const newLot: LotForm = {
-        numero_lot: numeroLot,
-        etage: currentLot.etage || '',
-        type_lot: currentLot.type_lot,
-        nom: currentLot.nom || '',
-        surface: currentLot.surface || '',
-        pieces: currentLot.pieces || '',
-        loyer_mensuel: currentLot.loyer_mensuel,
-        charges: currentLot.charges || '0',
-        depot_garantie: currentLot.depot_garantie || '',
-        prix_vente: currentLot.prix_vente || '',
-        description: '',
-        statut: currentLot.statut
-      };
-      
-      newLots.push(newLot);
-    }
-    
-    setFormData({ ...formData, lots: newLots, nombre_lots: newLots.length });
-    
-    resetCurrentLot();
-    setShowLotForm(false);
-    
-    toast.success(`${quantiteNum} lot(s) ajouté(s) avec succès`);
-  };
-
-  // Ajouter un seul lot
-  const handleAddLot = () => {
-    if (!currentLot.loyer_mensuel) {
-      toast.error('Veuillez remplir le loyer mensuel');
-      return;
-    }
-
-    const newLots = [...formData.lots];
-    const newLot = {
-      ...currentLot,
-      numero_lot: currentLot.numero_lot || `Lot_${Date.now()}`,
-      description: ''
-    };
-    
-    if (editingLotIndex !== null) {
-      newLots[editingLotIndex] = newLot;
-      toast.success('Lot modifié avec succès');
-    } else {
-      newLots.push(newLot);
-      toast.success('Lot ajouté avec succès');
-    }
-
-    setFormData({ ...formData, lots: newLots, nombre_lots: newLots.length });
-    
-    resetCurrentLot();
-    setEditingLotIndex(null);
-    setShowLotForm(false);
-  };
-
-  const resetCurrentLot = () => {
-    setCurrentLot({
-      numero_lot: '',
-      etage: '',
-      type_lot: 'APPARTEMENT',
-      nom: '',
-      surface: '',
-      pieces: '',
-      loyer_mensuel: '',
-      charges: '',
-      depot_garantie: '',
-      prix_vente: '',
-      description: '',
-      statut: 'DISPONIBLE'
-    });
-  };
-
-  const handleEditLot = (index: number) => {
-    const lotToEdit = formData.lots[index];
-    setCurrentLot({ ...lotToEdit });
-    setEditingLotIndex(index);
-    setShowLotForm(true);
-  };
-
-  const handleRemoveLot = (index: number) => {
-    const lotToRemove = formData.lots[index];
-    
-    if (lotToRemove.id) {
-      setLotsToDelete(prev => [...prev, lotToRemove.id!]);
-    }
-    
-    const newLots = [...formData.lots];
-    newLots.splice(index, 1);
-    setFormData({ ...formData, lots: newLots, nombre_lots: newLots.length });
-    toast.success('Lot supprimé');
-  };
-
+  // ── Validation ────────────────────────────────────────
   const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const newErrors: Record<string, string> = {};
 
-    if (!formData.nom.trim()) newErrors.nom = 'Le nom est requis';
-    // Adresse n'est plus requise
-    if (!formData.district) newErrors.district = 'Le district est requis';
-    
-    if (formData.district === 'Abidjan') {
-      if (!formData.commune) newErrors.commune = 'La commune est requise';
-    } else {
-      if (!communeSaisie.trim()) newErrors.communeSaisie = 'La ville/commune est requise';
-    }
-    
-    if (!formData.surface) newErrors.surface = 'La surface est requise';
-    else if (parseFloat(formData.surface) <= 0) newErrors.surface = 'La surface doit être positive';
-    
-    if (formData.type_bien !== 'TERRAIN' && formData.type_bien !== 'IMMEUBLE') {
-      if (!formData.pieces) newErrors.pieces = 'Le nombre de pièces est requis';
-      else if (parseInt(formData.pieces) <= 0) newErrors.pieces = 'Le nombre de pièces doit être positif';
-    }
+  if (!formData.nom.trim()) newErrors.nom = 'Le nom commercial est requis';
+  if (!formData.district) newErrors.district = 'Le district est requis';
 
-    if (formData.statut === 'EN_VENTE') {
-      if (!formData.prix_vente) newErrors.prix_vente = 'Le prix de vente est requis';
-      else if (parseFloat(formData.prix_vente) <= 0) newErrors.prix_vente = 'Le prix doit être positif';
-    } else if (formData.statut === 'LOUE' || formData.statut === 'DISPONIBLE') {
-      if (formData.type_bien !== 'TERRAIN' && !isImmeuble) {
-        if (!formData.loyer_mensuel) newErrors.loyer_mensuel = 'Le loyer mensuel est requis';
-        else if (parseFloat(formData.loyer_mensuel) <= 0) newErrors.loyer_mensuel = 'Le loyer doit être positif';
-      }
-    }
-
-    if (isImmeuble && formData.lots.length === 0) {
-      newErrors.lots = 'Au moins un lot est requis pour un immeuble';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!validateForm()) {
-    toast.error('Veuillez remplir tous les champs obligatoires');
-    return;
+  if (formData.district === 'Abidjan') {
+    if (!formData.commune) newErrors.commune = 'La commune est requise pour Abidjan';
+  } else {
+    const villeChoisie = formData.ville === '__autre__' ? villeSaisie : formData.ville;
+    if (!villeChoisie.trim()) newErrors.ville = 'La ville est requise';
   }
 
+  if (!formData.surface) newErrors.surface = 'La surface est requise';
+  else if (parseFloat(formData.surface) <= 0) newErrors.surface = 'La surface doit être positive';
+
+  if (formData.type_bien !== 'TERRAIN' && formData.type_bien !== 'IMMEUBLE') {
+    if (!formData.pieces) newErrors.pieces = 'Le nombre de pièces est requis';
+    else if (parseInt(formData.pieces) <= 0) newErrors.pieces = 'Le nombre de pièces doit être positif';
+  }
+
+  // ✅ Validation pour la vente
+  if (formData.statut === 'EN_VENTE') {
+    // Pour les immeubles en vente globale, le prix est requis
+    if (isImmeuble && modeVenteImmeuble === 'global') {
+      if (!formData.prix_vente) {
+        newErrors.prix_vente = 'Le prix de vente est requis';
+      } else if (parseFloat(formData.prix_vente) <= 0) {
+        newErrors.prix_vente = 'Le prix doit être positif';
+      }
+    }
+    // Pour les biens simples en vente
+    else if (!isImmeuble) {
+      if (!formData.prix_vente) {
+        newErrors.prix_vente = 'Le prix de vente est requis';
+      } else if (parseFloat(formData.prix_vente) <= 0) {
+        newErrors.prix_vente = 'Le prix doit être positif';
+      }
+    }
+    // Pour les immeubles en vente par lots, pas de validation du prix principal
+  } 
+  // ✅ Validation pour la location
+  else {
+    if (formData.type_bien !== 'TERRAIN' && !isImmeuble) {
+      if (!formData.loyer_mensuel) {
+        newErrors.loyer_mensuel = 'Le loyer mensuel est requis';
+      } else if (parseFloat(formData.loyer_mensuel) <= 0) {
+        newErrors.loyer_mensuel = 'Le loyer doit être positif';
+      }
+    }
+  }
+
+  // ✅ Validation des lots pour immeuble en vente par lots ou location
+  if (isImmeuble && !(isVente && modeVenteImmeuble === 'global')) {
+    if (formData.lots.length === 0) {
+      newErrors.lots = 'Au moins un lot est requis';
+    } else {
+      // ✅ Vérifier que chaque lot a un prix (pour vente) ou un loyer (pour location)
+      for (let i = 0; i < formData.lots.length; i++) {
+        const lot = formData.lots[i];
+        if (isVente) {
+          if (!lot.prix_vente || parseFloat(lot.prix_vente) <= 0) {
+            newErrors[`lot_${i}_prix`] = `Le lot ${lot.numero_lot || i+1} doit avoir un prix de vente`;
+          }
+        } else {
+          if (!lot.loyer_mensuel || parseFloat(lot.loyer_mensuel) <= 0) {
+            newErrors[`lot_${i}_loyer`] = `Le lot ${lot.numero_lot || i+1} doit avoir un loyer mensuel`;
+          }
+        }
+      }
+    }
+  }
+
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
+};
+
+// ── Soumission ────────────────────────────────────────
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!validateForm()) { toast.error('Veuillez remplir tous les champs obligatoires'); return; }
   setIsLoading(true);
 
   try {
     const formDataToSend = new FormData();
-    
-    // Données de base
+
+    const communeFinale = formData.district === 'Abidjan' ? formData.commune : '';
+    const villeFinale = formData.district === 'Abidjan'
+      ? formData.commune
+      : formData.ville === '__autre__' ? villeSaisie : formData.ville;
+    const quartierFinal = formData.quartier === '__autre__' ? quartierSaisi : formData.quartier;
+
     formDataToSend.append('proprietaire_id', formData.proprietaire_id);
+    formDataToSend.append('reference_unique', formData.reference_unique);
     formDataToSend.append('nom', formData.nom);
     formDataToSend.append('type_bien', formData.type_bien);
     formDataToSend.append('statut', formData.statut);
     formDataToSend.append('adresse', formData.adresse || '');
-    formDataToSend.append('quartier', formData.quartier || '');
-    
-    const communeValue = formData.district === 'Abidjan' ? formData.commune : communeSaisie;
-    formDataToSend.append('commune', communeValue);
-    formDataToSend.append('ville', formData.ville || 'Abidjan');
+    formDataToSend.append('quartier', quartierFinal || '');
+    formDataToSend.append('commune', communeFinale);
+    formDataToSend.append('ville', villeFinale);
     formDataToSend.append('district', formData.district);
     formDataToSend.append('pays', 'Côte d\'Ivoire');
     formDataToSend.append('surface', formData.surface);
-    
+
     if (formData.type_bien !== 'TERRAIN') {
       formDataToSend.append('pieces', formData.pieces || '1');
     } else {
       formDataToSend.append('pieces', '0');
     }
-    
+
     formDataToSend.append('etage', formData.etage || '');
     formDataToSend.append('description', formData.description || '');
     formDataToSend.append('date_acquisition', formData.date_acquisition || '');
     formDataToSend.append('latitude', formData.latitude || '');
     formDataToSend.append('longitude', formData.longitude || '');
-    
+
     if (formData.statut === 'EN_VENTE') {
       formDataToSend.append('prix_vente', formData.prix_vente);
       formDataToSend.append('loyer_mensuel', '0');
-      formDataToSend.append('charges', '0');
-      formDataToSend.append('depot_garantie', '');
     } else {
       formDataToSend.append('loyer_mensuel', formData.loyer_mensuel || '0');
-      formDataToSend.append('charges', formData.charges || '0');
-      formDataToSend.append('depot_garantie', formData.depot_garantie || '');
       formDataToSend.append('prix_vente', '');
     }
+
+    formDataToSend.append('est_principal', '1');
     
-    formDataToSend.append('est_principal', isImmeuble ? '1' : '1');
-    formDataToSend.append('nombre_lots', formData.lots.length.toString());
+    // ✅ AJOUTER CETTE LIGNE - Envoi du mode de vente pour les immeubles en vente
+    if (isImmeuble && isVente) {
+      formDataToSend.append('mode_vente_immeuble', modeVenteImmeuble);
+    }
     
-    // Lots
-    if (isImmeuble) {
-      const lotsToSend = formData.lots.map(lot => ({
-        id: lot.id,
-        numero_lot: lot.numero_lot || `Lot_${Date.now()}`,
-        etage: lot.etage || null,
-        type_lot: lot.type_lot,
-        nom: lot.nom || null,
-        surface: lot.surface || '0',
-        pieces: lot.pieces || null,
-        loyer_mensuel: lot.loyer_mensuel,
-        charges: lot.charges || '0',
-        depot_garantie: lot.depot_garantie || null,
-        prix_vente: lot.prix_vente || null,
-        description: '',
-        statut: lot.statut
-      }));
+    // Pour un immeuble en vente globale, on n'envoie pas de lots
+    if (isImmeuble && isVente && modeVenteImmeuble === 'global') {
+      formDataToSend.append('nombre_lots', '0');
+      formDataToSend.append('lots', '[]');
+    } else {
+      formDataToSend.append('nombre_lots', formData.lots.length.toString());
       
-      formDataToSend.append('lots', JSON.stringify(lotsToSend));
-      
-      if (lotsToDelete.length > 0) {
-        formDataToSend.append('lotsToDelete', JSON.stringify(lotsToDelete));
+      if (isImmeuble) {
+        const lotsToSend = formData.lots.map(lot => ({
+          id: lot.id,
+          numero_lot: lot.numero_lot || `Lot_${Date.now()}`,
+          etage: lot.etage || null,
+          type_lot: lot.type_lot,
+          nom: lot.nom || null,
+          surface: lot.surface || '0',
+          pieces: lot.pieces || null,
+          loyer_mensuel: lot.loyer_mensuel,
+          prix_vente: lot.prix_vente || null,
+          description: '',
+          statut: lot.statut
+        }));
+        formDataToSend.append('lots', JSON.stringify(lotsToSend));
+        if (lotsToDelete.length > 0) formDataToSend.append('lotsToDelete', JSON.stringify(lotsToDelete));
       }
     }
-    
-    // ✅ PHOTOS - Important: S'assurer que les photos sont bien ajoutées
-    // Photos à supprimer
+
     if (formData.photosToDelete && formData.photosToDelete.length > 0) {
-      formData.photosToDelete.forEach(id => {
-        formDataToSend.append('photosToDelete', id.toString());
-      });
-      console.log('📸 Photos à supprimer:', formData.photosToDelete);
+      formData.photosToDelete.forEach(id => formDataToSend.append('photosToDelete', id.toString()));
     }
 
-    // ✅ Nouvelles photos - Vérifier que formData.photos contient bien les fichiers
     if (formData.photos && formData.photos.length > 0) {
-      formData.photos.forEach((photo, index) => {
-        if (photo instanceof File && photo.size > 0) {
-          formDataToSend.append('photos', photo);
-          console.log(`📸 Photo ${index + 1} ajoutée:`, photo.name, photo.size);
-        }
+      formData.photos.forEach(photo => {
+        if (photo instanceof File && photo.size > 0) formDataToSend.append('photos', photo);
       });
-      console.log(`📸 Total nouvelles photos: ${formData.photos.length}`);
-    } else {
-      console.log('📸 Aucune nouvelle photo à ajouter');
     }
 
     const url = bien ? `/api/biens/${bien.id}` : '/api/biens';
     const method = bien ? 'PUT' : 'POST';
-
-    console.log('📤 Envoi des données...');
-    console.log('📸 Nombre de photos dans FormData:', formDataToSend.getAll('photos').length);
-
-    const response = await fetch(url, {
-      method,
-      body: formDataToSend
-    });
-
+    const response = await fetch(url, { method, body: formDataToSend });
     const data = await response.json();
-    console.log('📦 Réponse API:', data);
 
     if (data.success) {
       toast.success(bien ? 'Bien modifié avec succès' : 'Bien créé avec succès');
       onSuccess();
     } else {
-      console.error('❌ Erreur réponse:', data);
       toast.error(data.erreur || 'Une erreur est survenue');
     }
   } catch (error) {
-    console.error('❌ Erreur réseau:', error);
     toast.error('Erreur de connexion au serveur');
   } finally {
     setIsLoading(false);
   }
 };
 
-const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const files = Array.from(e.target.files || []);
-  
-  const validFiles = files.filter(f => f.size <= 5 * 1024 * 1024);
-  if (validFiles.length !== files.length) {
-    toast.error('Certaines photos dépassent 5MB et ont été ignorées');
-  }
-
-  setFormData({ ...formData, photos: [...formData.photos, ...validFiles] });
-
-  const newPreviews = validFiles.map(f => URL.createObjectURL(f));
-  setPhotoPreviews([...photoPreviews, ...newPreviews]);
-};
+  // ── Photos ────────────────────────────────────────────
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter(f => f.size <= 5 * 1024 * 1024);
+    if (validFiles.length !== files.length) toast.error('Certaines photos dépassent 5MB et ont été ignorées');
+    setFormData(prev => ({ ...prev, photos: [...prev.photos, ...validFiles] }));
+    setPhotoPreviews(prev => [...prev, ...validFiles.map(f => URL.createObjectURL(f))]);
+  };
 
   const handleDeleteExistingPhoto = (photoId: number, photoUrl: string) => {
     setPhotoToDelete({ id: photoId, url: photoUrl });
@@ -565,22 +869,12 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
   const confirmDeletePhoto = () => {
     if (photoToDelete) {
-      setFormData({
-        ...formData,
-        photosToDelete: [...formData.photosToDelete, photoToDelete.id]
-      });
-
-      const photoIndex = existingPhotos.findIndex(p => p.id === photoToDelete.id);
-      if (photoIndex !== -1) {
-        const newPreviews = [...photoPreviews];
-        newPreviews.splice(photoIndex, 1);
-        setPhotoPreviews(newPreviews);
-
-        const newExistingPhotos = [...existingPhotos];
-        newExistingPhotos.splice(photoIndex, 1);
-        setExistingPhotos(newExistingPhotos);
+      setFormData(prev => ({ ...prev, photosToDelete: [...prev.photosToDelete, photoToDelete.id] }));
+      const idx = existingPhotos.findIndex(p => p.id === photoToDelete.id);
+      if (idx !== -1) {
+        setPhotoPreviews(prev => prev.filter((_, i) => i !== idx));
+        setExistingPhotos(prev => prev.filter((_, i) => i !== idx));
       }
-
       toast.success('Photo marquée pour suppression');
     }
     setShowDeleteConfirm(false);
@@ -590,16 +884,15 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const handleDeleteNewPhoto = (index: number) => {
     const newPhotos = [...formData.photos];
     newPhotos.splice(index - existingPhotos.length, 1);
-    setFormData({ ...formData, photos: newPhotos });
-
+    setFormData(prev => ({ ...prev, photos: newPhotos }));
     const newPreviews = [...photoPreviews];
     URL.revokeObjectURL(newPreviews[index]);
     newPreviews.splice(index, 1);
     setPhotoPreviews(newPreviews);
-
     toast.success('Photo supprimée');
   };
 
+  // ── Rendu ─────────────────────────────────────────────
   return (
     <>
       <motion.div 
@@ -617,7 +910,15 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="modal-header">
-            <h2>{bien ? 'Modifier le bien' : 'Nouveau bien'} {formData.nom}</h2>
+            <div className="header-title-group">
+              <h2>{bien ? 'Modifier le bien' : 'Nouveau bien'}</h2>
+              {formData.reference_unique && (
+                <div className="reference-unique-badge">
+                  <span className="ref-label">Réf:</span>
+                  <span className="ref-value">{formData.reference_unique}</span>
+                </div>
+              )}
+            </div>
             <button className="modal-close-btn" onClick={onClose}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                 <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -628,23 +929,23 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
           <div className="modal-body">
             <form onSubmit={handleSubmit} className="bien-form">
               <div className="form-sections">
-                {/* Propriétaire */}
+
+                {/* ── Propriétaire ───────────────────────────────── */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>👤</span> Propriétaire (optionnel)
                   </div>
                   <div className="form-grid">
                     <div className="form-group full-width">
-                      <label>Propriétaire</label>
                       <select
                         value={formData.proprietaire_id}
-                        onChange={(e) => setFormData({...formData, proprietaire_id: e.target.value})}
+                        onChange={(e) => setFormData(prev => ({ ...prev, proprietaire_id: e.target.value }))}
                       >
                         <option value="">-- Sans propriétaire --</option>
                         {proprietaires.map(prop => (
                           <option key={prop.id} value={prop.id}>
-                            {prop.type === 'PARTICULIER' ? '👤' : prop.type === 'SOCIETE' ? '🏢' : '🏪'} 
-                            {' '}{prop.prenom} {prop.nom} - {prop.email}
+                            {prop.type === 'PARTICULIER' ? '👤' : prop.type === 'SOCIETE' ? '🏢' : '🏪'}{' '}
+                            {prop.prenom} {prop.nom} - {prop.email}
                           </option>
                         ))}
                       </select>
@@ -652,39 +953,68 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
                 </div>
 
-                {/* Informations générales */}
+                {/* ── Identification ─────────────────────────────────── */}
+                <div className="form-section">
+                  <div className="modal-section-title">
+                    <span>🆔</span> Identification
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group full-width">
+                      <label>Nom du bien *</label>
+                      <div className="nom-commercial-group">
+                        <input
+                          type="text"
+                          value={formData.nom}
+                          onChange={(e) => setFormData(prev => ({ ...prev, nom: e.target.value }))}
+                          className={errors.nom ? 'error' : ''}
+                          placeholder="Ex: Résidence Victor Hugo, Immeuble Cité Verte"
+                        />
+                        {!bien && (
+                          <button 
+                            type="button"
+                            className="suggest-nom-btn"
+                            onClick={mettreAJourNomCommercial}
+                            title="Suggérer un nom basé sur la localisation"
+                          >
+                            💡 Suggérer
+                          </button>
+                        )}
+                      </div>
+                      {errors.nom && <span className="error-message">{errors.nom}</span>}
+                      <small className="style1">
+                        Le nom du bien est modifiable. La référence unique <span className='style2'>{formData.reference_unique || 'sera générée'}</span> est l'identifiant système.
+                      </small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Informations générales ─────────────────────── */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>🏢</span> Informations générales
                   </div>
                   <div className="form-grid">
-                    <div className="form-group full-width">
-                      <label>Nom du bien *</label>
-                      <input
-                        type="text"
-                        value={formData.nom}
-                        onChange={(e) => setFormData({...formData, nom: e.target.value})}
-                        className={errors.nom ? 'error' : ''}
-                        placeholder="Ex: Résidence Victor Hugo, Immeuble Cité Verte"
-                      />
-                      {errors.nom && <span className="error-message">{errors.nom}</span>}
-                    </div>
-
                     <div className="form-group">
                       <label>Type de bien *</label>
                       <select
                         value={formData.type_bien}
                         onChange={(e) => {
-                          setFormData({...formData, type_bien: e.target.value as TypeBien});
-                          if (e.target.value !== 'IMMEUBLE') {
-                            setFormData(prev => ({ ...prev, lots: [], nombre_lots: 0 }));
+                          const val = e.target.value as TypeBien;
+                          setFormData(prev => ({
+                            ...prev,
+                            type_bien: val,
+                            lots: val !== 'IMMEUBLE' ? [] : prev.lots,
+                            nombre_lots: val !== 'IMMEUBLE' ? 0 : prev.nombre_lots,
+                          }));
+                          if (val !== 'IMMEUBLE') {
+                            setModeVenteImmeuble('par_lots');
                           }
                         }}
                         className="select-with-arrow"
                       >
                         {TYPES_BIENS_CI_AVANCES.map(type => (
                           <option key={type.value} value={type.value}>
-                            {type.icone} {type.label} {type.peutAvoirLots ? ' (Immeuble avec lots)' : ''}
+                            {type.icone} {type.label}{type.peutAvoirLots ? ' (Immeuble avec lots)' : ''}
                           </option>
                         ))}
                       </select>
@@ -694,374 +1024,522 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                       <label>Statut *</label>
                       <select
                         value={formData.statut}
-                        onChange={(e) => setFormData({...formData, statut: e.target.value as StatutBien})}
+                        onChange={(e) => {
+                          const newStatut = e.target.value as StatutBien;
+                          setFormData(prev => ({ ...prev, statut: newStatut }));
+                          if (newStatut !== 'EN_VENTE') {
+                            setModeVenteImmeuble('par_lots');
+                          }
+                        }}
                       >
-                        <option value="DISPONIBLE">Disponible</option>
-                        <option value="LOUE">Loué</option>
-                        <option value="EN_TRAVAUX">En travaux</option>
-                        <option value="EN_VENTE">En vente</option>
-                        <option value="RESERVE">Réservé</option>
+                        <option value="DISPONIBLE">🏠 Disponible (Location)</option>
+                        <option value="EN_VENTE">💰 En vente</option>
                       </select>
+                      <small className="style1">
+                        Le statut changera automatiquement après validation du contrat
+                      </small>
                     </div>
                   </div>
                 </div>
 
-                {/* Aspects financiers */}
-                <div className="form-section">
-                  <div className="modal-section-title">
-                    <span>💰</span> {isVente ? 'Prix de vente' : 'Aspects financiers'}
-                  </div>
-                  <div className="form-grid">
-                    {isVente ? (
+                {/* ── Mode de vente pour immeuble (UNIQUEMENT si vente) ── */}
+                {isImmeuble && isVente && (
+                  <div className="form-section">
+                    <div className="modal-section-title">
+                      <span>🏷️</span> Mode de vente
+                    </div>
+                    <div className="form-grid">
                       <div className="form-group full-width">
-                        <label>Prix de vente (FCFA) *</label>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={formData.prix_vente}
-                          onChange={(e) => handleNumberChange(e, 'prix_vente', true)}
-                          className={errors.prix_vente ? 'error' : ''}
-                          placeholder="50000000"
-                        />
-                        {errors.prix_vente && <span className="error-message">{errors.prix_vente}</span>}
+                        <div className="toggle-switch-container">
+                          <label className="toggle-switch">
+                            <input
+                              type="radio"
+                              name="modeVente"
+                              value="global"
+                              checked={modeVenteImmeuble === 'global'}
+                              onChange={() => {
+                                setModeVenteImmeuble('global');
+                                setFormData(prev => ({ ...prev, lots: [], nombre_lots: 0 }));
+                                toast.success('Mode vente globale activé - Prix unique pour tout l\'immeuble');
+                              }}
+                            />
+                            <span className="toggle-slider"></span>
+                            <span className="toggle-label">🏢 Vente globale (immeuble entier)</span>
+                          </label>
+                          <label className="toggle-switch">
+                            <input
+                              type="radio"
+                              name="modeVente"
+                              value="par_lots"
+                              checked={modeVenteImmeuble === 'par_lots'}
+                              onChange={() => {
+                                setModeVenteImmeuble('par_lots');
+                                toast.success('Mode vente par lots activé - Prix individuel par lot');
+                              }}
+                            />
+                            <span className="toggle-slider"></span>
+                            <span className="toggle-label">📦 Vente par lots (chaque lot a son prix)</span>
+                          </label>
+                        </div>
+                        <small className="field-hint">
+                          {modeVenteImmeuble === 'global' 
+                            ? '🏢 L\'immeuble sera vendu en une seule fois avec le prix indiqué ci-dessous.' 
+                            : '📦 Chaque lot pourra être vendu séparément avec son propre prix.'}
+                        </small>
                       </div>
-                    ) : (
-                      !isImmeuble && (
-                        <>
-                          <div className="form-group">
-                            <label>Loyer mensuel (FCFA) *</label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.loyer_mensuel}
-                              onChange={(e) => handleNumberChange(e, 'loyer_mensuel', true)}
-                              className={errors.loyer_mensuel ? 'error' : ''}
-                              placeholder="250000"
-                            />
-                            {errors.loyer_mensuel && <span className="error-message">{errors.loyer_mensuel}</span>}
-                          </div>
-
-                          <div className="form-group">
-                            <label>Charges mensuelles (FCFA)</label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.charges}
-                              onChange={(e) => handleNumberChange(e, 'charges', true)}
-                              placeholder="25000"
-                            />
-                          </div>
-
-                          <div className="form-group">
-                            <label>Dépôt de garantie (FCFA)</label>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              value={formData.depot_garantie}
-                              onChange={(e) => handleNumberChange(e, 'depot_garantie', true)}
-                              placeholder="500000"
-                            />
-                          </div>
-                        </>
-                      )
-                    )}
-
-                    <div className="form-group">
-                      <label>Date d'acquisition</label>
-                      <input
-                        type="date"
-                        value={formData.date_acquisition}
-                        onChange={(e) => setFormData({...formData, date_acquisition: e.target.value})}
-                      />
                     </div>
                   </div>
-                </div>
+                )}
 
-                {isImmeuble && (
+                {/* ── Aspects financiers ─────────────────────────── */}
+<div className="form-section">
+  <div className="form-grid">
+    {isVente ? (
+      // ✅ Pour les immeubles en vente par lots, on n'affiche PAS le prix principal
+      (!isImmeuble || (isImmeuble && modeVenteImmeuble === 'global')) ? (
+        <div className="form-group">
+          <label>Prix de vente (FCFA) *</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formData.prix_vente}
+            onChange={(e) => handleNumberChange(e, 'prix_vente', true)}
+            className={errors.prix_vente ? 'error' : ''}
+            placeholder={isImmeuble && modeVenteImmeuble === 'global' ? "Prix de l'immeuble entier" : "50000000"}
+          />
+          {errors.prix_vente && <span className="error-message">{errors.prix_vente}</span>}
+          {isImmeuble && modeVenteImmeuble === 'global' && (
+            <small className="field-hint success">
+              💡 Prix de vente global pour l'ensemble de l'immeuble
+            </small>
+          )}
+        </div>
+      ) : (
+        // ✅ Pour les immeubles en vente par lots, on affiche un message informatif
+        <div className="form-group">
+          <div className="info-message">
+            <span className="info-icon">🏷️</span>
+            <span className="info-text">
+              Vente par lots - Le prix est défini individuellement pour chaque lot
+            </span>
+          </div>
+        </div>
+      )
+    ) : (
+      !isImmeuble && (
+        <div className="form-group">
+          <label>Loyer mensuel *</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formData.loyer_mensuel}
+            onChange={(e) => handleNumberChange(e, 'loyer_mensuel', true)}
+            className={errors.loyer_mensuel ? 'error' : ''}
+            placeholder="250000"
+          />
+          {errors.loyer_mensuel && <span className="error-message">{errors.loyer_mensuel}</span>}
+          <small className="style1">
+            Les conditions seront définies dans le contrat
+          </small>
+        </div>
+      )
+    )}
+
+    <div className="form-group">
+      <label>Date d'acquisition</label>
+      <input
+        type="date"
+        value={formData.date_acquisition}
+        onChange={(e) => setFormData(prev => ({ ...prev, date_acquisition: e.target.value }))}
+      />
+    </div>
+  </div>
+</div>
+
+                {/* ── Lots (immeubles) ───────────────────────────── */}
+                {afficherSectionLots() && (
                   <div className="form-section lots-section">
                     <div className="modal-section-title">
                       <span>🏘️</span> Lots / Unités locatives ({totalLots} lot(s))
                     </div>
-                    
+
                     <div className="lots-tabs">
                       <button 
-                        type="button"
-                        className={`lots-tab ${activeTab === 'resume' ? 'active' : ''}`}
+                        type="button" 
+                        className={`lots-tab ${activeTab === 'resume' ? 'active' : ''}`} 
                         onClick={() => setActiveTab('resume')}
                       >
                         <span>📊</span> Résumé par type
                       </button>
                       <button 
-                        type="button"
-                        className={`lots-tab ${activeTab === 'details' ? 'active' : ''}`}
+                        type="button" 
+                        className={`lots-tab ${activeTab === 'details' ? 'active' : ''}`} 
                         onClick={() => setActiveTab('details')}
                       >
                         <span>📋</span> Liste des lots
                       </button>
                     </div>
 
-                    {activeTab === 'resume' && (
-                      <div className="lots-resume">
-                        <div className="summary-stats">
-                          <div className="stat-card-small">
-                            <div className="stat-value">{totalLots}</div>
-                            <div className="stat-label">Total lots</div>
-                          </div>
-                          <div className="stat-card-small">
-                            <div className="stat-value">{lotsLoues}</div>
-                            <div className="stat-label">Loués</div>
-                          </div>
-                          <div className="stat-card-small">
-                            <div className="stat-value">{lotsDisponibles}</div>
-                            <div className="stat-label">Disponibles</div>
-                          </div>
-                          <div className="stat-card-small">
-                            <div className="stat-value">{lotsEnVente}</div>
-                            <div className="stat-label">En vente</div>
-                          </div>
-                          <div className="stat-card-small total-revenus">
-                            <div className="stat-value highlight">{totalRevenus.toLocaleString()} FCFA</div>
-                            <div className="stat-label">Revenus mensuels totaux</div>
-                          </div>
-                        </div>
+                    {/* ONGLET RÉSUMÉ PAR TYPE */}
+                    {/* ONGLET RÉSUMÉ PAR TYPE */}
+{activeTab === 'resume' && (
+  <div className="lots-resume-container">
+    {Object.keys(lotsStats).length > 0 ? (
+      <div className="lots-summary-grid">
+        {Object.entries(lotsStats).map(([type, data]) => (
+          <div key={type} className="lot-type-summary-card">
+            {/* En-tête du type */}
+            <div className="summary-card-header">
+              <div className="summary-type-icon">
+                {type === 'APPARTEMENT' && '🏢'}
+                {type === 'MAGASIN' && '🏪'}
+                {type === 'BUREAU' && '🏢'}
+                {type === 'STUDIO' && '🏢'}
+                {type === 'PARKING' && '🅿️'}
+                {type === 'CHAMBRE' && '🛏️'}
+              </div>
+              <div className="summary-type-info">
+                <span className="summary-type-name">{type}</span>
+                <span className="summary-type-count">{data.count} lot(s)</span>
+              </div>
+              <div className="summary-type-total">
+                <span className="total-label">Total:</span>
+                <span className="total-value">{data.total.toLocaleString()} FCFA</span>
+              </div>
+            </div>
 
-                        {Object.keys(lotsStats).length > 0 ? (
-                          <div className="lots-by-type">
-                            <h4>📊 Détail par type de lot</h4>
-                            <div className="lots-types-table-container">
-                              {Object.entries(lotsStats).map(([type, data]) => (
-                                <div key={type} className="lot-type-card-table">
-                                  <div className="lot-type-header-table">
-                                    <span className="lot-type-icon">
-                                      {type === 'APPARTEMENT' ? '🏢' : 
-                                       type === 'MAGASIN' ? '🏪' : 
-                                       type === 'BUREAU' ? '🏢' : 
-                                       type === 'STUDIO' ? '🏢' : 
-                                       type === 'PARKING' ? '🅿️' : '🛏️'}
-                                    </span>
-                                    <span className="lot-type-name">{type}</span>
-                                    <span className="lot-type-count">{data.count} lot(s)</span>
-                                  </div>
-                                  
-                                  <div className="lot-type-details-table">
-                                    <div className="detail-row">
-                                      <div className="detail-label">Surfaces:</div>
-                                      <div className="detail-values surfaces-list">
-                                        {data.surfaces.map((surface, idx) => (
-                                          <span key={idx} className="value-badge surface-badge">
-                                            {surface} m²
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="detail-row">
-                                      <div className="detail-label">Pièces:</div>
-                                      <div className="detail-values pieces-list">
-                                        {data.pieces.map((pieces, idx) => (
-                                          <span key={idx} className="value-badge pieces-badge">
-                                            {pieces} {pieces <= 1 ? 'pièce' : 'pièces'}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="detail-row">
-                                      <div className="detail-label">Loyers:</div>
-                                      <div className="detail-values loyers-list">
-                                        {data.loyers.map((loyer, idx) => (
-                                          <span key={idx} className="value-badge loyer-badge">
-                                            {loyer.toLocaleString()} FCFA
-                                          </span>
-                                        ))}
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="detail-total">
-                                      <span className="total-label">Total mensuel:</span>
-                                      <span className="total-value">{data.total.toLocaleString()} FCFA</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="no-lots-message">Aucun lot ajouté pour le moment</p>
-                        )}
+            {/* Détails du type */}
+            <div className="summary-card-details">
+              {/* Surfaces */}
+              <div className="detail-line">
+                <span className="detail-icon">📏</span>
+                <span className="detail-label">Surfaces:</span>
+                <div className="detail-values">
+                  {data.surfaces && data.surfaces.length > 0 ? (
+                    data.surfaces.map((surface, idx) => (
+                      <span key={idx} className="value-tag surface-tag">
+                        {surface} m²
+                      </span>
+                    ))
+                  ) : (
+                    <span className="no-value">-</span>
+                  )}
+                </div>
+              </div>
 
-                        <button 
-                          type="button"
-                          className="btn-add-lot"
-                          onClick={() => {
-                            resetCurrentLot();
-                            setEditingLotIndex(null);
-                            setShowLotForm(true);
-                          }}
-                        >
-                          <span className="btn-icon">➕</span>
-                          Ajouter un lot
-                        </button>
-                      </div>
-                    )}
+              {/* Pièces */}
+              <div className="detail-line">
+                <span className="detail-icon">🛏️</span>
+                <span className="detail-label">Pièces:</span>
+                <div className="detail-values">
+                  {data.pieces && data.pieces.length > 0 ? (
+                    data.pieces.map((pieces, idx) => (
+                      <span key={idx} className="value-tag pieces-tag">
+                        {pieces} {pieces <= 1 ? 'pièce' : 'pièces'}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="no-value">-</span>
+                  )}
+                </div>
+              </div>
 
+              {/* ✅ Valeurs (loyers ou prix) - CORRIGÉ */}
+              <div className="detail-line">
+                <span className="detail-icon">💰</span>
+                <span className="detail-label">{isVente ? 'Prix:' : 'Loyers:'}</span>
+                <div className="detail-values">
+                  {data.valeurs && data.valeurs.length > 0 ? (
+                    data.valeurs.map((valeur, idx) => (
+                      <span key={idx} className="value-tag price-tag">
+                        {valeur.toLocaleString()} FCFA
+                      </span>
+                    ))
+                  ) : (
+                    <span className="no-value">-</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="empty-lots-message">
+        <span className="empty-icon">🏘️</span>
+        <p>Aucun lot ajouté pour le moment</p>
+      </div>
+    )}
+    
+    <button 
+      type="button" 
+      className="btn-add-lot-primary"
+      onClick={() => { resetCurrentLot(); setEditingLotIndex(null); setShowLotForm(true); }}
+    >
+      <span className="btn-icon">➕</span> Ajouter un lot
+    </button>
+  </div>
+)}
+
+                    {/* ONGLET LISTE DES LOTS */}
                     {activeTab === 'details' && (
                       <div className="lots-list-container">
                         {errors.lots && <span className="error-message">{errors.lots}</span>}
                         
-                        <button 
-                          type="button"
-                          className="btn-add-lot"
-                          onClick={() => {
-                            resetCurrentLot();
-                            setEditingLotIndex(null);
-                            setShowLotForm(true);
-                          }}
-                        >
-                          <span className="btn-icon">➕</span>
-                          Ajouter un lot
-                        </button>
+                        <div className="lots-list-actions">
+                          <button 
+                            type="button" 
+                            className="btn-add-lot-secondary"
+                            onClick={() => { resetCurrentLot(); setEditingLotIndex(null); setShowLotForm(true); }}
+                          >
+                            <span className="btn-icon">➕</span> Ajouter un lot
+                          </button>
+                        </div>
 
                         {formData.lots.length > 0 ? (
-                          <div className="lots-list">
-                            <div className="lots-header">
-                              <span className="lot-num">N°</span>
-                              <span className="lot-type">Type</span>
-                              <span className="lot-surface">Surface</span>
-                              <span className="lot-pieces">Pièces</span>
-                              <span className="lot-loyer">Loyer</span>
-                              <span className="lot-statut">Statut</span>
-                              <span className="lot-actions">Actions</span>
-                            </div>
-                            {formData.lots.map((lot, index) => (
-                              <div key={lot.id || index} className="lot-item">
-                                <span className="lot-num">{lot.numero_lot || '-'}</span>
-                                <span className="lot-type">{lot.type_lot}</span>
-                                <span className="lot-surface">{lot.surface ? `${lot.surface} m²` : '-'}</span>
-                                <span className="lot-pieces">{lot.pieces || '-'}</span>
-                                <span className="lot-loyer">{parseInt(lot.loyer_mensuel || '0').toLocaleString()} FCFA</span>
-                                <span className={`lot-statut ${lot.statut === 'LOUE' ? 'loue' : lot.statut === 'DISPONIBLE' ? 'disponible' : 'vente'}`}>
-                                  {lot.statut === 'LOUE' ? 'Loué' : lot.statut === 'DISPONIBLE' ? 'Disponible' : 'En vente'}
-                                </span>
-                                <span className="lot-actions">
-                                  <button 
-                                    type="button" 
-                                    className="edit-lot"
-                                    onClick={() => handleEditLot(index)}
-                                    title="Modifier"
-                                  >
-                                    ✏️
-                                  </button>
-                                  <button 
-                                    type="button" 
-                                    className="delete-lot"
-                                    onClick={() => handleRemoveLot(index)}
-                                    title="Supprimer"
-                                  >
-                                    🗑️
-                                  </button>
-                                </span>
-                              </div>
-                            ))}
+                          <div className="lots-table-wrapper">
+                            <table className="lots-table">
+                              <thead>
+                                <tr>
+                                  <th>N°</th>
+                                  <th>Type</th>
+                                  <th>Désignation</th>
+                                  <th>Surface</th>
+                                  <th>Pièces</th>
+                                  <th>Étage</th>
+                                  <th>{isVente ? 'Prix' : 'Loyer'}</th>
+                                  <th>Statut</th>
+                                  <th>Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {formData.lots.map((lot, index) => (
+                                  <tr key={lot.id || index} className="lot-table-row">
+                                    <td className="lot-num-cell">
+                                      <span className="lot-number-badge">{lot.numero_lot || '-'}</span>
+                                    </td>
+                                    <td className="lot-type-cell">
+                                      <span className="lot-type-badge">
+                                        {lot.type_lot === 'APPARTEMENT' && '🏢'}
+                                        {lot.type_lot === 'MAGASIN' && '🏪'}
+                                        {lot.type_lot === 'BUREAU' && '🏢'}
+                                        {lot.type_lot === 'STUDIO' && '🏢'}
+                                        {lot.type_lot === 'PARKING' && '🅿️'}
+                                        {lot.type_lot === 'CHAMBRE' && '🛏️'}
+                                        {' '}{lot.type_lot}
+                                      </span>
+                                    </td>
+                                    <td className="lot-nom-cell">{lot.nom || '-'}</td>
+                                    <td className="lot-surface-cell">{lot.surface ? `${lot.surface} m²` : '-'}</td>
+                                    <td className="lot-pieces-cell">{lot.pieces || '-'}</td>
+                                    <td className="lot-etage-cell">{lot.etage || '-'}</td>
+                                    <td className="lot-prix-cell">
+                                      <span className="price-value">
+                                        {isVente 
+                                          ? `${parseInt(lot.prix_vente || '0').toLocaleString()} FCFA`
+                                          : `${parseInt(lot.loyer_mensuel || '0').toLocaleString()} FCFA`}
+                                      </span>
+                                    </td>
+                                    <td className="lot-statut-cell">
+                                      <span className={`lot-status-badge ${lot.statut === 'LOUE' ? 'status-loue' : lot.statut === 'DISPONIBLE' ? 'status-disponible' : 'status-vente'}`}>
+                                        {lot.statut === 'LOUE' ? 'Loué' : lot.statut === 'DISPONIBLE' ? 'Disponible' : 'En vente'}
+                                      </span>
+                                    </td>
+                                    <td className="lot-actions-cell">
+                                      <div className="lot-actions-group">
+                                        <button 
+                                          type="button" 
+                                          className="lot-action-btn edit"
+                                          onClick={() => handleEditLot(index)}
+                                          title="Modifier"
+                                        >
+                                          ✏️
+                                        </button>
+                                        <button 
+                                          type="button" 
+                                          className="lot-action-btn delete"
+                                          onClick={() => handleRemoveLot(index)}
+                                          title="Supprimer"
+                                        >
+                                          🗑️
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         ) : (
-                          <p className="no-lots-message">Aucun lot ajouté</p>
+                          <div className="empty-lots-message">
+                            <span className="empty-icon">📦</span>
+                            <p>Aucun lot ajouté pour le moment</p>
+                            <button 
+                              type="button" 
+                              className="btn-add-lot-primary"
+                              onClick={() => { resetCurrentLot(); setEditingLotIndex(null); setShowLotForm(true); }}
+                            >
+                              <span className="btn-icon">➕</span> Ajouter un premier lot
+                            </button>
+                          </div>
                         )}
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Localisation */}
+                {/* ── LOCALISATION ───────────────────────────────── */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>📍</span> Localisation
                   </div>
                   <div className="form-grid">
+
+                    {/* 1. District */}
                     <div className="form-group">
                       <label>District *</label>
                       <select
                         value={formData.district}
-                        onChange={(e) => {
-                          setFormData({...formData, district: e.target.value, commune: ''});
-                          setCommuneSaisie('');
-                        }}
+                        onChange={(e) =>
+                          setFormData(prev => ({
+                            ...prev,
+                            district: e.target.value,
+                            commune: '',
+                            ville: '',
+                            quartier: '',
+                          }))
+                        }
                         className={errors.district ? 'error' : ''}
                       >
-                        <option value="">Sélectionnez un district</option>
-                        {DISTRICTS_CI.map(district => (
-                          <option key={district} value={district}>{district}</option>
+                        <option value="">— Sélectionnez un district —</option>
+                        {DISTRICTS_CI.map(d => (
+                          <option key={d} value={d}>{d}</option>
                         ))}
                       </select>
                       {errors.district && <span className="error-message">{errors.district}</span>}
                     </div>
 
-                    {formData.district === 'Abidjan' ? (
+                    {/* 2a. Commune — district Abidjan */}
+                    {formData.district === 'Abidjan' && (
                       <div className="form-group">
                         <label>Commune *</label>
                         <select
                           value={formData.commune}
-                          onChange={(e) => setFormData({...formData, commune: e.target.value})}
+                          onChange={(e) =>
+                            setFormData(prev => ({ ...prev, commune: e.target.value, quartier: '' }))
+                          }
                           className={errors.commune ? 'error' : ''}
                         >
-                          <option value="">Sélectionnez une commune</option>
-                          {COMMUNES_ABIDJAN.map(commune => (
-                            <option key={commune} value={commune}>{commune}</option>
+                          <option value="">— Sélectionnez une commune —</option>
+                          {COMMUNES_ABIDJAN.map(c => (
+                            <option key={c} value={c}>{c}</option>
                           ))}
                         </select>
                         {errors.commune && <span className="error-message">{errors.commune}</span>}
                       </div>
-                    ) : (
+                    )}
+
+                    {/* 2b. Ville — autres districts */}
+                    {formData.district && formData.district !== 'Abidjan' && (
                       <div className="form-group">
-                        <label>Ville/Commune *</label>
-                        <input
-                          type="text"
-                          value={communeSaisie}
-                          onChange={(e) => setCommuneSaisie(e.target.value)}
-                          className={errors.communeSaisie ? 'error' : ''}
-                          placeholder="Nom de la ville ou commune"
-                        />
-                        {errors.communeSaisie && <span className="error-message">{errors.communeSaisie}</span>}
+                        <label>Ville / Commune *</label>
+                        {villesDisponibles.length > 0 ? (
+                          <>
+                            <select
+                              value={formData.ville}
+                              onChange={(e) => {
+                                setFormData(prev => ({ ...prev, ville: e.target.value, quartier: '' }));
+                                if (e.target.value !== '__autre__') setVilleSaisie('');
+                              }}
+                              className={errors.ville ? 'error' : ''}
+                            >
+                              <option value="">— Sélectionnez une ville —</option>
+                              {villesDisponibles.map(v => (
+                                <option key={v} value={v}>{v}</option>
+                              ))}
+                              <option value="__autre__">✏️ Autre ville…</option>
+                            </select>
+                            {formData.ville === '__autre__' && (
+                              <input
+                                type="text"
+                                value={villeSaisie}
+                                onChange={(e) => setVilleSaisie(e.target.value)}
+                                placeholder="Saisissez le nom de la ville"
+                                className={`mt-1 ${errors.ville ? 'error' : ''}`}
+                                autoFocus
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <input
+                            type="text"
+                            value={villeSaisie}
+                            onChange={(e) => setVilleSaisie(e.target.value)}
+                            placeholder="Nom de la ville ou commune"
+                            className={errors.ville ? 'error' : ''}
+                          />
+                        )}
+                        {errors.ville && <span className="error-message">{errors.ville}</span>}
                       </div>
                     )}
 
+                    {/* 3. Quartier */}
                     <div className="form-group">
                       <label>Quartier</label>
-                      {formData.district === 'Abidjan' && formData.commune && quartiersDisponibles.length > 0 ? (
-                        <select
-                          value={formData.quartier}
-                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
-                        >
-                          <option value="">Sélectionnez un quartier</option>
-                          {quartiersDisponibles.map(quartier => (
-                            <option key={quartier} value={quartier}>{quartier}</option>
-                          ))}
-                        </select>
+                      {quartiersDisponibles.length > 0 ? (
+                        <>
+                          <select
+                            value={formData.quartier}
+                            onChange={(e) => {
+                              setFormData(prev => ({ ...prev, quartier: e.target.value }));
+                              if (e.target.value !== '__autre__') setQuartierSaisi('');
+                            }}
+                          >
+                            <option value="">— Sélectionnez un quartier —</option>
+                            {quartiersDisponibles.map(q => (
+                              <option key={q} value={q}>{q}</option>
+                            ))}
+                            <option value="__autre__">✏️ Autre quartier…</option>
+                          </select>
+                          {formData.quartier === '__autre__' && (
+                            <input
+                              type="text"
+                              value={quartierSaisi}
+                              onChange={(e) => setQuartierSaisi(e.target.value)}
+                              placeholder="Saisissez le nom du quartier"
+                              className="mt-1"
+                              autoFocus
+                            />
+                          )}
+                        </>
                       ) : (
                         <input
                           type="text"
                           value={formData.quartier}
-                          onChange={(e) => setFormData({...formData, quartier: e.target.value})}
-                          placeholder="Nom du quartier"
+                          onChange={(e) => setFormData(prev => ({ ...prev, quartier: e.target.value }))}
+                          placeholder="Nom du quartier (optionnel)"
                         />
                       )}
                     </div>
 
+                    {/* 4. Adresse */}
                     <div className="form-group">
                       <label>Adresse (optionnel)</label>
                       <input
                         type="text"
                         value={formData.adresse}
-                        onChange={(e) => setFormData({...formData, adresse: e.target.value})}
+                        onChange={(e) => setFormData(prev => ({ ...prev, adresse: e.target.value }))}
                         className={errors.adresse ? 'error' : ''}
                         placeholder="Rue, numéro, lieu-dit..."
                       />
                       {errors.adresse && <span className="error-message">{errors.adresse}</span>}
                     </div>
+
                   </div>
                 </div>
+                {/* ── FIN LOCALISATION ───────────────────────────── */}
 
-                {/* Caractéristiques */}
+                {/* ── Caractéristiques ───────────────────────────── */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>📐</span> Caractéristiques
@@ -1113,20 +1591,18 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <label>Description</label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                       rows={4}
                       placeholder={
-                        formData.statut === 'EN_TRAVAUX' 
-                          ? "Description des travaux à réaliser, état actuel..."
-                          : isImmeuble 
-                            ? "Description de l'immeuble (nombre d'étages, type de lots, équipements...)"
-                            : "Description du bien (équipements, état, particularités...)"
+                        isImmeuble
+                          ? "Description de l'immeuble (nombre d'étages, type de lots, équipements...)"
+                          : "Description du bien (équipements, état, particularités...)"
                       }
                     />
                   </div>
                 </div>
 
-                {/* Photos */}
+                {/* ── Photos ─────────────────────────────────────── */}
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>📸</span> Photos
@@ -1143,33 +1619,26 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                       onChange={handlePhotoChange}
                       style={{ display: 'none' }}
                     />
-                    
                     {photoPreviews.length > 0 && (
                       <div className="photos-preview">
                         {photoPreviews.map((preview, index) => {
                           const isExisting = bien && index < existingPhotos.length;
                           const photoId = isExisting ? existingPhotos[index]?.id : null;
-                          
                           return (
                             <div key={index} className="photo-preview-item">
                               <img src={preview} alt={`Photo ${index + 1}`} />
-                              <button 
+                              <button
                                 type="button"
                                 className="remove-photo"
                                 onClick={() => {
-                                  if (isExisting && photoId) {
-                                    handleDeleteExistingPhoto(photoId, preview);
-                                  } else {
-                                    handleDeleteNewPhoto(index);
-                                  }
+                                  if (isExisting && photoId) handleDeleteExistingPhoto(photoId, preview);
+                                  else handleDeleteNewPhoto(index);
                                 }}
                                 title="Supprimer"
                               >
                                 ✕
                               </button>
-                              {index === 0 && (
-                                <span className="photo-principale">Principale</span>
-                              )}
+                              {index === 0 && <span className="photo-principale">Principale</span>}
                               {isExisting && formData.photosToDelete.includes(photoId!) && (
                                 <span className="photo-deleted">À supprimer</span>
                               )}
@@ -1180,30 +1649,18 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     )}
                   </div>
                 </div>
+
               </div>
             </form>
           </div>
 
           <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn-cancel"
-              onClick={onClose}
-              disabled={isLoading}
-            >
+            <button type="button" className="btn-cancel" onClick={onClose} disabled={isLoading}>
               Annuler
             </button>
-            <button 
-              type="submit" 
-              className="btn-submit"
-              onClick={handleSubmit}
-              disabled={isLoading}
-            >
+            <button type="submit" className="btn-submit" onClick={handleSubmit} disabled={isLoading}>
               {isLoading ? (
-                <>
-                  <span className="spinner-small"></span>
-                  Enregistrement...
-                </>
+                <><span className="spinner-small"></span>Enregistrement...</>
               ) : (
                 '💾 Enregistrer'
               )}
@@ -1212,17 +1669,17 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         </motion.div>
       </motion.div>
 
-      {/* Modale d'ajout/modification de lot simplifiée */}
+      {/* ── MODALE LOT ──────────────────────────────────── */}
       <AnimatePresence>
         {showLotForm && (
-          <motion.div 
+          <motion.div
             className="modal-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowLotForm(false)}
           >
-            <motion.div 
+            <motion.div
               className="modal-content lot-form-modal"
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -1244,7 +1701,7 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     <label>Type de lot *</label>
                     <select
                       value={currentLot.type_lot || 'APPARTEMENT'}
-                      onChange={(e) => setCurrentLot({...currentLot, type_lot: e.target.value})}
+                      onChange={(e) => setCurrentLot(prev => ({ ...prev, type_lot: e.target.value }))}
                     >
                       {typesLots.map(type => (
                         <option key={type} value={type}>{type}</option>
@@ -1253,13 +1710,37 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                   </div>
 
                   <div className="form-group">
+                    <label>Numéro de lot</label>
+                    <input
+                      type="text"
+                      value={currentLot.numero_lot || ''}
+                      onChange={(e) => setCurrentLot(prev => ({ ...prev, numero_lot: e.target.value }))}
+                      placeholder="Ex: LOT-001, APP-001..."
+                    />
+                    <small className="field-hint">Identifiant unique du lot (ex: LOT-001)</small>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Étage</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={currentLot.etage || ''}
+                      onChange={(e) => handleNumberChange(e, 'etage', false)}
+                      placeholder="2"
+                    />
+                    <small className="field-hint">Numéro de l'étage dans l'immeuble</small>
+                  </div>
+
+                  <div className="form-group">
                     <label>Nom / Désignation</label>
                     <input
                       type="text"
                       value={currentLot.nom || ''}
-                      onChange={(e) => setCurrentLot({...currentLot, nom: e.target.value})}
-                      placeholder="Appartement F4, Bureau Directeur..."
+                      onChange={(e) => setCurrentLot(prev => ({ ...prev, nom: e.target.value }))}
+                      placeholder="Généré automatiquement"
                     />
+                    <small className="field-hint">Nom du lot - modifiable</small>
                   </div>
 
                   <div className="form-group">
@@ -1284,49 +1765,41 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
                     />
                   </div>
 
-                  <div className="form-group">
-                    <label>Loyer mensuel (FCFA) *</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={currentLot.loyer_mensuel || ''}
-                      onChange={(e) => handleNumberChange(e, 'loyer_mensuel', false)}
-                      placeholder="150000"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Charges (FCFA)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={currentLot.charges || ''}
-                      onChange={(e) => handleNumberChange(e, 'charges', false)}
-                      placeholder="25000"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Dépôt de garantie (FCFA)</label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={currentLot.depot_garantie || ''}
-                      onChange={(e) => handleNumberChange(e, 'depot_garantie', false)}
-                      placeholder="300000"
-                    />
-                  </div>
+                  {/* Affichage conditionnel selon le statut du bien principal */}
+                  {isVente ? (
+                    <div className="form-group">
+                      <label>Prix de vente (FCFA) *</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={currentLot.prix_vente || ''}
+                        onChange={(e) => setCurrentLot(prev => ({ ...prev, prix_vente: formatNumber(e.target.value) }))}
+                        placeholder="50000000"
+                      />
+                      <small className="field-hint">Prix de vente de ce lot</small>
+                    </div>
+                  ) : (
+                    <div className="form-group">
+                      <label>Loyer mensuel (FCFA) *</label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={currentLot.loyer_mensuel || ''}
+                        onChange={(e) => setCurrentLot(prev => ({ ...prev, loyer_mensuel: formatNumber(e.target.value) }))}
+                        placeholder="150000"
+                      />
+                      <small className="field-hint">Loyer mensuel de ce lot</small>
+                    </div>
+                  )}
 
                   <div className="form-group">
                     <label>Statut</label>
                     <select
                       value={currentLot.statut || 'DISPONIBLE'}
-                      onChange={(e) => setCurrentLot({...currentLot, statut: e.target.value})}
+                      onChange={(e) => setCurrentLot(prev => ({ ...prev, statut: e.target.value }))}
                     >
                       {STATUTS_LOT.map(statut => (
-                        <option key={statut.value} value={statut.value}>
-                          {statut.label}
-                        </option>
+                        <option key={statut.value} value={statut.value}>{statut.label}</option>
                       ))}
                     </select>
                   </div>
@@ -1334,30 +1807,18 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               </div>
 
               <div className="modal-footer">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   className="btn-cancel"
-                  onClick={() => {
-                    resetCurrentLot();
-                    setEditingLotIndex(null);
-                    setShowLotForm(false);
-                  }}
+                  onClick={() => { resetCurrentLot(); setEditingLotIndex(null); setShowLotForm(false); }}
                 >
                   Annuler
                 </button>
-                <button 
-                  type="button" 
-                  className="btn-submit"
-                  onClick={handleAddLot}
-                >
+                <button type="button" className="btn-submit" onClick={handleAddLot}>
                   {editingLotIndex !== null ? '💾 Modifier' : '➕ Ajouter'}
                 </button>
                 {!editingLotIndex && (
-                  <button 
-                    type="button" 
-                    className="btn-multiple"
-                    onClick={handleAddMultipleLots}
-                  >
+                  <button type="button" className="btn-multiple" onClick={openMultipleLotModal}>
                     🔄 Ajouter multiple
                   </button>
                 )}
@@ -1367,6 +1828,95 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         )}
       </AnimatePresence>
 
+      {/* ── MODALE POUR AJOUT MULTIPLE DE LOTS ──────────────────────────────── */}
+      <AnimatePresence>
+        {showMultipleLotModal && (
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowMultipleLotModal(false)}
+          >
+            <motion.div
+              className="modal-content multiple-lot-modal"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h2>Ajouter plusieurs lots</h2>
+                <button className="modal-close-btn" onClick={() => setShowMultipleLotModal(false)}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="modal-body">
+                <div className="multiple-lot-config">
+                  <div className="config-group">
+                    <label>Nombre de lots à ajouter</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={multipleLotConfig.quantite}
+                      onChange={(e) => setMultipleLotConfig(prev => ({ ...prev, quantite: parseInt(e.target.value) || 1 }))}
+                    />
+                  </div>
+
+                  <div className="config-group">
+                    <label>Préfixe des numéros de lot</label>
+                    <input
+                      type="text"
+                      value={multipleLotConfig.prefixe}
+                      onChange={(e) => setMultipleLotConfig(prev => ({ ...prev, prefixe: e.target.value.toUpperCase() }))}
+                      placeholder="Ex: LOT, APP, BUREAU"
+                    />
+                    <small className="field-hint">Les lots seront numérotés LOT-001, LOT-002, etc.</small>
+                  </div>
+
+                  <div className="config-group">
+                    <label>Numéro de départ</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={multipleLotConfig.startNumber}
+                      onChange={(e) => setMultipleLotConfig(prev => ({ ...prev, startNumber: parseInt(e.target.value) || 1 }))}
+                    />
+                    <small className="field-hint">Premier numéro à utiliser (ex: 1 = LOT-001)</small>
+                  </div>
+
+                  <div className="preview-lots">
+                    <strong>Aperçu:</strong> {multipleLotConfig.prefixe}-{String(multipleLotConfig.startNumber).padStart(3, '0')} à {multipleLotConfig.prefixe}-{String(multipleLotConfig.startNumber + multipleLotConfig.quantite - 1).padStart(3, '0')}
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button 
+                  type="button" 
+                  className="btn-cancel" 
+                  onClick={() => setShowMultipleLotModal(false)}
+                >
+                  Annuler
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-submit" 
+                  onClick={handleAddMultipleLotsFromModal}
+                >
+                  ➕ Ajouter {multipleLotConfig.quantite} lot(s)
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Confirmation suppression photo ─────────────── */}
       <ConfirmModal
         isOpen={showDeleteConfirm}
         title="Supprimer la photo"
@@ -1375,10 +1925,7 @@ const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         confirmText="Supprimer"
         cancelText="Annuler"
         onConfirm={confirmDeletePhoto}
-        onCancel={() => {
-          setShowDeleteConfirm(false);
-          setPhotoToDelete(null);
-        }}
+        onCancel={() => { setShowDeleteConfirm(false); setPhotoToDelete(null); }}
       />
     </>
   );

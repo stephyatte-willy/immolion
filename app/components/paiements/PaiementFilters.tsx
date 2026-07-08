@@ -16,9 +16,11 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
     statut: 'TOUS',
     mode: 'TOUS',
     type: 'TOUS',
+    type_transaction: 'TOUS',
     mois: '',
     dateDebut: '',
-    dateFin: ''
+    dateFin: '',
+    versement_numero: ''
   });
 
   const handleChange = (key: string, value: string) => {
@@ -33,9 +35,11 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
       statut: 'TOUS',
       mode: 'TOUS',
       type: 'TOUS',
+      type_transaction: 'TOUS',
       mois: '',
       dateDebut: '',
-      dateFin: ''
+      dateFin: '',
+      versement_numero: ''
     };
     setFilters(resetFilters);
     onFilter(resetFilters);
@@ -45,7 +49,6 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
     v && v !== 'TOUS' && v !== ''
   ).length;
 
-  // Générer les années pour le filtre mois
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 1, currentYear, currentYear + 1];
 
@@ -55,7 +58,7 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
         <span className="search-icon">🔍</span>
         <input
           type="text"
-          placeholder="Rechercher (client, contrat, référence)..."
+          placeholder="Rechercher (client, contrat, référence, versement)..."
           value={filters.search}
           onChange={(e) => handleChange('search', e.target.value)}
           className="search-input"
@@ -82,6 +85,19 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="filters-grid">
+              {/* Type de transaction (Location/Vente) */}
+              <div className="filter-group">
+                <label>Type de transaction</label>
+                <select
+                  value={filters.type_transaction}
+                  onChange={(e) => handleChange('type_transaction', e.target.value)}
+                >
+                  <option value="TOUS">Tous</option>
+                  <option value="LOCATION">🏠 Location</option>
+                  <option value="VENTE">💰 Vente</option>
+                </select>
+              </div>
+
               {/* Statut */}
               <div className="filter-group">
                 <label>Statut</label>
@@ -116,7 +132,7 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
 
               {/* Type de paiement */}
               <div className="filter-group">
-                <label>Type</label>
+                <label>Type de paiement</label>
                 <select
                   value={filters.type}
                   onChange={(e) => handleChange('type', e.target.value)}
@@ -128,6 +144,20 @@ export default function PaiementFilters({ onFilter }: PaiementFiltersProps) {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* ✅ Numéro de versement (nouveau) */}
+              <div className="filter-group">
+                <label>N° de versement</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={filters.versement_numero}
+                  onChange={(e) => handleChange('versement_numero', e.target.value)}
+                  placeholder="Ex: 1, 2, 3..."
+                  className="small-input"
+                />
+                <small className="field-hint">Pour les versements échelonnés</small>
               </div>
 
               {/* Mois concerné */}

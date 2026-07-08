@@ -23,6 +23,16 @@ export async function GET(
 
     const acquereur = acquereurs[0];
 
+    // ✅ Récupérer les biens associés
+    const biens = await queryRows(
+      `SELECT b.*, ab.date_attribution, ab.notes as attribution_notes
+       FROM acquereur_biens ab
+       LEFT JOIN biens b ON ab.bien_id = b.id
+       WHERE ab.acquereur_id = ?
+       ORDER BY ab.date_attribution DESC`,
+      [id]
+    ) as any[];
+
     // Récupérer les contrats de vente
     const contrats = await queryRows(
       `SELECT 
@@ -63,6 +73,7 @@ export async function GET(
     ) as any[];
 
     try {
+      acquereur.biens = biens;
       acquereur.contrats = contrats.map((c: any) => ({
         ...c,
         bien: c.bien ? (typeof c.bien === 'string' ? JSON.parse(c.bien) : c.bien) : null
@@ -70,6 +81,7 @@ export async function GET(
       acquereur.paiements = paiements;
     } catch (e) {
       console.error('❌ Erreur parsing JSON:', e);
+      acquereur.biens = [];
       acquereur.contrats = [];
       acquereur.paiements = [];
     }
@@ -103,7 +115,7 @@ export async function PUT(
       nom, prenom, email, telephone, telephone_secondaire,
       date_naissance, lieu_naissance, nationalite,
       profession, employeur, revenus_mensuels,
-      type_acquereur, bien_id, raison_sociale, num_identite,
+      type_acquereur, biens_ids, raison_sociale, num_identite,
       adresse, ville, pays, notes, actif
     } = body;
 
@@ -134,13 +146,13 @@ export async function PUT(
       prenomFinal = prenom;
     }
 
-    // ✅ Mettre à jour l'acquéreur avec bien_id
+    // Mettre à jour l'acquéreur
     const result = await queryInsert(
       `UPDATE acquereurs SET
         nom = ?, prenom = ?, email = ?, telephone = ?, telephone_secondaire = ?,
         date_naissance = ?, lieu_naissance = ?, nationalite = ?,
         profession = ?, employeur = ?, revenus_mensuels = ?,
-        type_acquereur = ?, bien_id = ?, raison_sociale = ?, num_identite = ?,
+        type_acquereur = ?, raison_sociale = ?, num_identite = ?,
         adresse = ?, ville = ?, pays = ?, notes = ?, actif = ?, updated_at = NOW()
        WHERE id = ?`,
       [
@@ -156,7 +168,6 @@ export async function PUT(
         employeur || null,
         revenus_mensuels || null,
         type_acquereur || 'PARTICULIER',
-        bien_id || null, // ✅ Important: mettre à jour bien_id
         raison_sociale || null,
         num_identite || null,
         adresse || null,
@@ -176,7 +187,24 @@ export async function PUT(
       );
     }
 
-    console.log('✅ Acquéreur mis à jour avec succès, bien_id:', bien_id);
+    // ✅ Mettre à jour les biens associés
+    if (biens_ids && Array.isArray(biens_ids)) {
+      // Supprimer les anciennes associations
+      await queryInsert('DELETE FROM acquereur_biens WHERE acquereur_id = ?', [id]);
+      
+      // Ajouter les nouvelles associations
+      for (const bienId of biens_ids) {
+        if (bienId) {
+          await queryInsert(
+            'INSERT INTO acquereur_biens (acquereur_id, bien_id) VALUES (?, ?)',
+            [id, bienId]
+          );
+        }
+      }
+      console.log(`✅ ${biens_ids.length} bien(s) associé(s) à l'acquéreur`);
+    }
+
+    console.log('✅ Acquéreur mis à jour avec succès');
 
     return NextResponse.json({
       success: true,
@@ -212,6 +240,10 @@ export async function DELETE(
       );
     }
 
+    // Supprimer les associations biens
+    await queryInsert('DELETE FROM acquereur_biens WHERE acquereur_id = ?', [id]);
+    
+    // Supprimer l'acquéreur
     await queryInsert('DELETE FROM acquereurs WHERE id = ?', [id]);
 
     return NextResponse.json({

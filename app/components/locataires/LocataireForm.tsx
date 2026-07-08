@@ -25,7 +25,7 @@ export default function LocataireForm({ locataire, onClose, onSuccess }: Locatai
     profession: '',
     employeur: '',
     revenus_mensuels: '',
-    statut: 'PROSPECT',
+    statut: 'ACTIF',
     notes: '',
     bien_id: '',
     lot_id: ''
@@ -53,7 +53,7 @@ export default function LocataireForm({ locataire, onClose, onSuccess }: Locatai
         profession: locataire.profession || '',
         employeur: locataire.employeur || '',
         revenus_mensuels: locataire.revenus_mensuels?.toString() || '',
-        statut: locataire.statut || 'PROSPECT',
+        statut: locataire.statut || 'ACTIF',
         notes: locataire.notes || '',
         bien_id: locataire.bien_actuel?.id?.toString() || locataire.bien_id?.toString() || '',
         lot_id: locataire.lot_actuel?.id?.toString() || locataire.lot_id?.toString() || ''
@@ -291,6 +291,19 @@ const verifierDisponibiliteLot = async (lotId: number): Promise<boolean> => {
                       onChange={(e) => setFormData({...formData, nationalite: e.target.value})}
                     />
                   </div>
+
+                  
+                  <div className="form-group">
+                    <label>Statut *</label>
+                    <select
+                      value={formData.statut}
+                      onChange={(e) => setFormData({...formData, statut: e.target.value})}
+                    >
+                      {STATUTS_LOCATAIRE.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -384,17 +397,6 @@ const verifierDisponibiliteLot = async (lotId: number): Promise<boolean> => {
                   <span>📋</span> Statut et affectation
                 </div>
                 <div className="form-grid">
-                  <div className="form-group">
-                    <label>Statut *</label>
-                    <select
-                      value={formData.statut}
-                      onChange={(e) => setFormData({...formData, statut: e.target.value})}
-                    >
-                      {STATUTS_LOCATAIRE.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
 
                   <div className="form-group">
                     <label>Bien</label>

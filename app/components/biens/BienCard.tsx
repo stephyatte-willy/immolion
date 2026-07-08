@@ -17,6 +17,8 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
+  const isVendu = bien.statut === 'VENDU';
+
   // Types de biens
   const typesResidentiels = ['APPARTEMENT', 'MAISON', 'VILLA', 'STUDIO'];
   const typesCommerciaux = ['COMMERCIAL', 'BUREAU', 'ENTREPOT', 'MAGASIN'];
@@ -28,6 +30,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
       'LOUE': 'statut-loue',
       'EN_TRAVAUX': 'statut-travaux',
       'EN_VENTE': 'statut-vente',
+      'VENDU': 'statut-vendu',
       'RESERVE': 'statut-reserve'
     };
     return classes[statut] || '';
@@ -39,6 +42,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
       'LOUE': 'Loué',
       'EN_TRAVAUX': 'En travaux',
       'EN_VENTE': 'En vente',
+      'VENDU': 'Vendu',
       'RESERVE': 'Réservé'
     };
     return labels[statut] || statut;
@@ -82,34 +86,62 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
     return labels[type] || type;
   };
 
-  // Fonction pour obtenir le libellé du prix selon le statut
-  const getPriceLabel = () => {
-    if (bien.statut === 'EN_VENTE') {
-      return 'Prix de vente';
-    } else if (typesLocation.includes(bien.type_bien)) {
-      return 'Loyer mensuel';
-    } else if (bien.type_bien === 'IMMEUBLE') {
-      return 'Revenus mensuels';
-    } else {
-      return 'Prix';
-    }
-  };
 
-  // Fonction pour obtenir la valeur du prix selon le statut et le type
-  const getPriceValue = () => {
-    if (bien.statut === 'EN_VENTE') {
-      return bien.prix_vente || 0;
-    } else if (bien.type_bien === 'IMMEUBLE' && bien.lots && bien.lots.length > 0) {
-      // Calculer le total des loyers des lots pour un immeuble
-      return bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.loyer_mensuel) || 0), 0);
-    } else {
-      return bien.loyer_mensuel || 0;
+const getPriceValue = () => {
+  // Pour les immeubles en vente par lots, afficher la somme des prix des lots
+  if (bien.type_bien === 'IMMEUBLE' && bien.statut === 'EN_VENTE') {
+    if (bien.lots && bien.lots.length > 0) {
+      // Calculer la somme des prix de vente des lots
+      const totalVenteLots = bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.prix_vente) || 0), 0);
+      if (totalVenteLots > 0) {
+        return totalVenteLots;
+      }
     }
-  };
+    // Fallback: utiliser le prix_vente du bien principal
+    return bien.prix_vente || 0;
+  }
+  
+  // Pour les biens en vente simples
+  if (bien.statut === 'EN_VENTE' || bien.statut === 'VENDU') {
+    return bien.prix_vente || 0;
+  } 
+  // Pour les immeubles en location
+  else if (bien.type_bien === 'IMMEUBLE' && bien.lots && bien.lots.length > 0) {
+    return bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.loyer_mensuel) || 0), 0);
+  } 
+  // Pour les locations simples
+  else {
+    return bien.loyer_mensuel || 0;
+  }
+};
+
+// Modifiez également le libellé du prix :
+const getPriceLabel = () => {
+  if (bien.type_bien === 'IMMEUBLE' && bien.statut === 'EN_VENTE') {
+    if (bien.lots && bien.lots.length > 0) {
+      const totalVenteLots = bien.lots.reduce((sum, lot) => sum + (parseFloat(lot.prix_vente) || 0), 0);
+      if (totalVenteLots > 0) {
+        return 'Total lots (vente)';
+      }
+    }
+    return 'Prix de vente';
+  }
+  
+  if (bien.statut === 'EN_VENTE') {
+    return 'Prix de vente';
+  } else if (bien.statut === 'VENDU') {
+    return 'Vendu à';
+  } else if (bien.type_bien === 'IMMEUBLE') {
+    return 'Revenus mensuels';
+  } else {
+    return 'Loyer mensuel';
+  }
+};
 
   // Fonction pour vérifier si on doit afficher les charges
   const showCharges = () => {
     return bien.statut !== 'EN_VENTE' && 
+           bien.statut !== 'VENDU' &&
            bien.type_bien !== 'IMMEUBLE' &&
            typesLocation.includes(bien.type_bien) && 
            bien.charges !== undefined && 
@@ -133,7 +165,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
 
   // Fonction pour obtenir la localisation complète
   const getLocalisation = () => {
-    let localisation = bien.adresse;
+    let localisation = bien.adresse || '';
     
     if (bien.quartier) {
       localisation += `, Quartier ${bien.quartier}`;
@@ -173,13 +205,20 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
 
   return (
     <motion.div 
-      className="bien-card"
+      className={`bien-card ${isVendu ? 'bien-vendu' : ''}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       whileHover={{ y: -5 }}
       transition={{ duration: 0.3 }}
     >
+      {/* ✅ FILIGRANE "BIEN VENDU" */}
+      {isVendu && (
+        <div className="bien-vendu-watermark">
+          <span className="watermark-text">BIEN VENDU</span>
+        </div>
+      )}
+
       <div className="bien-card-image-container">
         {photoUrl && !imageError ? (
           <>
@@ -245,7 +284,7 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
           <span className="location-text" title={getLocalisation()}>
             {getLocalisation().length > 40 
               ? getLocalisation().substring(0, 40) + '...' 
-              : getLocalisation()}
+              : getLocalisation() || 'Adresse non renseignée'}
           </span>
         </div>
 
@@ -288,10 +327,10 @@ export default function BienCard({ bien, onView, onEdit, onDelete, formatMoney }
           )}
         </div>
 
-        {/* Section prix adaptée */}
+        {/* ✅ Section prix corrigée */}
         <div className="bien-card-price">
           <span className="price-label">{priceLabel}</span>
-          <span className={`price-value ${bien.statut === 'EN_VENTE' ? 'vente' : ''}`}>
+          <span className={`price-value ${bien.statut === 'EN_VENTE' ? 'vente' : bien.statut === 'VENDU' ? 'vendu' : ''}`}>
             {formatMoney(priceValue)}
           </span>
           

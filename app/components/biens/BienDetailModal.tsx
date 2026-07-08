@@ -326,49 +326,56 @@ export default function BienDetailModal({ bien, onClose, onEdit }: BienDetailMod
                     )}
                     
                     {/* Liste détaillée des lots - TABLEAU */}
-                    <div className="lots-list-detailed">
-                      <h4>📋 Liste détaillée des lots</h4>
-                      <div className="lots-table-container">
-                        <table className="lots-table">
-                          <thead>
-                            <tr>
-                              <th>N°</th>
-                              <th>Type</th>
-                              <th>Surface</th>
-                              <th>Pièces</th>
-                              <th>Loyer</th>
-                              <th>Statut</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {bien.lots.map((lot: any, index: number) => (
-                              <tr key={lot.id || index}>
-                                <td className="lot-number">{lot.numero_lot}</td>
-                                <td className="lot-type-cell">
-                                  <span className="lot-type-badge">
-                                    {lot.type_lot === 'STUDIO' && '🏢'}
-                                    {lot.type_lot === 'APPARTEMENT' && '🏢'}
-                                    {lot.type_lot === 'MAGASIN' && '🏪'}
-                                    {lot.type_lot === 'BUREAU' && '🏢'}
-                                    {lot.type_lot === 'PARKING' && '🅿️'}
-                                    {lot.type_lot === 'CHAMBRE' && '🛏️'}
-                                    {' '}{lot.type_lot}
-                                  </span>
-                                </td>
-                                <td className="lot-surface">{lot.surface} m²</td>
-                                <td className="lot-pieces">{lot.pieces || '-'}</td>
-                                <td className="lot-loyer">{formatMoney(parseFloat(lot.loyer_mensuel) || 0)}</td>
-                                <td className="lot-status">
-                                  <span className={`status-badge ${lot.statut === 'LOUE' ? 'status-loue' : lot.statut === 'DISPONIBLE' ? 'status-disponible' : 'status-vente'}`}>
-                                    {lot.statut === 'LOUE' ? 'Loué' : lot.statut === 'DISPONIBLE' ? 'Disponible' : 'En vente'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    // Dans BienDetailModal.tsx, dans la section des lots, modifiez l'affichage :
+
+{/* Liste détaillée des lots - TABLEAU */}
+<div className="lots-list-detailed">
+  <h4>📋 Liste détaillée des lots</h4>
+  <div className="lots-table-container">
+    <table className="lots-table">
+      <thead>
+        <tr>
+          <th>N°</th>
+          <th>Type</th>
+          <th>Surface</th>
+          <th>Pièces</th>
+          <th>{bien.statut === 'EN_VENTE' ? 'Prix de vente' : 'Loyer'}</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {bien.lots.map((lot: any, index: number) => (
+          <tr key={lot.id || index}>
+            <td className="lot-number">{lot.numero_lot}</td>
+            <td className="lot-type-cell">
+              <span className="lot-type-badge">
+                {lot.type_lot === 'STUDIO' && '🏢'}
+                {lot.type_lot === 'APPARTEMENT' && '🏢'}
+                {lot.type_lot === 'MAGASIN' && '🏪'}
+                {lot.type_lot === 'BUREAU' && '🏢'}
+                {lot.type_lot === 'PARKING' && '🅿️'}
+                {lot.type_lot === 'CHAMBRE' && '🛏️'}
+                {' '}{lot.type_lot}
+              </span>
+            </td>
+            <td className="lot-surface">{lot.surface} m²</td>
+            <td className="lot-pieces">{lot.pieces || '-'}</td>
+            <td className="lot-loyer">
+              {bien.statut === 'EN_VENTE' 
+                ? formatMoney(parseFloat(lot.prix_vente) || 0)
+                : formatMoney(parseFloat(lot.loyer_mensuel) || 0)}
+            </td>
+            <td className="lot-status">
+              <span className={`status-badge ${lot.statut === 'LOUE' ? 'status-loue' : lot.statut === 'DISPONIBLE' ? 'status-disponible' : 'status-vente'}`}>
+                {lot.statut === 'LOUE' ? 'Loué' : lot.statut === 'DISPONIBLE' ? 'Disponible' : 'En vente'}
+              </span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+</div>
                   </div>
                 )}
               </div>

@@ -410,7 +410,7 @@
   display: block;
   font-size: 14px;
   font-weight: 600;
-  color: var(--lion-navy);
+  color: #94a3b8;
   margin-bottom: 4px;
 }
 
@@ -543,7 +543,7 @@
 }
 
 [data-theme="dark"] .input-wrapper input {
-  color: white;
+  color: rgb(128, 127, 127);
 }
 
 [data-theme="dark"] .input-wrapper input::placeholder {

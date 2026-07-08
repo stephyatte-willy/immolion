@@ -18,6 +18,7 @@ export default function AcquereurCard({
   onDelete 
 }: AcquereurCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [showAllBiens, setShowAllBiens] = useState(false);
 
   const getTypeInfo = (type: string) => {
     const types: Record<string, { icone: string; label: string; couleur: string }> = {
@@ -30,17 +31,14 @@ export default function AcquereurCard({
 
   const typeInfo = getTypeInfo(acquereur.type_acquereur);
   
-  // ✅ Fonction pour obtenir les initiales (adaptée pour les sociétés)
   const getInitials = () => {
     if (acquereur.type_acquereur !== 'PARTICULIER') {
-      // Pour les sociétés/agences, prendre la première lettre de la raison sociale
       const raisonSociale = acquereur.raison_sociale || acquereur.nom;
       return raisonSociale?.substring(0, 2).toUpperCase() || '🏢';
     }
     return `${acquereur.prenom?.[0] || ''}${acquereur.nom?.[0] || ''}`.toUpperCase();
   };
 
-  // ✅ Fonction pour obtenir le nom affiché
   const getDisplayName = () => {
     if (acquereur.type_acquereur !== 'PARTICULIER') {
       return acquereur.raison_sociale || acquereur.nom;
@@ -49,7 +47,12 @@ export default function AcquereurCard({
   };
 
   const nbContrats = acquereur.contrats?.length || 0;
-  const bienAttribue = acquereur.bien; // Le bien est chargé via l'API
+  const biens = acquereur.biens || [];
+  const nbBiens = biens.length;
+  
+  // Limiter l'affichage à 2 biens par défaut
+  const displayedBiens = showAllBiens ? biens : biens.slice(0, 2);
+  const hasMoreBiens = nbBiens > 2;
 
   return (
     <motion.div 
@@ -83,13 +86,31 @@ export default function AcquereurCard({
           </div>
         </div>
 
-        {/* ✅ Bien attribué */}
-        {bienAttribue && (
-          <div className="bien-attribue">
-            <span className="bien-icon">🏠</span>
-            <div className="bien-info">
-              <span className="bien-nom">{bienAttribue.nom}</span>
-              <span className="bien-prix">{bienAttribue.prix_vente?.toLocaleString()} FCFA</span>
+        {/* ✅ Affichage des biens multiples */}
+        {nbBiens > 0 && (
+          <div className="biens-attribues">
+            <div className="biens-header">
+              <span className="biens-icon">🏠</span>
+              <span className="biens-title">Biens ({nbBiens})</span>
+              {hasMoreBiens && (
+                <button 
+                  className="toggle-biens-btn"
+                  onClick={() => setShowAllBiens(!showAllBiens)}
+                >
+                  {showAllBiens ? 'Voir moins' : `+${nbBiens - 2}`}
+                </button>
+              )}
+            </div>
+            <div className="biens-list">
+              {displayedBiens.map((bien: any) => (
+                <div key={bien.id} className="bien-item">
+                  <span className="bien-nom">{bien.nom}</span>
+                  <span className="bien-prix">{bien.prix_vente?.toLocaleString()} FCFA</span>
+                  <span className={`bien-statut ${bien.statut === 'VENDU' ? 'vendu' : 'en-vente'}`}>
+                    {bien.statut === 'VENDU' ? 'Vendu' : 'En vente'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}

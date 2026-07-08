@@ -195,33 +195,71 @@ export default function PaiementsPage() {
     setSelectedPaiements([]);
   };
 
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+const handleSort = (key: string) => {
+  let direction: 'asc' | 'desc' = 'asc';
+  if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+    direction = 'desc';
+  }
+  setSortConfig({ key, direction });
+  
+  const sorted = [...filteredPaiements];
+  sorted.sort((a, b) => {
+    let aValue: any = a[key as keyof Paiement];
+    let bValue: any = b[key as keyof Paiement];
     
-    const sorted = [...filteredPaiements];
-    sorted.sort((a, b) => {
-      let aValue: any = a[key as keyof Paiement];
-      let bValue: any = b[key as keyof Paiement];
-      
-      if (key === 'montant') {
-        aValue = a.montant || 0;
-        bValue = b.montant || 0;
-      }
-      if (key === 'date_paiement') {
-        aValue = new Date(a.date_paiement).getTime();
-        bValue = new Date(b.date_paiement).getTime();
-      }
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return direction === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-      }
-      return direction === 'asc' ? (aValue > bValue ? 1 : -1) : (bValue > aValue ? 1 : -1);
-    });
-    setFilteredPaiements(sorted);
-  };
+    // Gestion spéciale pour certaines colonnes
+    if (key === 'montant') {
+      aValue = a.montant || 0;
+      bValue = b.montant || 0;
+    }
+    if (key === 'date_paiement') {
+      aValue = new Date(a.date_paiement).getTime();
+      bValue = new Date(b.date_paiement).getTime();
+    }
+    if (key === 'type_transaction') {
+      aValue = a.type_transaction || 'LOCATION';
+      bValue = b.type_transaction || 'LOCATION';
+    }
+    if (key === 'type_paiement') {
+      aValue = a.type_paiement || '';
+      bValue = b.type_paiement || '';
+    }
+    if (key === 'contrat_numero') {
+      aValue = a.contrat_numero || '';
+      bValue = b.contrat_numero || '';
+    }
+    if (key === 'client_nom') {
+      aValue = getClientName(a);
+      bValue = getClientName(b);
+    }
+    if (key === 'mode_paiement') {
+      aValue = a.mode_paiement || '';
+      bValue = b.mode_paiement || '';
+    }
+    if (key === 'statut') {
+      aValue = a.statut || '';
+      bValue = b.statut || '';
+    }
+    if (key === 'versement_numero') {
+      aValue = a.versement_numero || 999; // Les non-versements à la fin
+      bValue = b.versement_numero || 999;
+      // Pour les versements, prioriser ceux qui ont un numéro
+      if (a.type_paiement === 'VERSEMENT' && aValue === 999) aValue = 9999;
+      if (b.type_paiement === 'VERSEMENT' && bValue === 999) bValue = 9999;
+    }
+    
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return direction === 'asc' 
+        ? aValue.localeCompare(bValue, 'fr', { sensitivity: 'base' })
+        : bValue.localeCompare(aValue, 'fr', { sensitivity: 'base' });
+    }
+    
+    return direction === 'asc' 
+      ? (aValue > bValue ? 1 : -1)
+      : (bValue > aValue ? 1 : -1);
+  });
+  setFilteredPaiements(sorted);
+};
 
   const toggleSelectPaiement = (id: number) => {
     setSelectedPaiements(prev => 
@@ -555,119 +593,244 @@ const getClientName = (p: Paiement) => {
                   </AnimatePresence>
                 </div>
               )}
+{vueActive === 'tableau' && (
+  <div className="paiements-table-container">
+    <div className="selection-bar">
+      <label className="select-all">
+        <input
+          type="checkbox"
+          checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
+          onChange={toggleSelectAll}
+          disabled={filteredPaiements.length === 0}
+        />
+        <span>Tout sélectionner ({filteredPaiements.length})</span>
+      </label>
+      {selectedPaiements.length > 0 && (
+        <>
+          <span className="selected-count">{selectedPaiements.length} sélectionné(s)</span>
+          <button 
+            className="btn-delete-selection"
+            onClick={() => setShowMultipleDeleteConfirm(true)}
+            disabled={isDeletingMultiple}
+          >
+            🗑️ Supprimer la sélection
+          </button>
+        </>
+      )}
+    </div>
 
-              {vueActive === 'tableau' && (
-                <div className="paiements-table-container">
-                  <div className="selection-bar">
-                    <label className="select-all">
-                      <input
-                        type="checkbox"
-                        checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
-                        onChange={toggleSelectAll}
-                        disabled={filteredPaiements.length === 0}
-                      />
-                      <span>Tout sélectionner ({filteredPaiements.length})</span>
-                    </label>
-                    {selectedPaiements.length > 0 && (
-                      <>
-                        <span className="selected-count">{selectedPaiements.length} sélectionné(s)</span>
-                        <button 
-                          className="btn-delete-selection"
-                          onClick={() => setShowMultipleDeleteConfirm(true)}
-                          disabled={isDeletingMultiple}
-                        >
-                          🗑️ Supprimer la sélection
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <table className="paiements-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: '40px' }}>
-                          <input
-                            type="checkbox"
-                            checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
-                            onChange={toggleSelectAll}
-                            disabled={filteredPaiements.length === 0}
-                          />
-                        </th>
-                        <th style={{ width: '50px' }}>N°</th>
-                        <th className={`sortable`} onClick={() => handleSort('date_paiement')}>Date</th>
-                        <th className={`sortable`} onClick={() => handleSort('type_transaction')}>Type</th>
-                        <th className={`sortable`} onClick={() => handleSort('contrat_numero')}>Contrat</th>
-                        <th>Client</th>
-                        <th className={`sortable`} onClick={() => handleSort('montant')}>Montant</th>
-                        <th className={`sortable`} onClick={() => handleSort('mode_paiement')}>Mode</th>
-                        <th className={`sortable`} onClick={() => handleSort('statut')}>Statut</th>
-                        <th style={{ width: '100px' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPaiements.map((p, index) => (
-                        <tr key={p.id} className={selectedPaiements.includes(p.id) ? 'selected-row' : ''}>
-                          <td className="checkbox-cell">
-                            <input
-                              type="checkbox"
-                              checked={selectedPaiements.includes(p.id)}
-                              onChange={() => toggleSelectPaiement(p.id)}
-                            />
-                           </td>
-                          <td className="row-number">{index + 1}</td>
-                          <td>{new Date(p.date_paiement).toLocaleDateString('fr-FR')}</td>
-                          <td>
-                            <span className={`type-badge-table ${p.type_transaction === 'VENTE' ? 'vente' : 'location'}`}>
-                              {getTransactionTypeLabel(p.type_transaction || 'LOCATION')}
-                            </span>
-                          </td>
-                          <td>{p.contrat_numero || '-'}</td>
-                          <td className="client-name">{getClientName(p)}</td>
-                          <td className="montant">{formatMoney(p.montant)}</td>
-                          <td>{p.mode_paiement}</td>
-                          <td>
-                            <span className={`table-statut ${p.statut.toLowerCase()}`}>
-                              {p.statut === 'EFFECTUE' ? 'Effectué' : 
-                               p.statut === 'EN_ATTENTE' ? 'En attente' : 
-                               p.statut === 'EN_RETARD' ? 'En retard' : p.statut}
-                            </span>
-                          </td>
-                          <td>
-                            <div className="actions-simple">
-                              <button 
-                                onClick={() => handleGenerateQuittance(p)} 
-                                title="Télécharger"
-                                className="action-btn view"
-                                disabled={isGeneratingQuittance === p.id}
-                              >
-                                {isGeneratingQuittance === p.id ? (
-                                  <span className="spinner-mini"></span>
-                                ) : (
-                                  '📥'
-                                )}
-                              </button>
-                              <button 
-                                onClick={() => handleEditPaiement(p)} 
-                                title="Modifier"
-                                className="action-btn edit"
-                              >
-                                ✏️
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteClick(p)} 
-                                title="Supprimer"
-                                className="action-btn deleted"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+    <table className="paiements-table">
+      <thead>
+        <tr>
+          <th style={{ width: '40px' }}>
+            <input
+              type="checkbox"
+              checked={selectedPaiements.length === filteredPaiements.length && filteredPaiements.length > 0}
+              onChange={toggleSelectAll}
+              disabled={filteredPaiements.length === 0}
+            />
+          </th>
+          <th style={{ width: '50px' }}>N°</th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'date_paiement' ? 'active' : ''}`}
+            onClick={() => handleSort('date_paiement')}
+          >
+            Date
+            <span className="sort-icon">
+              {sortConfig?.key === 'date_paiement' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
               )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'type_transaction' ? 'active' : ''}`}
+            onClick={() => handleSort('type_transaction')}
+          >
+            Type
+            <span className="sort-icon">
+              {sortConfig?.key === 'type_transaction' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'type_paiement' ? 'active' : ''}`}
+            onClick={() => handleSort('type_paiement')}
+          >
+            Type paiement
+            <span className="sort-icon">
+              {sortConfig?.key === 'type_paiement' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'contrat_numero' ? 'active' : ''}`}
+            onClick={() => handleSort('contrat_numero')}
+          >
+            Contrat
+            <span className="sort-icon">
+              {sortConfig?.key === 'contrat_numero' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'client_nom' ? 'active' : ''}`}
+            onClick={() => handleSort('client_nom')}
+          >
+            Client
+            <span className="sort-icon">
+              {sortConfig?.key === 'client_nom' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'montant' ? 'active' : ''}`}
+            onClick={() => handleSort('montant')}
+          >
+            Montant
+            <span className="sort-icon">
+              {sortConfig?.key === 'montant' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'mode_paiement' ? 'active' : ''}`}
+            onClick={() => handleSort('mode_paiement')}
+          >
+            Mode
+            <span className="sort-icon">
+              {sortConfig?.key === 'mode_paiement' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th 
+            className={`sortable ${sortConfig?.key === 'statut' ? 'active' : ''}`}
+            onClick={() => handleSort('statut')}
+          >
+            Statut
+            <span className="sort-icon">
+              {sortConfig?.key === 'statut' ? (
+                sortConfig.direction === 'asc' ? ' ▲' : ' ▼'
+              ) : (
+                ' ↕️'
+              )}
+            </span>
+          </th>
+          <th style={{ width: '100px' }}>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredPaiements.map((p, index) => {
+          // ✅ Déterminer le numéro de versement
+          let versementNumero = null;
+          if (p.type_paiement === 'VERSEMENT') {
+            versementNumero = p.versement_numero;
+            // Si pas de versement_numero, essayer de le déduire
+            if (!versementNumero && p.reference) {
+              const match = p.reference.match(/VERSEMENT[_-]?(\d+)/i);
+              if (match) versementNumero = parseInt(match[1]);
+            }
+          }
+          
+          // ✅ Libellé du type de paiement avec numéro
+          let typePaiementLabel = p.type_paiement || '-';
+          if (p.type_paiement === 'ACOMPTE') typePaiementLabel = 'Acompte';
+          else if (p.type_paiement === 'VERSEMENT') {
+            typePaiementLabel = versementNumero ? `${versementNumero}e Versement` : 'Versement';
+          }
+          else if (p.type_paiement === 'SOLDE') typePaiementLabel = 'Solde final';
+          else if (p.type_paiement === 'CAUTION') typePaiementLabel = 'Caution';
+          else if (p.type_paiement === 'AVANCE') typePaiementLabel = 'Avance';
+          else if (p.type_paiement === 'LOYER') typePaiementLabel = 'Loyer';
+          
+          return (
+            <tr key={p.id} className={selectedPaiements.includes(p.id) ? 'selected-row' : ''}>
+              <td className="checkbox-cell">
+                <input
+                  type="checkbox"
+                  checked={selectedPaiements.includes(p.id)}
+                  onChange={() => toggleSelectPaiement(p.id)}
+                />
+              </td>
+              <td className="row-number">{index + 1}</td>
+              <td>{new Date(p.date_paiement).toLocaleDateString('fr-FR')}</td>
+              <td>
+                <span className={`type-badge-table ${p.type_transaction === 'VENTE' ? 'vente' : 'location'}`}>
+                  {getTransactionTypeLabel(p.type_transaction || 'LOCATION')}
+                </span>
+              </td>
+              <td>
+                <span className="type-paiement-label">
+                  {typePaiementLabel}
+                </span>
+              </td>
+              <td>{p.contrat_numero || '-'}</td>
+              <td className="client-name">{getClientName(p)}</td>
+              <td className="montant">{formatMoney(p.montant)}</td>
+              <td>{p.mode_paiement}</td>
+              <td>
+                <span className={`table-statut ${p.statut.toLowerCase()}`}>
+                  {p.statut === 'EFFECTUE' ? 'Effectué' : 
+                   p.statut === 'EN_ATTENTE' ? 'En attente' : 
+                   p.statut === 'EN_RETARD' ? 'En retard' : p.statut}
+                </span>
+              </td>
+              <td>
+                <div className="actions-simple">
+                  <button 
+                    onClick={() => handleGenerateQuittance(p)} 
+                    title="Télécharger"
+                    className="action-btn view"
+                    disabled={isGeneratingQuittance === p.id}
+                  >
+                    {isGeneratingQuittance === p.id ? (
+                      <span className="spinner-mini"></span>
+                    ) : (
+                      '📥'
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => handleEditPaiement(p)} 
+                    title="Modifier"
+                    className="action-btn edit"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteClick(p)} 
+                    title="Supprimer"
+                    className="action-btn deleted"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+)}
             </>
           )}
         </div>

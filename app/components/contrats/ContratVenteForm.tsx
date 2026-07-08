@@ -45,16 +45,41 @@ export default function ContratVenteForm({
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // ✅ Chargement initial des listes
+  // ✅ Fonction pour calculer le montant par versement
+  const calculerMontantVersement = (prixVente: number, acompte: number, nombreVersements: number): number => {
+    if (nombreVersements <= 0) return 0;
+    const resteAPayer = Math.max(0, prixVente - acompte);
+    return resteAPayer / nombreVersements;
+  };
+
+  // ✅ Fonction pour mettre à jour les champs calculés
+  const mettreAJourMontantVersement = () => {
+    const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+    const acompteValue = parseFloat(formData.acompte) || 0;
+    const nombreVersementsValue = parseInt(formData.nombre_versements) || 1;
+    
+    const nouveauMontantVersement = calculerMontantVersement(prixVenteValue, acompteValue, nombreVersementsValue);
+    
+    setFormData(prev => ({
+      ...prev,
+      montant_versement: nouveauMontantVersement.toString()
+    }));
+  };
+
+  // ✅ Effet pour recalculer quand prix_vente, acompte ou nombre_versements change
+  useEffect(() => {
+    if (formData.mode_vente === 'ECHELONNE') {
+      mettreAJourMontantVersement();
+    }
+  }, [formData.prix_vente, formData.acompte, formData.nombre_versements, formData.mode_vente]);
+
   useEffect(() => {
     chargerBiens();
     chargerAcquereurs();
   }, []);
 
-  // ✅ Initialisation du formulaire (création ou édition)
   useEffect(() => {
     if (contrat) {
-      // Mode édition
       console.log('📝 Mode édition - Contrat de vente:', contrat);
       
       setFormData({
@@ -75,21 +100,18 @@ export default function ContratVenteForm({
         statut: contrat.statut || 'BROUILLON'
       });
       
-      // ✅ Récupérer l'acquéreur pour l'affichage
       if (contrat.acquereur) {
         setAcquereurSelectionne(contrat.acquereur);
       } else if (contrat.acquereur_id) {
         fetchAcquereur(contrat.acquereur_id);
       }
       
-      // ✅ Récupérer le bien pour l'affichage
       if (contrat.bien) {
         setBienSelectionne(contrat.bien);
       } else if (contrat.bien_id) {
         fetchBien(contrat.bien_id);
       }
     } else {
-      // Mode création
       if (acquereur_id) {
         fetchAcquereur(acquereur_id);
         setFormData(prev => ({ ...prev, acquereur_id: acquereur_id.toString() }));
@@ -120,11 +142,12 @@ export default function ContratVenteForm({
       if (data.success) {
         setBienSelectionne(data.bien);
         if (!contrat) {
+          const prixVente = data.bien.prix_vente || 0;
           setFormData(prev => ({
             ...prev,
-            prix_vente: data.bien.prix_vente?.toString() || '',
-            frais_notaire: (data.bien.prix_vente * 0.075).toString(),
-            frais_agence: (data.bien.prix_vente * 0.05).toString()
+            prix_vente: prixVente.toString(),
+            frais_notaire: (prixVente * 0.075).toString(),
+            frais_agence: (prixVente * 0.05).toString()
           }));
         }
       }
@@ -163,13 +186,30 @@ export default function ContratVenteForm({
         montant_versement: prev.prix_vente,
         acompte: ''
       }));
+    } else {
+      // Mode ECHELONNE - réinitialiser avec nombre_versements = 1
+      const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+      const acompteValue = parseFloat(formData.acompte) || 0;
+      const resteAPayer = Math.max(0, prixVenteValue - acompteValue);
+      
+      setFormData(prev => ({
+        ...prev,
+        nombre_versements: '1',
+        montant_versement: resteAPayer.toString()
+      }));
     }
   };
 
   const handlePrixVenteChange = (prix: string) => {
     const prixValue = parseFloat(prix) || 0;
+    const acompteValue = parseFloat(formData.acompte) || 0;
     const nombreVersements = parseInt(formData.nombre_versements) || 1;
-    const montantVersement = prixValue / nombreVersements;
+    
+    // Recalculer le montant par versement
+    const resteAPayer = Math.max(0, prixValue - acompteValue);
+    const montantVersement = formData.mode_vente === 'ECHELONNE' 
+      ? resteAPayer / nombreVersements 
+      : prixValue;
     
     setFormData(prev => ({
       ...prev,
@@ -180,10 +220,42 @@ export default function ContratVenteForm({
     }));
   };
 
+  const handleAcompteChange = (acompte: string) => {
+    const acompteValue = parseFloat(acompte) || 0;
+    const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+    const nombreVersements = parseInt(formData.nombre_versements) || 1;
+    
+    // Vérifier que l'acompte ne dépasse pas le prix de vente
+    if (acompteValue > prixVenteValue) {
+      toast.error("L'acompte ne peut pas dépasser le prix de vente");
+      return;
+    }
+    
+    const resteAPayer = Math.max(0, prixVenteValue - acompteValue);
+    const montantVersement = formData.mode_vente === 'ECHELONNE' 
+      ? resteAPayer / nombreVersements 
+      : resteAPayer;
+    
+    setFormData(prev => ({
+      ...prev,
+      acompte: acompte,
+      montant_versement: montantVersement.toString()
+    }));
+  };
+
   const handleNombreVersementsChange = (nombre: string) => {
     const nombreValue = parseInt(nombre) || 1;
-    const prixValue = parseFloat(formData.prix_vente) || 0;
-    const montantVersement = prixValue / nombreValue;
+    const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+    const acompteValue = parseFloat(formData.acompte) || 0;
+    
+    // Limiter le nombre de versements à 60 (5 ans max)
+    if (nombreValue > 60) {
+      toast.error("Le nombre de versements ne peut pas dépasser 60");
+      return;
+    }
+    
+    const resteAPayer = Math.max(0, prixVenteValue - acompteValue);
+    const montantVersement = resteAPayer / nombreValue;
     
     setFormData(prev => ({
       ...prev,
@@ -205,11 +277,22 @@ export default function ContratVenteForm({
     }
 
     if (formData.mode_vente === 'ECHELONNE') {
-      if (!formData.acompte || parseFloat(formData.acompte) <= 0) {
+      const acompteValue = parseFloat(formData.acompte) || 0;
+      const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+      
+      if (acompteValue <= 0) {
         newErrors.acompte = 'L\'acompte est requis';
+      } else if (acompteValue >= prixVenteValue) {
+        newErrors.acompte = 'L\'acompte doit être inférieur au prix de vente';
       }
+      
       if (!formData.nombre_versements || parseInt(formData.nombre_versements) < 1) {
         newErrors.nombre_versements = 'Le nombre de versements est invalide';
+      }
+      
+      const montantVersementValue = parseFloat(formData.montant_versement) || 0;
+      if (montantVersementValue <= 0) {
+        newErrors.montant_versement = 'Le montant par versement doit être positif';
       }
     }
 
@@ -228,15 +311,20 @@ export default function ContratVenteForm({
     setIsLoading(true);
 
     try {
+      const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+      const acompteValue = parseFloat(formData.acompte) || 0;
+      const nombreVersementsValue = parseInt(formData.nombre_versements) || 1;
+      const montantVersementValue = parseFloat(formData.montant_versement) || 0;
+      
       const dataToSend = {
         ...formData,
         bien_id: parseInt(formData.bien_id),
         acquereur_id: parseInt(formData.acquereur_id),
         type_contrat: 'VENTE',
-        prix_vente: parseFloat(formData.prix_vente) || 0,
-        acompte: parseFloat(formData.acompte) || 0,
-        nombre_versements: parseInt(formData.nombre_versements),
-        montant_versement: parseFloat(formData.montant_versement) || 0,
+        prix_vente: prixVenteValue,
+        acompte: acompteValue,
+        nombre_versements: nombreVersementsValue,
+        montant_versement: montantVersementValue,
         frais_notaire: parseFloat(formData.frais_notaire) || 0,
         frais_agence: parseFloat(formData.frais_agence) || 0
       };
@@ -280,6 +368,11 @@ export default function ContratVenteForm({
     }
     return `${acquereur.raison_sociale || acquereur.nom} - ${acquereur.email}`;
   };
+
+  const prixVenteValue = parseFloat(formData.prix_vente) || 0;
+  const acompteValue = parseFloat(formData.acompte) || 0;
+  const resteAPayer = Math.max(0, prixVenteValue - acompteValue);
+  const montantVersementValue = parseFloat(formData.montant_versement) || 0;
 
   return (
     <motion.div 
@@ -489,11 +582,13 @@ export default function ContratVenteForm({
                           type="number"
                           step="10000"
                           value={formData.acompte}
-                          onChange={(e) => setFormData({...formData, acompte: e.target.value})}
+                          onChange={(e) => handleAcompteChange(e.target.value)}
                           className={errors.acompte ? 'error' : ''}
                           placeholder="10 000 000"
                         />
-                        <small className="field-hint">Généralement 10% du prix de vente</small>
+                        <small className="field-hint">
+                          Saisir l'acompte - Le reste à payer sera automatiquement divisé en versements
+                        </small>
                         {errors.acompte && <span className="error-message">{errors.acompte}</span>}
                       </div>
 
@@ -504,10 +599,11 @@ export default function ContratVenteForm({
                           value={formData.nombre_versements}
                           onChange={(e) => handleNombreVersementsChange(e.target.value)}
                           className={errors.nombre_versements ? 'error' : ''}
-                          placeholder="6"
+                          placeholder="1"
                           min="1"
                           max="60"
                         />
+                        <small className="field-hint">Maximum 60 versements</small>
                         {errors.nombre_versements && <span className="error-message">{errors.nombre_versements}</span>}
                       </div>
 
@@ -519,7 +615,8 @@ export default function ContratVenteForm({
                           readOnly
                           className="readonly"
                         />
-                        <small className="field-hint">Calculé automatiquement</small>
+                        <small className="field-hint">Calculé automatiquement: (Prix - Acompte) / Nombre de versements</small>
+                        {errors.montant_versement && <span className="error-message">{errors.montant_versement}</span>}
                       </div>
                     </>
                   )}
@@ -547,19 +644,41 @@ export default function ContratVenteForm({
               </div>
 
               {/* Récapitulatif pour échelonné */}
-              {formData.mode_vente === 'ECHELONNE' && (
+              {formData.mode_vente === 'ECHELONNE' && prixVenteValue > 0 && (
                 <div className="form-section">
                   <div className="modal-section-title">
                     <span>📊</span> Récapitulatif
                   </div>
                   <div className="info-panel">
-                    <div className="info-grid">
-                      <div><strong>Prix de vente:</strong> {(parseFloat(formData.prix_vente) || 0).toLocaleString()} FCFA</div>
-                      <div><strong>Acompte:</strong> {(parseFloat(formData.acompte) || 0).toLocaleString()} FCFA</div>
-                      <div><strong>Reste à payer:</strong> {((parseFloat(formData.prix_vente) || 0) - (parseFloat(formData.acompte) || 0)).toLocaleString()} FCFA</div>
-                      <div><strong>Nombre de versements:</strong> {formData.nombre_versements}</div>
-                      <div><strong>Montant par versement:</strong> {(parseFloat(formData.montant_versement) || 0).toLocaleString()} FCFA</div>
-                      <div><strong>Total des frais:</strong> {((parseFloat(formData.frais_notaire) || 0) + (parseFloat(formData.frais_agence) || 0)).toLocaleString()} FCFA</div>
+                    <div className="info-grid recap-grid">
+                      <div className="recap-item">
+                        <span className="recap-label">💰 Prix de vente:</span>
+                        <span className="recap-value">{prixVenteValue.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="recap-item">
+                        <span className="recap-label">💵 Acompte:</span>
+                        <span className="recap-value">{acompteValue.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="recap-item highlight">
+                        <span className="recap-label">📉 Reste à payer:</span>
+                        <span className="recap-value">{resteAPayer.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="recap-item">
+                        <span className="recap-label">🔢 Nombre de versements:</span>
+                        <span className="recap-value">{formData.nombre_versements}</span>
+                      </div>
+                      <div className="recap-item highlight">
+                        <span className="recap-label">📅 Montant par versement:</span>
+                        <span className="recap-value">{montantVersementValue.toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="recap-item">
+                        <span className="recap-label">🏛️ Frais de notaire:</span>
+                        <span className="recap-value">{(parseFloat(formData.frais_notaire) || 0).toLocaleString()} FCFA</span>
+                      </div>
+                      <div className="recap-item">
+                        <span className="recap-label">🏢 Frais d'agence:</span>
+                        <span className="recap-value">{(parseFloat(formData.frais_agence) || 0).toLocaleString()} FCFA</span>
+                      </div>
                     </div>
                   </div>
                 </div>

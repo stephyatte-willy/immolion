@@ -23,7 +23,7 @@ export async function GET(
 
     const locataire = locataires[0];
     
-    // Récupérer le bien actuel séparément
+    // Récupérer le bien actuel
     if (locataire.bien_id) {
       const biens = await queryRows(
         `SELECT id, nom, adresse, type_bien, loyer_mensuel, charges, statut, 
@@ -41,7 +41,7 @@ export async function GET(
       locataire.bien_actuel = null;
     }
 
-    // Récupérer le lot actuel avec son immeuble
+    // Récupérer le lot actuel
     if (locataire.lot_id) {
       const lots = await queryRows(
         `SELECT 
@@ -84,7 +84,7 @@ export async function GET(
       locataire.lot_actuel = null;
     }
 
-    // Récupérer les contrats
+    // ✅ CORRECTION: Récupérer TOUS les contrats (BAIL_VIDE, VENTE, etc.)
     const contrats = await queryRows(
       `SELECT 
         c.id,
@@ -93,24 +93,40 @@ export async function GET(
         c.prix_vente,
         c.date_debut,
         c.date_fin,
+        c.statut,
         c.statut_validation,
         c.loyer_mensuel,
         c.charges_mensuelles,
         c.depot_garantie,
         c.clause_particuliere,
         c.bien_id,
-        c.lot_id
+        c.lot_id,
+        c.mode_vente,
+        c.nombre_versements,
+        c.acompte,
+        c.montant_versement
        FROM contrats c
        WHERE c.locataire_id = ?
-       ORDER BY c.date_debut DESC`,
+       ORDER BY c.created_at DESC`,
       [id]
     ) as any[];
 
     // Récupérer les informations des biens pour chaque contrat
-    const contratsAvecBien = await Promise.all(contrats.map(async (contrat) => {
+    const contratsAvecDetails = await Promise.all(contrats.map(async (contrat) => {
       let bien = null;
       let lot = null;
       
+      // Récupérer le bien
+      if (contrat.bien_id) {
+        const biens = await queryRows(
+          `SELECT id, nom, adresse, commune, ville, loyer_mensuel, charges, surface, pieces, prix_vente, statut
+           FROM biens WHERE id = ?`,
+          [contrat.bien_id]
+        ) as any[];
+        if (biens.length > 0) bien = biens[0];
+      }
+      
+      // Récupérer le lot si présent
       if (contrat.lot_id) {
         const lots = await queryRows(
           `SELECT id, numero_lot, type_lot, surface, loyer_mensuel, charges
@@ -118,21 +134,6 @@ export async function GET(
           [contrat.lot_id]
         ) as any[];
         if (lots.length > 0) lot = lots[0];
-        
-        if (contrat.bien_id) {
-          const biens = await queryRows(
-            `SELECT id, nom, adresse, commune, ville FROM biens WHERE id = ?`,
-            [contrat.bien_id]
-          ) as any[];
-          if (biens.length > 0) bien = biens[0];
-        }
-      } else if (contrat.bien_id) {
-        const biens = await queryRows(
-          `SELECT id, nom, adresse, commune, ville, loyer_mensuel, charges, surface, pieces
-           FROM biens WHERE id = ?`,
-          [contrat.bien_id]
-        ) as any[];
-        if (biens.length > 0) bien = biens[0];
       }
       
       return {
@@ -142,10 +143,25 @@ export async function GET(
       };
     }));
 
-    locataire.contrats = contratsAvecBien;
+    locataire.contrats = contratsAvecDetails;
+    
+    // Récupérer les paiements
+    const paiements = await queryRows(
+      `SELECT p.*,
+        c.numero_contrat as contrat_numero
+       FROM paiements p
+       LEFT JOIN contrats c ON p.contrat_id = c.id
+       WHERE p.locataire_id = ?
+       ORDER BY p.date_paiement DESC`,
+      [id]
+    ) as any[];
+    
+    locataire.paiements = paiements;
     
     // Déterminer le statut
     locataire.statut = locataire.actif ? 'ACTIF' : (locataire.bien_id || locataire.lot_id ? 'INACTIF' : 'PROSPECT');
+    
+    console.log(`📦 Locataire ${id} chargé avec ${contratsAvecDetails.length} contrat(s)`);
     
     return NextResponse.json({
       success: true,
@@ -176,7 +192,6 @@ export async function PUT(
       statut, notes, bien_id, lot_id
     } = body;
 
-    // Vérifier si l'email existe déjà
     if (email) {
       const existing = await queryRows(
         'SELECT id FROM locataires WHERE email = ? AND id != ?',
@@ -222,7 +237,6 @@ export async function PUT(
 }
 
 // DELETE - Supprimer un locataire
-// DELETE - Supprimer un locataire
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -230,13 +244,11 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Récupérer le lot associé
     const locataire = await queryRows(
-      'SELECT lot_id FROM locataires WHERE id = ?',
+      'SELECT lot_id, bien_id FROM locataires WHERE id = ?',
       [id]
     ) as any[];
 
-    // ✅ CORRECTION: Utiliser des guillemets simples pour les chaînes en SQL
     const contratsActifs = await queryRows(
       `SELECT id FROM contrats WHERE locataire_id = ? AND statut_validation = 'VALIDE'`,
       [id]
@@ -249,11 +261,17 @@ export async function DELETE(
       );
     }
 
-    // Remettre le lot en disponible
     if (locataire[0]?.lot_id) {
       await queryInsert(
-        'UPDATE lots SET statut = "DISPONIBLE" WHERE id = ?',
-        [locataire[0].lot_id]
+        'UPDATE lots SET statut = ? WHERE id = ?',
+        ['DISPONIBLE', locataire[0].lot_id]
+      );
+    }
+
+    if (locataire[0]?.bien_id && !locataire[0]?.lot_id) {
+      await queryInsert(
+        'UPDATE biens SET statut = ? WHERE id = ?',
+        ['DISPONIBLE', locataire[0].bien_id]
       );
     }
 

@@ -30,7 +30,7 @@ export default function AcquereurForm({
     employeur: '',
     revenus_mensuels: '',
     type_acquereur: 'PARTICULIER',
-    bien_id: '',
+    biens_ids: [] as number[],
     raison_sociale: '',
     num_identite: '',
     adresse: '',
@@ -41,16 +41,20 @@ export default function AcquereurForm({
   });
 
   const [biens, setBiens] = useState<any[]>([]);
+  const [biensAvecAttributions, setBiensAvecAttributions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingBiens, setIsLoadingBiens] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const isEntite = formData.type_acquereur === 'SOCIETE' || formData.type_acquereur === 'AGENCE';
 
   useEffect(() => {
-    chargerBiens();
+    chargerBiensAvecAttributions();
     
     if (acquereur) {
       console.log('📝 Chargement acquéreur pour édition:', acquereur);
+      
+      const biensIds = acquereur.biens?.map((b: any) => b.id) || [];
       
       setFormData({
         nom: acquereur.nom || '',
@@ -65,7 +69,7 @@ export default function AcquereurForm({
         employeur: acquereur.employeur || '',
         revenus_mensuels: acquereur.revenus_mensuels?.toString() || '',
         type_acquereur: acquereur.type_acquereur || 'PARTICULIER',
-        bien_id: acquereur.bien_id?.toString() || '',
+        biens_ids: biensIds,
         raison_sociale: acquereur.raison_sociale || '',
         num_identite: acquereur.num_identite || '',
         adresse: acquereur.adresse || '',
@@ -77,17 +81,71 @@ export default function AcquereurForm({
     }
   }, [acquereur]);
 
-  const chargerBiens = async () => {
+  const chargerBiensAvecAttributions = async () => {
+    setIsLoadingBiens(true);
     try {
-      // ✅ Filtrer uniquement les biens en vente
+      // Récupérer tous les biens en vente
+      const response = await fetch('/api/biens?statut=EN_VENTE');
+      const data = await response.json();
+      
+      if (data.success && data.biens) {
+        // Récupérer les attributions existantes
+        const attributionsResponse = await fetch('/api/acquereur-biens-attributions');
+        const attributionsData = await attributionsResponse.json();
+        const attributions = attributionsData.success ? attributionsData.attributions : [];
+        
+        // Enrichir les biens avec les informations d'attribution
+        const biensEnrichis = data.biens.map((bien: any) => {
+          const attribution = attributions.find((a: any) => a.bien_id === bien.id);
+          return {
+            ...bien,
+            est_attribue: !!attribution,
+            attribue_a: attribution ? {
+              id: attribution.acquereur_id,
+              nom: attribution.acquereur_nom,
+              prenom: attribution.acquereur_prenom,
+              raison_sociale: attribution.acquereur_raison_sociale,
+              type: attribution.acquereur_type
+            } : null
+          };
+        });
+        
+        setBiensAvecAttributions(biensEnrichis);
+        setBiens(data.biens);
+      }
+    } catch (error) {
+      console.error('Erreur chargement biens avec attributions:', error);
+      // Fallback: charger juste les biens
       const response = await fetch('/api/biens?statut=EN_VENTE');
       const data = await response.json();
       if (data.success) {
         setBiens(data.biens);
       }
-    } catch (error) {
-      console.error('Erreur chargement biens:', error);
+    } finally {
+      setIsLoadingBiens(false);
     }
+  };
+
+  const handleBienToggle = (bienId: number) => {
+    const bien = biensAvecAttributions.find(b => b.id === bienId);
+    
+    // Si le bien est déjà attribué à un autre acquéreur, on ne peut pas le sélectionner
+    if (bien?.est_attribue && !formData.biens_ids.includes(bienId)) {
+      const acquereurNom = bien.attribue_a?.type === 'PARTICULIER'
+        ? `${bien.attribue_a?.prenom} ${bien.attribue_a?.nom}`
+        : bien.attribue_a?.raison_sociale;
+      toast.error(`Ce bien est déjà attribué à ${acquereurNom}`);
+      return;
+    }
+    
+    setFormData(prev => {
+      const currentIds = prev.biens_ids;
+      if (currentIds.includes(bienId)) {
+        return { ...prev, biens_ids: currentIds.filter(id => id !== bienId) };
+      } else {
+        return { ...prev, biens_ids: [...currentIds, bienId] };
+      }
+    });
   };
 
   const validateForm = (): boolean => {
@@ -127,7 +185,6 @@ export default function AcquereurForm({
     setIsLoading(true);
 
     try {
-      // ✅ Préparer les données pour l'envoi
       const dataToSend = {
         nom: isEntite ? formData.raison_sociale : formData.nom,
         prenom: isEntite ? '' : formData.prenom,
@@ -141,7 +198,7 @@ export default function AcquereurForm({
         employeur: formData.employeur || null,
         revenus_mensuels: formData.revenus_mensuels ? parseFloat(formData.revenus_mensuels) : null,
         type_acquereur: formData.type_acquereur,
-        bien_id: formData.bien_id ? parseInt(formData.bien_id) : null, // ✅ Important: envoyer bien_id
+        biens_ids: formData.biens_ids,
         raison_sociale: isEntite ? formData.raison_sociale : null,
         num_identite: formData.num_identite || null,
         adresse: formData.adresse || null,
@@ -186,6 +243,29 @@ export default function AcquereurForm({
       return `${bien.nom} (Immeuble) - ${bien.ville} - ${bien.prix_vente?.toLocaleString()} FCFA`;
     }
     return `${bien.nom} - ${bien.ville} - ${bien.prix_vente?.toLocaleString()} FCFA`;
+  };
+
+  const getAttributionText = (bien: any) => {
+    if (!bien.est_attribue) return null;
+    const acquereur = bien.attribue_a;
+    if (!acquereur) return 'Attribué';
+    
+    if (acquereur.type === 'PARTICULIER') {
+      return `Attribué à ${acquereur.prenom} ${acquereur.nom}`;
+    }
+    return `Attribué à ${acquereur.raison_sociale}`;
+  };
+
+  // Vérifier si un bien est sélectionné par l'acquéreur actuel
+  const isSelectedByCurrentAcquereur = (bienId: number) => {
+    return formData.biens_ids.includes(bienId);
+  };
+
+  // Vérifier si un bien est attribué à un autre acquéreur
+  const isAttributedToOther = (bien: any) => {
+    if (!bien.est_attribue) return false;
+    if (acquereur && isSelectedByCurrentAcquereur(bien.id)) return false;
+    return true;
   };
 
   return (
@@ -397,26 +477,65 @@ export default function AcquereurForm({
                 </div>
               </div>
 
-              {/* Bien à acquérir */}
+              {/* ✅ Biens à acquérir - AVEC INDICATEUR D'ATTRIBUTION */}
               <div className="form-section">
                 <div className="modal-section-title">
-                  <span>🏠</span> Bien à acquérir
+                  <span>🏠</span> Biens à acquérir
                 </div>
                 <div className="form-grid">
                   <div className="form-group full-width">
-                    <label>Bien</label>
-                    <select
-                      value={formData.bien_id}
-                      onChange={(e) => setFormData({...formData, bien_id: e.target.value})}
-                    >
-                      <option value="">Sélectionnez un bien</option>
-                      {biens.map(bien => (
-                        <option key={bien.id} value={bien.id}>
-                          {getBienDisplay(bien)}
-                        </option>
-                      ))}
-                    </select>
-                    <small className="field-hint">Bien que l'acquéreur souhaite acquérir (optionnel)</small>
+                    <label>Biens</label>
+                    {isLoadingBiens ? (
+                      <div className="loading-small">Chargement des biens...</div>
+                    ) : biensAvecAttributions.length === 0 ? (
+                      <div className="no-biens-message">
+                        <span>🏢</span>
+                        <p>Aucun bien en vente disponible</p>
+                      </div>
+                    ) : (
+                      <div className="biens-multiple-select">
+                        <div className="biens-checkbox-list">
+                          {biensAvecAttributions.map(bien => {
+                            const isSelected = isSelectedByCurrentAcquereur(bien.id);
+                            const isAttributed = isAttributedToOther(bien);
+                            const attributionText = getAttributionText(bien);
+                            
+                            return (
+                              <label 
+                                key={bien.id} 
+                                className={`bien-checkbox-item ${isAttributed ? 'attributed' : ''} ${isSelected ? 'selected' : ''}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleBienToggle(bien.id)}
+                                  disabled={isAttributed && !isSelected}
+                                />
+                                <span className="bien-checkbox-content">
+                                  <span className="bien-checkbox-name">{getBienDisplay(bien)}</span>
+                                  {isAttributed && (
+                                    <span className="bien-attribution-indicator" title={attributionText || undefined}>
+                                      🔒 {attributionText}
+                                    </span>
+                                  )}
+                                  {isSelected && !isAttributed && (
+                                    <span className="bien-selected-indicator">
+                                      ✅ Sélectionné
+                                    </span>
+                                  )}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <small className="field-hint">
+                      {formData.biens_ids.length} bien(x) sélectionné(s)
+                      {biensAvecAttributions.some(b => b.est_attribue && !formData.biens_ids.includes(b.id)) && (
+                        <span className="hint-warning"> - Les biens grisés sont déjà attribués à d'autres acquéreurs</span>
+                      )}
+                    </small>
                   </div>
                 </div>
               </div>

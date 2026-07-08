@@ -65,13 +65,14 @@ export default function BiensPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedBienForDetail, setSelectedBienForDetail] = useState<Bien | null>(null);
   const [stats, setStats] = useState({
-    total: 0,
-    loues: 0,
-    disponibles: 0,
-    enVente: 0,
-    revenusMensuels: 0,
-    tauxOccupation: 0
-  });
+  total: 0,
+  loues: 0,
+  disponibles: 0,
+  enVente: 0,
+  vendus: 0,  // ✅ AJOUTER CETTE LIGNE
+  revenusMensuels: 0,
+  tauxOccupation: 0
+});
   const [currentFilters, setCurrentFilters] = useState<any>({});
   const [vueActive, setVueActive] = useState<'grid' | 'list'>('grid');
 
@@ -151,13 +152,16 @@ export default function BiensPage() {
     }
   };
 
-  const calculerStats = (biensData: Bien[]) => {
+  // Remplacer la fonction calculerStats par :
+
+const calculerStats = (biensData: Bien[]) => {
   const total = biensData.length;
   const loues = biensData.filter(b => b.statut === 'LOUE').length;
   const disponibles = biensData.filter(b => b.statut === 'DISPONIBLE').length;
   const enVente = biensData.filter(b => b.statut === 'EN_VENTE').length;
+  const vendus = biensData.filter(b => b.statut === 'VENDU').length;
   
-  // ✅ CORRECTION: S'assurer que la somme est un nombre valide
+  // ✅ CORRECTION: Utiliser le bon champ pour le calcul des revenus
   const revenusMensuels = biensData
     .filter(b => b.statut === 'LOUE')
     .reduce((sum, b) => {
@@ -172,6 +176,7 @@ export default function BiensPage() {
     loues,
     disponibles,
     enVente,
+    vendus,
     revenusMensuels,
     tauxOccupation
   });
@@ -663,7 +668,11 @@ const handleSort = (key: string) => {
                         <td>{bien.ville}</td>
                         <td>{bien.surface} m²</td>
                         <td>{bien.pieces}</td>
-                        <td className="montant">{formatMoney(bien.loyer_mensuel)}</td>
+                        <td className="montant">
+                          {bien.statut === 'EN_VENTE' || bien.statut === 'VENDU' 
+                            ? formatMoney(bien.prix_vente || 0)
+                            : formatMoney(bien.loyer_mensuel || 0)}
+                        </td>
                         <td>
                           <span className={`statut-badge ${bien.statut === 'LOUE' ? 'loue' : bien.statut === 'DISPONIBLE' ? 'disponible' : 'autre'}`}>
                             {bien.statut === 'LOUE' ? 'Loué' : 
